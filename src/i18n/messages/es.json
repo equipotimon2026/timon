@@ -1,0 +1,563 @@
+{
+  "common": {
+    "continue": "Continuar",
+    "back": "Volver",
+    "save": "Guardar",
+    "saving": "Guardando...",
+    "saveAndFinish": "Guardar y Finalizar",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Exito",
+    "required": "Campo requerido",
+    "start": "Comenzar",
+    "completed": "Completado",
+    "completedCheck": "✓ Completado",
+    "finish": "Finalizar",
+    "next": "Siguiente",
+    "nextArrow": "Siguiente →",
+    "continueArrow": "Continuar →",
+    "previous": "Anterior",
+    "previousArrow": "← Anterior",
+    "confirm": "Confirmar",
+    "send": "Enviar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "yes": "Si",
+    "no": "No",
+    "true": "Verdadero",
+    "false": "Falso",
+    "addAnother": "Agregar otra",
+    "progress": "Progreso",
+    "section": "Seccion",
+    "question": "Pregunta",
+    "page": "Pagina",
+    "block": "Bloque",
+    "of": "de",
+    "questionOf": "Pregunta {current} de {total}",
+    "sectionOf": "Seccion {current} de {total}",
+    "pageOf": "Pagina {current} de {total}",
+    "blockOf": "Bloque {current} de {total}",
+    "intelligenceOf": "Inteligencia {current} de {total}",
+    "areaOf": "Area {current} de {total}",
+    "step": "Paso",
+    "stepOf": "Paso {current}/{total}",
+    "selected": "Seleccionadas: {count} de {total}",
+    "answered": "Respondidas: {count} de {total}",
+    "completedOf": "{count} de {total} completadas",
+    "user": "Usuario"
+  },
+  "auth": {
+    "login": {
+      "title": "Iniciar sesion",
+      "email": "Correo electronico",
+      "password": "Contrasena",
+      "submit": "Ingresar",
+      "submitting": "Ingresando...",
+      "forgotPassword": "Olvidaste tu contrasena?",
+      "noAccount": "No tenes cuenta?",
+      "register": "Registrate"
+    },
+    "register": {
+      "title": "Crear cuenta",
+      "firstName": "Nombre",
+      "lastName": "Apellido",
+      "email": "Correo electronico",
+      "password": "Contrasena",
+      "confirmPassword": "Confirmar contrasena",
+      "submit": "Registrarse",
+      "submitting": "Creando cuenta...",
+      "hasAccount": "Ya tenes cuenta?",
+      "login": "Inicia sesion",
+      "successTitle": "Revisa tu email",
+      "successMessage": "Te enviamos un link de confirmacion a tu correo. Hace click en el link para activar tu cuenta.",
+      "backToLogin": "Volver a iniciar sesion"
+    },
+    "forgotPassword": {
+      "title": "Recuperar contrasena",
+      "description": "Ingresa tu email y te enviaremos un link para restablecer tu contrasena.",
+      "email": "Correo electronico",
+      "submit": "Enviar link",
+      "submitting": "Enviando...",
+      "backToLogin": "Volver a iniciar sesion",
+      "successTitle": "Email enviado",
+      "successMessage": "Si el email existe en nuestro sistema, vas a recibir un link para restablecer tu contrasena."
+    },
+    "logout": "Cerrar sesion",
+    "activeSession": "Sesion activa",
+    "settings": "Configuracion"
+  },
+  "welcome": {
+    "privateBeta": "Beta privada",
+    "heroTitle": "Ayudanos a entrenar a",
+    "brandName": "Timon",
+    "heroDescription": "Esto no es un examen. Estas ayudando a nuestra IA a aprender como pensas para revolucionar la orientacion vocacional.",
+    "multipleSections": "Varias secciones",
+    "multipleSectionsDesc": "Completalas con calma, a tu propio ritmo. No hay respuestas correctas ni incorrectas.",
+    "yourVoiceMatters": "Tu voz importa",
+    "yourVoiceMattersDesc": "Necesitamos saber como te sentis en cada parte: si te aburrio, si te gusto, si algo no se entendio. Con total honestidad, eso nos ayuda a mejorar.",
+    "feedbackButton": "El boton de comentarios",
+    "feedbackButtonSubtitle": "Lo mas importante de todo",
+    "feedbackButtonDesc": "Vas a ver un",
+    "floatingButton": "boton flotante",
+    "feedbackButtonDesc2": "abajo a la derecha durante",
+    "entireProcess": "todo el proceso",
+    "feedbackButtonDesc3": ". Tocalo en cualquier momento para dejarnos un comentario sobre lo que estas pensando o sintiendo.",
+    "feedbackExamples": {
+      "confusing": "Algo no se entiende",
+      "confusingDetail": "Contanos que parte te confundio",
+      "boring": "Te aburriste",
+      "boringDetail": "Decinos en que seccion y por que",
+      "liked": "Te gusto algo",
+      "likedDetail": "Queremos saber que te gusto",
+      "idea": "Se te ocurrio una idea",
+      "ideaDetail": "Toda sugerencia suma"
+    },
+    "feedbackHonest": "Tu feedback honesto es lo mas valioso para nosotros. De verdad.",
+    "singleSessionTitle": "Recomendacion: te sugerimos completarlo en una sola sesion",
+    "singleSessionDesc": "Intenta completar todo en una sola sesion para que los datos se carguen correctamente.",
+    "singleSessionWarning": "Si necesitas hacerlo en distintos momentos, asegurate de usar la",
+    "sameComputer": "misma computadora",
+    "singleSessionWarning2": "y completar los",
+    "samePersonalData": "mismos datos personales",
+    "singleSessionWarning3": "que te vamos a pedir de nuevo.",
+    "rewardTitle": "Tu Recompensa",
+    "rewardDesc": "Por acompanarnos hoy, te regalamos acceso",
+    "rewardFree": "GRATIS de por vida",
+    "rewardDesc2": "a la plataforma completa cuando lancemos.",
+    "startButton": "Empezar"
+  },
+  "onboarding": {
+    "personalData": {
+      "title": "Tus datos",
+      "subtitle": "Completa tus datos para comenzar",
+      "firstName": "Nombre",
+      "firstNamePlaceholder": "Juan",
+      "lastName": "Apellido",
+      "lastNamePlaceholder": "Perez",
+      "email": "Correo electronico",
+      "emailPlaceholder": "juan@ejemplo.com",
+      "phone": "Telefono",
+      "phonePlaceholder": "+54 11 1234-5678",
+      "age": "Edad",
+      "agePlaceholder": "17",
+      "school": "Colegio",
+      "schoolPlaceholder": "Nombre del colegio",
+      "year": "Año",
+      "yearPlaceholder": "Seleccionar año",
+      "year4th": "4to año",
+      "year5th": "5to año",
+      "year6th": "6to año",
+      "graduated": "Egresado",
+      "other": "Otro"
+    },
+    "careerStatus": {
+      "title": "Es tu primera carrera?",
+      "firstCareer": "Primera carrera",
+      "changeCareer": "Me quiero cambiar"
+    },
+    "initialQuestion": {
+      "title": "Cuantas carreras tenes en mente?",
+      "oneCareer": "1 Carrera",
+      "oneCareerDesc": "Una opcion especifica",
+      "twoThreeCareers": "2 o 3 Carreras",
+      "twoThreeCareersDesc": "Algunas opciones concretas",
+      "manyCareers": "Muchas Carreras",
+      "manyCareersDesc": "Varias areas de interes",
+      "noCareers": "Ninguna",
+      "noCareersDesc": "Sin opciones claras"
+    },
+    "careerInput": {
+      "title": "Cuales carreras tienes en mente?",
+      "subtitle": "Escribe las opciones que estas considerando",
+      "careerPlaceholder": "Carrera {number}",
+      "addAnother": "Agregar otra"
+    },
+    "careerChange": {
+      "questionOf": "Pregunta {current} de 7",
+      "q1Title": "Que carrera empezaste?",
+      "q1Placeholder": "Ej: Ingenieria, Medicina, Derecho...",
+      "q2Title": "Cuanto tiempo aguantaste?",
+      "q2Options": {
+        "lessThan6Months": "Menos de 6 meses",
+        "oneYear": "1 año",
+        "twoToThreeYears": "2 a 3 años",
+        "finished": "La termine (pero no quiero ejercer)"
+      },
+      "q3Title": "Se sincero, por que te anotaste?",
+      "q3Options": {
+        "likedIdea": "Me gustaba la idea que tenia de la carrera",
+        "money": "Por el dinero / Salida laboral",
+        "pressure": "Presion familiar / Todos mis amigos iban",
+        "noIdea": "No sabia que hacer y elegi cualquiera"
+      },
+      "q4Title": "Razon PRINCIPAL para dejarla?",
+      "q4Options": {
+        "content": "El Contenido: Las materias me aburrian",
+        "difficulty": "La Dificultad: Era demasiado dificil / No entendia",
+        "future": "El Futuro: No me imaginaba trabajando de eso",
+        "environment": "El Ambiente: No encajaba con la gente o el lugar"
+      },
+      "q5Title": "Que actividad especifica odiabas?",
+      "q5Subtitle": "Selecciona todas las que apliquen",
+      "q5Activities": {
+        "reading": "Leer mucho",
+        "math": "Matematicas/Calculo",
+        "memorizing": "Memorizar",
+        "publicSpeaking": "Hablar en publico",
+        "workingAlone": "Trabajar solo",
+        "drawing": "Dibujar/Proyectar"
+      },
+      "q6Title": "Hubo algo que SI te gustara?",
+      "q6Options": {
+        "nothing": "Nada, todo fue terrible",
+        "socialLife": "La vida social / amigos",
+        "specificSubject": "Alguna materia especifica",
+        "practicalPart": "La parte practica (hacer cosas)"
+      },
+      "q6WhichOne": "Cual?",
+      "q6SubjectPlaceholder": "Nombre de la materia...",
+      "q7Title": "Para tu proxima carrera, que es innegociable?",
+      "q7Options": {
+        "goodMoney": "Que gane buena plata",
+        "freeTime": "Que tenga tiempo libre",
+        "passion": "Que me apasione el tema",
+        "short": "Que sea corta / rapida"
+      },
+      "back": "Atras"
+    },
+    "personaValidator": {
+      "title": "Con cual de estos perfiles te sentis mas identificado/a?",
+      "subtitle": "Lee cada descripcion con calma, desplegala para ver los detalles y elegi la que mejor refleje tu situacion actual.",
+      "noneMatch": "Ninguno me representa",
+      "dimensions": {
+        "profile": "Perfil",
+        "seeks": "Busca",
+        "expectation": "Expectativa",
+        "strategy": "Estrategia"
+      }
+    }
+  },
+  "categories": {
+    "headerSubtitle": "Completa las siguientes secciones para descubrir tu perfil vocacional",
+    "footerInfo": "Puedes completar las secciones en el orden que prefieras. Tu progreso se guarda automaticamente.",
+    "groups": {
+      "personality": "PERSONALIDAD",
+      "university": "UNIVERSIDAD"
+    }
+  },
+  "assessments": {
+    "mips": {
+      "title": "Personalidad y Estilos",
+      "subtitle": "MIPS - MILLON",
+      "description": "Evalua tu forma de ser y relacionarte.",
+      "longTitle": "Personalidad y Estilos",
+      "longSubtitle": "MIPS - Inventario de Millon",
+      "instruction": "Lea cada frase y decida si describe o no su forma de ser."
+    },
+    "riasec": {
+      "title": "Intereses y Aptitudes",
+      "subtitle": "RIASEC - HOLLAND",
+      "description": "Tipologias vocacionales: Realista, Investigador, Artistico, Social, Emprendedor, Convencional.",
+      "longTitle": "II. Intereses y Aptitudes Vocacionales (RIASEC - HOLLAND)",
+      "longSubtitle": "Modelo de John Holland. Tipologias: Realista (R), Investigador (I), Artistico (A), Social (S), Emprendedor (E), Convencional (C).",
+      "instruction": "Consigna:",
+      "instructionDetail": "En cada subseccion, marque con cuales palabras o frases se siente identificado.",
+      "sections": {
+        "personality": "1. Caracteristicas de Personalidad",
+        "habilidades": "2. Habilidades",
+        "intereses": "3. Intereses",
+        "motivaciones": "4. Motivaciones"
+      }
+    },
+    "herrmann": {
+      "title": "Dominancia Cerebral",
+      "subtitle": "NED HERRMANN",
+      "description": "Identifica tu estilo de pensamiento y creatividad.",
+      "longTitle": "III. Dominancia Cerebral (NED HERRMANN)",
+      "longSubtitle": "Modelo de cuadrantes cerebrales de Herrmann (Creatividad y estilos de pensamiento).",
+      "instruction": "Consigna:",
+      "instructionDetail": "Responda con total sinceridad, eligiendo la opcion con la que mas se identifica (no la \"socialmente correcta\").",
+      "steps": {
+        "motivacion": "Marque los 5 sentidos o situaciones que lo hacen sentirse mas motivado en el trabajo",
+        "aprendizaje": "Cuando aprendo, me gusta... (marque 5 alternativas)",
+        "aprendizajeModo": "Prefiero aprender a traves de... (marque 5 alternativas)",
+        "tipoPregunta": "Cual es el tipo de pregunta que mas le gusta hacer?",
+        "meGusta": "Senale lo que mas le gusta hacer (marque 4)",
+        "comprarChoice": "Con que situacion preferis responder?",
+        "comprarCoche": "Al comprar un coche usted... (marque 5 frases)",
+        "comprarCelular": "Al comprar un celular vos... (marque 5 frases)",
+        "comportamiento": "Como define su comportamiento?",
+        "estiloPalabras": "Palabras que definen mi estilo (marque 4)",
+        "desprecio": "Frases de tono despreciativo que mas ha escuchado (marque 5)",
+        "resolucionProblema": "Cuando tengo que resolver un problema, generalmente yo...",
+        "visionProblema": "Cuando tengo que resolver un problema, busco...",
+        "frasesAproximadas": "Cuales son las frases que mas se aproximan a lo que usted dice? (marque 3)"
+      },
+      "comprarChoiceOptions": {
+        "car": "Comprar un coche",
+        "phone": "Comprar un celular"
+      }
+    },
+    "gardner": {
+      "title": "Inteligencias Multiples",
+      "subtitle": "GARDNER",
+      "description": "Descubre tus fortalezas cognitivas.",
+      "longTitle": "IV. Inteligencias Multiples (GARDNER)",
+      "longSubtitle": "Teoria de Howard Gardner.",
+      "instruction": "Consigna:",
+      "instructionDetail": "Puntue cada item con la escala: 1-NUNCA / 2-CASI NUNCA / 3-A VECES / 4-CASI SIEMPRE / 5-SIEMPRE.",
+      "scale": {
+        "1": "Nunca",
+        "2": "Casi Nunca",
+        "3": "A Veces",
+        "4": "Casi Siempre",
+        "5": "Siempre"
+      }
+    },
+    "proyectivas": {
+      "title": "Tecnicas Proyectivas",
+      "subtitle": "FRASES INCOMPLETAS",
+      "description": "Completa frases para expresar tus verdaderos sentimientos.",
+      "longTitle": "Tecnicas Proyectivas",
+      "longSubtitle": "Frases Incompletas - TCF de Casullo",
+      "instruction": "Complete las siguientes frases con lo primero que se le ocurra. Trate de expresar sus verdaderos sentimientos.",
+      "answerPlaceholder": "Escriba su respuesta aqui..."
+    },
+    "autodescubrimiento": {
+      "title": "Auto-descubrimiento",
+      "subtitle": "ESTILOS Y TALENTOS",
+      "description": "Explora tus intereses, estilo y talentos.",
+      "longTitle": "Auto-descubrimiento y Estilos",
+      "longSubtitle": "Explora tus intereses, estilo y talentos",
+      "sections": {
+        "intereses": "Explorando mis Intereses",
+        "autobiografia": "Autobiografia",
+        "estilosAprendizaje": "Estilos de Aprendizaje"
+      },
+      "talents": "Talentos",
+      "noTalents": "No Talentos",
+      "selectTalents": "Selecciona los talentos que reconoces en vos para esta area:",
+      "selectNoTalents": "De los restantes, selecciona aquellos en los que NO te destacas o no te interesan:",
+      "allTalentsSelected": "Seleccionaste todos los talentos de esta area. No hay opciones para marcar como \"No Talento\".",
+      "autobiografiaIntro": "Escribi tu historia de vida de forma simple y sincera. La idea no es escribir \"perfecto\", sino pensar en quien sos, de donde venis y hacia donde te gustaria ir.",
+      "writeHere": "Escribi tu respuesta aqui...",
+      "estilosIntro": "Elegi una opcion por pregunta",
+      "reflectionQuestions": "Preguntas de Reflexion",
+      "reflectionIntro": "Responde con tus propias palabras"
+    },
+    "estiloVida": {
+      "title": "Estilo de Vida",
+      "subtitle": "PREFERENCIAS LABORALES",
+      "description": "Explora tus intereses, valores y preferencias de estilo de vida laboral.",
+      "longTitle": "Estilo de Vida",
+      "longSubtitle": "Explora tus preferencias y estilo de vida laboral",
+      "sections": {
+        "reconociendoIntereses": "Reconociendo Intereses",
+        "desiderativoOcupacional": "Desiderativo Ocupacional",
+        "estiloVidaLaboral": "Explorando tu Estilo de Vida Laboral"
+      },
+      "careerOccupation": "Carrera/Ocupacion:",
+      "why": "Por que?",
+      "writeCareer": "Escribe la carrera u ocupacion",
+      "explainWhyLike": "Explica por que te gusta",
+      "explainWhyDislike": "Explica por que no te gusta",
+      "markOptions": "Marca con una X o resalta las opciones con las que te identificas.",
+      "itemPlaceholder": "Item {number}",
+      "incompleteSections": "Por favor completa todas las secciones antes de guardar.",
+      "subsections": {
+        "identidadRechazo": "A. Identidad y Rechazo",
+        "valoresRelaciones": "B. Valores y Relaciones",
+        "ritmoOrganizacion": "C. Ritmo y Organizacion",
+        "lugarEntornoEquilibrio": "D. Lugar, Entorno y Equilibrio"
+      }
+    },
+    "visionFuturo": {
+      "title": "Vision y Proyeccion a Futuro",
+      "subtitle": "TOOLKIT DE PROYECCION",
+      "description": "Visualizaciones, lugar fantaseado y preguntas de profundidad.",
+      "longTitle": "Vision de Futuro",
+      "longSubtitle": "Explora tu vision y aspiraciones futuras",
+      "sections": {
+        "visualizaciones": "Visualizaciones",
+        "lugarFantaseado": "Lugar Fantaseado Ocupacional",
+        "preguntasProfundidad": "Preguntas de Profundidad"
+      },
+      "visualizacionesIntro": "Imagina diferentes momentos de tu futuro y describi como te gustaria que fueran.",
+      "lugarFantaseadoIntro": "Describi los espacios donde te sentis comodo y como te imaginas tu lugar de trabajo ideal.",
+      "preguntasProfundidadTitle": "Preguntas de Profundidad y Motivacion",
+      "preguntasProfundidadIntro": "Responde estas preguntas con honestidad. No hay respuestas correctas o incorrectas, se trata de conocerte mejor.",
+      "writeHere": "Escribi tu respuesta aqui...",
+      "incompleteSections": "Por favor completa todas las secciones antes de guardar."
+    },
+    "arbolGenealogico": {
+      "title": "Arbol Genealogico",
+      "subtitle": "CONTEXTO FAMILIAR",
+      "description": "Registra los estudios y ocupaciones de tu familia.",
+      "longTitle": "Arbol Genealogico",
+      "longSubtitle": "Completa los datos de tu familia para entender mejor tu contexto vocacional",
+      "sections": {
+        "padres": "Padres",
+        "abuelosPaternos": "Abuelos Paternos",
+        "abuelosMaternos": "Abuelos Maternos",
+        "hermanos": "Hermanos/as",
+        "tios": "Tios/as",
+        "primos": "Primos/as"
+      },
+      "familyMembers": {
+        "padre": "Padre",
+        "madre": "Madre",
+        "abueloPaterno": "Abuelo Paterno",
+        "abuelaPaterna": "Abuela Paterna",
+        "abueloMaterno": "Abuelo Materno",
+        "abuelaMaterna": "Abuela Materna",
+        "hermano": "Hermano/a",
+        "tio": "Tio/a",
+        "primo": "Primo/a"
+      },
+      "name": "Nombre",
+      "namePlaceholder": "Nombre completo",
+      "studies": "Estudios realizados",
+      "studiesPlaceholder": "Ej: Secundario completo, Universitario, etc.",
+      "activity": "Actividad que desempena/ba",
+      "activityPlaceholder": "Ej: Contador, Docente, Comerciante, etc.",
+      "familySide": "Lado de la familia",
+      "fatherSide": "Papa",
+      "motherSide": "Mama",
+      "noMembersYet": "No agregaste ningun {member} todavia",
+      "addMember": "Agregar {member}",
+      "addAnotherMember": "Agregar otro {member}",
+      "incompleteParents": "Por favor completa al menos la informacion basica de tus padres antes de guardar."
+    },
+    "universidad": {
+      "title": "Eleccion de Universidad",
+      "subtitle": "FACTORES DE DECISION",
+      "description": "Evalua costo, ubicacion, ingreso, identidad y prioriza los factores mas importantes para vos.",
+      "blocks": {
+        "economia": {
+          "title": "Costo y Becas",
+          "subtitle": "Factor Economico"
+        },
+        "logistica": {
+          "title": "Ubicacion y Viaje",
+          "subtitle": "Factor Logistico"
+        },
+        "ingreso": {
+          "title": "Requisitos de Inscripcion",
+          "subtitle": "Factor de Ingreso"
+        },
+        "identidad": {
+          "title": "Otros Elementos",
+          "subtitle": "Factor Identidad y Extras"
+        },
+        "podio": {
+          "title": "Podio de Prioridades",
+          "subtitle": "Ordenar por importancia"
+        }
+      },
+      "ranking": {
+        "critico": "Critico",
+        "importante": "Importante",
+        "levemente": "Levemente importante",
+        "indiferente": "Indiferente"
+      },
+      "yesNo": {
+        "yes": "Si",
+        "no": "No"
+      },
+      "incompleteBlocks": "Por favor completa todos los bloques antes de guardar."
+    }
+  },
+  "feedback": {
+    "leaveComment": "Dejar feedback",
+    "commentCount": "{count} comentario",
+    "commentCountPlural": "{count} comentarios",
+    "lastComment": "Ultimo: {text}...",
+    "panelTitle": "Deja tu comentario",
+    "panelSubtitle": "Escribi lo primero que se te venga a la cabeza",
+    "hintsTitle": "Tipo de cosas que nos sirven:",
+    "hints": {
+      "1": "\"Esta pregunta me confundio, no sabia que poner\"",
+      "2": "\"Me resulto largo este bloque, me desconcentre\"",
+      "3": "\"Las opciones de aca no me representan para nada\"",
+      "4": "\"Buenisima esta parte, me hizo pensar mucho\"",
+      "5": "\"No entendi bien que me pedian en la pregunta 3\"",
+      "6": "\"Me parece que faltan opciones mas variadas aca\""
+    },
+    "viewPrevious": "Ver {count} comentario anterior",
+    "viewPreviousPlural": "Ver {count} comentarios anteriores",
+    "placeholder": "Que pensas de lo que estas haciendo ahora?",
+    "errorSaving": "Error al guardar el comentario. Por favor intenta de nuevo."
+  },
+  "personas": {
+    "buscador": {
+      "title": "El Buscador",
+      "perfil": "Se encuentra en un momento donde la brujula interna aun no marca un norte fijo. Tiene mayor claridad sobre lo que no quiere que sobre sus virtudes, buscando transformar la incertidumbre en un plan de accion concreto.",
+      "busca": "Un punto de partida solido y una validacion externa que ordene el ruido mental.",
+      "expectativa": "Caminos acotados (calidad sobre cantidad) y referencias de personas con las que pueda identificarse para sentir que es posible avanzar.",
+      "estrategia": "Simplificar el panorama y visibilizar capacidades que hoy pasa por alto."
+    },
+    "multipotencial": {
+      "title": "El Multipotencial",
+      "perfil": "Siente que elegir un solo camino implica \"apagar\" otras facetas vitales de su identidad. Su desafio no es la falta de opciones, sino como integrar diversas pasiones en un estilo de vida que no se sienta como una jaula.",
+      "busca": "Una arquitectura de vida que le permita combinar actividades (hibridos) o entender la carrera como una plataforma base y no un destino final.",
+      "expectativa": "Un ecosistema flexible que contemple proyectos paralelos y hobbies serios, evitando la sensacion de \"ruta sin salida\".",
+      "estrategia": "Conectar puntos (interdisciplinariedad) y mostrar la versatilidad de las opciones."
+    },
+    "analitico": {
+      "title": "El Analitico",
+      "perfil": "Ya tiene el mapa general definido, pero se detiene en la \"letra chica\" antes de dar el paso final. Necesita distinguir los matices sutiles entre opciones del mismo rubro para asegurarse de que su eleccion encaje perfectamente con su expectativa del dia a dia.",
+      "busca": "Profundidad tecnica y diferenciacion clara sobre la rutina laboral (Zoom In) para evitar sorpresas futuras.",
+      "expectativa": "Comparativas \"lado a lado\" y datos objetivos que desambiguen opciones que parecen gemelas.",
+      "estrategia": "Aportar precision mediante contrastes de estilo de vida y entornos de trabajo."
+    },
+    "practico": {
+      "title": "El Practico / Autodidacta",
+      "perfil": "Sus capacidades brillan mas en la ejecucion real y la resolucion de problemas que en el estudio teorico tradicional. Siente que el sistema estandar no siempre mide su verdadero valor, priorizando la accion sobre la memorizacion.",
+      "busca": "Poner en valor sus \"skills\" reales (digitales, creativos o tecnicos) y encontrar formatos educativos dinamicos.",
+      "expectativa": "Lenguaje directo, validacion de sus habilidades no academicas y propuestas de trayectos modernos o tecnicaturas.",
+      "estrategia": "Actuar como \"Scouter\" de talentos ocultos y dignificar las rutas alternativas."
+    },
+    "determinado": {
+      "title": "El Determinado",
+      "perfil": "Posee una vision muy firme sobre su futuro, a menudo construida sobre una imagen aspiracional fuerte o referencias familiares. Su recorrido requiere validar si esa certeza inicial se sostiene al confrontarla con la realidad operativa de la profesion.",
+      "busca": "Respaldar su intuicion con argumentos racionales y asegurar que su idealizacion matchea con la practica.",
+      "expectativa": "Confirmacion de su eleccion, pero valorara datos que le permitan defender su decision con propiedad.",
+      "estrategia": "Acompanar su certeza ofreciendo un \"bano de realidad\" constructivo sobre la rutina diaria."
+    },
+    "enfocado": {
+      "title": "El Enfocado",
+      "perfil": "La duda vocacional ya fue resuelta; su mentalidad esta puesta enteramente en la excelencia y el rendimiento. No busca descubrir el \"que\", sino optimizar el \"donde\" y el \"como\" para maximizar su proyeccion desde el dia uno.",
+      "busca": "Informacion de nivel superior, especializaciones de nicho y garantias de calidad academica.",
+      "expectativa": "Reconocimiento de su perfil y datos duros sobre proyeccion internacional o posgrados.",
+      "estrategia": "Planificacion estrategica de carrera y deteccion de oportunidades de vanguardia."
+    },
+    "estratega": {
+      "title": "El Estratega",
+      "perfil": "Evalua la educacion superior bajo la optica de la rentabilidad y el retorno de inversion. Prioriza la inteligencia de mercado y la escalabilidad profesional, entendiendo la carrera como una herramienta para lograr autonomia financiera.",
+      "busca": "Datos duros de mercado, tendencias a futuro y analisis de riesgo/beneficio de su tiempo invertido.",
+      "expectativa": "Informacion ejecutiva, rankings salariales y honestidad sobre la demanda laboral real.",
+      "estrategia": "Asesoramiento enfocado en la gestion inteligente del capital profesional y la competitividad."
+    },
+    "reinventado": {
+      "title": "El Reinventado",
+      "perfil": "Prioriza su bienestar y busca alinear su carrera con su verdadera esencia tras una experiencia previa que no encajo.",
+      "busca": "Un entorno de contraste que active sus fortalezas dormidas y entender las causas de la desconexion anterior.",
+      "expectativa": "Confirmar que su recorrido previo es un activo transferible (ventaja competitiva) y no tiempo perdido.",
+      "estrategia": "Asegurar que el cambio sea por vocacion genuina y no solo por reaccion al opuesto (\"Efecto Pendulo\")."
+    }
+  },
+  "validation": {
+    "required": "Este campo es obligatorio",
+    "emailInvalid": "Ingresa un correo electronico valido",
+    "phoneInvalid": "Ingresa un numero de telefono valido",
+    "ageMin": "La edad minima es 14 años",
+    "ageMax": "La edad maxima es 99 años",
+    "minLength": "Debe tener al menos {min} caracteres",
+    "maxLength": "No puede tener mas de {max} caracteres",
+    "selectAtLeastOne": "Selecciona al menos una opcion",
+    "completeAllSections": "Por favor completa todas las secciones antes de guardar",
+    "completeParentsInfo": "Por favor completa al menos la informacion basica de tus padres"
+  }
+}
