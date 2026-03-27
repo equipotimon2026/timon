@@ -52,10 +52,10 @@
     "login": {
       "title": "Iniciar sesion",
       "email": "Correo electronico",
-      "password": "Contrasena",
+      "password": "Contraseña",
       "submit": "Ingresar",
       "submitting": "Ingresando...",
-      "forgotPassword": "Olvidaste tu contrasena?",
+      "forgotPassword": "¿Olvidaste tu contraseña?",
       "noAccount": "No tenes cuenta?",
       "register": "Registrate"
     },
@@ -64,8 +64,8 @@
       "firstName": "Nombre",
       "lastName": "Apellido",
       "email": "Correo electronico",
-      "password": "Contrasena",
-      "confirmPassword": "Confirmar contrasena",
+      "password": "Contraseña",
+      "confirmPassword": "Confirmar contraseña",
       "submit": "Registrarse",
       "submitting": "Creando cuenta...",
       "hasAccount": "Ya tenes cuenta?",
@@ -75,14 +75,14 @@
       "backToLogin": "Volver a iniciar sesion"
     },
     "forgotPassword": {
-      "title": "Recuperar contrasena",
-      "description": "Ingresa tu email y te enviaremos un link para restablecer tu contrasena.",
+      "title": "Recuperar contraseña",
+      "description": "Ingresa tu email y te enviaremos un link para restablecer tu contraseña.",
       "email": "Correo electronico",
       "submit": "Enviar link",
       "submitting": "Enviando...",
       "backToLogin": "Volver a iniciar sesion",
       "successTitle": "Email enviado",
-      "successMessage": "Si el email existe en nuestro sistema, vas a recibir un link para restablecer tu contrasena."
+      "successMessage": "Si el email existe en nuestro sistema, vas a recibir un link para restablecer tu contraseña."
     },
     "logout": "Cerrar sesion",
     "activeSession": "Sesion activa",

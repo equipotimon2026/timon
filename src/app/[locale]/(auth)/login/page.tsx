@@ -66,7 +66,7 @@ export default function LoginPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error || 'Contrasena incorrecta');
+        setError(data.error || 'Contraseña incorrecta');
         setIsLoading(false);
         return;
       }
@@ -81,11 +81,11 @@ export default function LoginPage() {
   const handleCreatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 6) {
-      setError('La contrasena debe tener al menos 6 caracteres');
+      setError('La contraseña debe tener al menos 6 caracteres');
       return;
     }
     if (password !== confirmPassword) {
-      setError('Las contrasenas no coinciden');
+      setError('Las contraseñas no coinciden');
       return;
     }
     setIsLoading(true);
@@ -100,7 +100,7 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Error al crear la contrasena');
+        setError(data.error || 'Error al crear la contraseña');
         setIsLoading(false);
         return;
       }
@@ -113,7 +113,7 @@ export default function LoginPage() {
       });
 
       if (!loginRes.ok) {
-        setError('Contrasena creada, pero hubo un error al iniciar sesion. Intenta de nuevo.');
+        setError('Contraseña creada, pero hubo un error al iniciar sesión. Intenta de nuevo.');
         setStep('login');
         setIsLoading(false);
         return;
@@ -121,7 +121,7 @@ export default function LoginPage() {
 
       window.location.href = '/es';
     } catch {
-      setError('Error al crear la contrasena');
+      setError('Error al crear la contraseña');
       setIsLoading(false);
     }
   };
@@ -142,7 +142,7 @@ export default function LoginPage() {
         </div>
         <h1 className="font-serif text-3xl font-bold tracking-tight text-foreground">
           {step === 'create-password'
-            ? 'Crear contrasena'
+            ? 'Crear contraseña'
             : t('login.title', { defaultValue: 'Iniciar sesion' })}
         </h1>
         {step !== 'email' && firstName && (
@@ -218,13 +218,13 @@ export default function LoginPage() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label htmlFor="password" className="block text-sm font-medium text-foreground">
-                {t('login.password', { defaultValue: 'Contrasena' })}
+                {t('login.password', { defaultValue: 'Contraseña' })}
               </label>
               <Link
                 href="/forgot-password"
                 className="text-xs font-medium text-primary transition-colors hover:text-primary/80"
               >
-                {t('login.forgotPassword', { defaultValue: 'Olvidaste tu contrasena?' })}
+                {t('login.forgotPassword', { defaultValue: '¿Olvidaste tu contraseña?' })}
               </Link>
             </div>
             <div className="relative">
@@ -279,7 +279,7 @@ export default function LoginPage() {
         <form onSubmit={handleCreatePassword} className="space-y-4">
           <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
             <p className="text-sm text-foreground">
-              Encontramos tu cuenta. Como es tu primer inicio de sesion, necesitas crear una contrasena.
+              Encontramos tu cuenta. Como es tu primer inicio de sesion, necesitas crear una contraseña.
             </p>
           </div>
 
@@ -301,7 +301,7 @@ export default function LoginPage() {
 
           <div className="space-y-1.5">
             <label htmlFor="new-password" className="block text-sm font-medium text-foreground">
-              Nueva contrasena
+              Nueva contraseña
             </label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -320,7 +320,7 @@ export default function LoginPage() {
 
           <div className="space-y-1.5">
             <label htmlFor="confirm-password" className="block text-sm font-medium text-foreground">
-              Confirmar contrasena
+              Confirmar contraseña
             </label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -328,7 +328,7 @@ export default function LoginPage() {
                 id="confirm-password"
                 type="password"
                 autoComplete="new-password"
-                placeholder="Repetir contrasena"
+                placeholder="Repetir contraseña"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="block w-full rounded-xl border border-input bg-background py-2.5 pl-10 pr-3 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -351,7 +351,7 @@ export default function LoginPage() {
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <>
-                Crear contrasena e ingresar
+                Crear contraseña e ingresar
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </>
             )}

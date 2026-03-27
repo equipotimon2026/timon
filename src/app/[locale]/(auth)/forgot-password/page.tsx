@@ -68,7 +68,7 @@ export default function ForgotPasswordPage() {
           <p className="mx-auto max-w-sm text-sm leading-relaxed text-muted-foreground">
             {t('forgotPassword.successMessage', {
               defaultValue:
-                'Si el email existe en nuestro sistema, vas a recibir un link para restablecer tu contrasena.',
+                'Si el email existe en nuestro sistema, vas a recibir un link para restablecer tu contraseña.',
             })}
           </p>
         </div>
@@ -102,7 +102,7 @@ export default function ForgotPasswordPage() {
         <p className="mx-auto max-w-sm text-sm leading-relaxed text-muted-foreground">
           {t('forgotPassword.description', {
             defaultValue:
-              'Ingresa tu email y te enviaremos un link para restablecer tu contrasena.',
+              'Ingresa tu email y te enviaremos un link para restablecer tu contraseña.',
           })}
         </p>
       </div>

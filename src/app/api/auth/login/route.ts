@@ -5,7 +5,7 @@ export async function POST(req: NextRequest) {
   const { email, password } = await req.json();
 
   if (!email || !password) {
-    return NextResponse.json({ error: 'Email y contrasena requeridos' }, { status: 400 });
+    return NextResponse.json({ error: 'Email y contraseña requeridos' }, { status: 400 });
   }
 
   const response = NextResponse.json({ success: true });
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    return NextResponse.json({ error: 'Contrasena incorrecta' }, { status: 401 });
+    return NextResponse.json({ error: 'Contraseña incorrecta' }, { status: 401 });
   }
 
   return response;

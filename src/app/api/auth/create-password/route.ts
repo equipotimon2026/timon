@@ -5,7 +5,7 @@ export async function POST(req: NextRequest) {
   const { email, password } = await req.json();
 
   if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
-    return NextResponse.json({ error: 'Email y contrasena requeridos' }, { status: 400 });
+    return NextResponse.json({ error: 'Email y contraseña requeridos' }, { status: 400 });
   }
 
   if (password.length < 6) {
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (profile.auth_id) {
-    return NextResponse.json({ error: 'Este usuario ya tiene contrasena' }, { status: 400 });
+    return NextResponse.json({ error: 'Este usuario ya tiene contraseña' }, { status: 400 });
   }
 
   // Create auth account
