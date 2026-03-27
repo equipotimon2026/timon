@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,12 +48,12 @@ function FamilyMemberCard({ member, onUpdate, onRemove, showSide = false }: {
   )
 }
 
-interface ArbolGenealogFormProps { userId: number; onComplete: () => void; onSave: (sectionId: number, responses: any, meta: object) => Promise<void> }
+interface ArbolGenealogFormProps { userId: number; onComplete: () => void; onSave: (sectionId: number, responses: any, meta: object) => Promise<void>; initialResponses?: any; onResponseChange?: (responses: any) => void }
 
-export function ArbolGenealogForm({ userId, onComplete, onSave }: ArbolGenealogFormProps) {
+export function ArbolGenealogForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: ArbolGenealogFormProps) {
   const [currentSection, setCurrentSection] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
-  const [data, setData] = useState<FamilyTreeData>({
+  const [data, setData] = useState<FamilyTreeData>(initialResponses ?? {
     fixedMembers: {
       padre: { id: "padre", type: "padre", nombre: "", estudios: "", actividad: "" },
       madre: { id: "madre", type: "madre", nombre: "", estudios: "", actividad: "" },
@@ -64,6 +64,10 @@ export function ArbolGenealogForm({ userId, onComplete, onSave }: ArbolGenealogF
     },
     dynamicMembers: [],
   })
+
+  useEffect(() => {
+    onResponseChange?.(data);
+  }, [data]);
 
   const sections = [
     { id: "padres", title: "Padres", members: ["padre", "madre"] },

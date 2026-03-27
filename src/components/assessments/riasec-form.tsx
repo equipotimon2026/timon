@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -26,17 +26,23 @@ interface RIASECFormProps {
   userId: number
   onComplete: () => void
   onSave: (sectionId: number, responses: any, meta: object) => Promise<void>
+  initialResponses?: any
+  onResponseChange?: (responses: any) => void
 }
 
-export function RIASECForm({ userId, onComplete, onSave }: RIASECFormProps) {
+export function RIASECForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: RIASECFormProps) {
   const [currentSection, setCurrentSection] = useState<SectionKey>("personality")
-  const [responses, setResponses] = useState<RIASECResponse>({
+  const [responses, setResponses] = useState<RIASECResponse>(initialResponses ?? {
     personality: { R: [], I: [], A: [], S: [], E: [], C: [] },
     habilidades: { R: [], I: [], A: [], S: [], E: [], C: [] },
     intereses: { R: [], I: [], A: [], S: [], E: [], C: [] },
     motivaciones: { R: [], I: [], A: [], S: [], E: [], C: [] },
   })
   const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    onResponseChange?.(responses);
+  }, [responses]);
 
   const sections: SectionKey[] = ["personality", "habilidades", "intereses", "motivaciones"]
   const currentSectionIndex = sections.indexOf(currentSection)

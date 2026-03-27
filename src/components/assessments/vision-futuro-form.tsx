@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -19,16 +19,22 @@ interface VisionFuturoFormProps {
   userId: number
   onComplete: () => void
   onSave: (sectionId: number, responses: any, meta: object) => Promise<void>
+  initialResponses?: any
+  onResponseChange?: (responses: any) => void
 }
 
-export function VisionFuturoForm({ userId, onComplete, onSave }: VisionFuturoFormProps) {
+export function VisionFuturoForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: VisionFuturoFormProps) {
   const [currentSection, setCurrentSection] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
-  const [responses, setResponses] = useState<VisionFuturoResponse>({
+  const [responses, setResponses] = useState<VisionFuturoResponse>(initialResponses ?? {
     visualizaciones: {},
     lugarFantaseado: {},
     preguntasProfundidad: {},
   })
+
+  useEffect(() => {
+    onResponseChange?.(responses);
+  }, [responses]);
 
   const sections = [
     { id: "visualizaciones", title: "Visualizaciones" },

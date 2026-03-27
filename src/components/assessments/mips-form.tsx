@@ -12,13 +12,19 @@ interface MIPSFormProps {
   userId: number
   onComplete: () => void
   onSave: (sectionId: number, responses: any, meta: object) => Promise<void>
+  initialResponses?: any
+  onResponseChange?: (responses: any) => void
 }
 
-export function MIPSForm({ userId, onComplete, onSave }: MIPSFormProps) {
-  const [responses, setResponses] = useState<MIPSResponse>({})
+export function MIPSForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: MIPSFormProps) {
+  const [responses, setResponses] = useState<MIPSResponse>(initialResponses ?? {})
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
   const [animationKey, setAnimationKey] = useState(0)
+
+  useEffect(() => {
+    onResponseChange?.(responses);
+  }, [responses]);
 
   const totalQuestions: number = mipsQuestions.length
   const answeredCount = Object.keys(responses).length

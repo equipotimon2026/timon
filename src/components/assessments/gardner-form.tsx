@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -20,15 +20,21 @@ interface GardnerFormProps {
   userId: number
   onComplete: () => void
   onSave: (sectionId: number, responses: any, meta: object) => Promise<void>
+  initialResponses?: any
+  onResponseChange?: (responses: any) => void
 }
 
-export function GardnerForm({ userId, onComplete, onSave }: GardnerFormProps) {
+export function GardnerForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: GardnerFormProps) {
   const [currentIntelligence, setCurrentIntelligence] = useState<IntelligenceKey>("logicoMatematica")
   const [isSaving, setIsSaving] = useState(false)
-  const [responses, setResponses] = useState<GardnerResponse>({
+  const [responses, setResponses] = useState<GardnerResponse>(initialResponses ?? {
     logicoMatematica: {}, linguistica: {}, espacial: {}, corporalCinetica: {},
     musical: {}, naturalista: {}, intrapersonal: {}, interpersonal: {},
   })
+
+  useEffect(() => {
+    onResponseChange?.(responses);
+  }, [responses]);
 
   const currentIndex = intelligenceKeys.indexOf(currentIntelligence)
   const progress = ((currentIndex + 1) / intelligenceKeys.length) * 100

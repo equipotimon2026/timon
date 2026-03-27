@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -13,12 +13,19 @@ interface ProyectivasFormProps {
   userId: number
   onComplete: () => void
   onSave: (sectionId: number, responses: any, meta: object) => Promise<void>
+  initialResponses?: any
+  onResponseChange?: (responses: any) => void
 }
 
-export function ProyectivasForm({ userId, onComplete, onSave }: ProyectivasFormProps) {
-  const [responses, setResponses] = useState<ProyectivasResponse>({})
+export function ProyectivasForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: ProyectivasFormProps) {
+  const [responses, setResponses] = useState<ProyectivasResponse>(initialResponses ?? {})
   const [currentPage, setCurrentPage] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    onResponseChange?.(responses);
+  }, [responses]);
+
   const questionsPerPage = 5
   const totalPages = Math.ceil(proyectivasQuestions.length / questionsPerPage)
   const startIndex = currentPage * questionsPerPage

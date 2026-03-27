@@ -1,8 +1,9 @@
 'use client';
 
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from '@/i18n/routing';
 import { useAssessmentStore } from '@/stores/assessment-store';
-import { saveQuestionnaireResponse } from '@/app/actions/questionnaire';
+import { saveQuestionnaireResponse, getDraft, saveDraft, deleteDraft } from '@/app/actions/questionnaire';
 import { SECTION_IDS } from '@/lib/constants';
 import { getCalculatorForSection } from '@/lib/calculators';
 import { MIPSForm } from '@/components/assessments/mips-form';
@@ -37,11 +38,35 @@ interface AssessmentWrapperProps {
 export function AssessmentWrapper({ assessmentId, userId }: AssessmentWrapperProps) {
   const router = useRouter();
   const { markCompleted } = useAssessmentStore();
+  const [initialResponses, setInitialResponses] = useState<unknown>(null);
+  const [isLoadingDraft, setIsLoadingDraft] = useState(true);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const assessment = ASSESSMENT_MAP[assessmentId];
+  const sectionId = assessment?.sectionId;
+
+  useEffect(() => {
+    if (!sectionId) return;
+    getDraft(sectionId)
+      .then((draft) => setInitialResponses(draft))
+      .catch(() => {})
+      .finally(() => setIsLoadingDraft(false));
+  }, [sectionId]);
+
+  const handleResponseChange = useCallback(
+    (responses: unknown) => {
+      if (!sectionId) return;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        saveDraft({ sectionId, draftData: responses }).catch(() => {});
+      }, 1000);
+    },
+    [sectionId]
+  );
+
   if (!assessment) return <div>Assessment not found</div>;
 
-  const { Component, sectionId } = assessment;
+  const { Component } = assessment;
 
   const handleSave = async (sid: number, responses: any, meta: Record<string, unknown>) => {
     const calculator = getCalculatorForSection(sid);
@@ -54,10 +79,28 @@ export function AssessmentWrapper({ assessmentId, userId }: AssessmentWrapperPro
     });
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    await deleteDraft(sectionId).catch(() => {});
     markCompleted(sectionId);
     router.push('/');
   };
 
-  return <Component userId={userId} onSave={handleSave} onComplete={handleComplete} />;
+  if (isLoadingDraft) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-sm text-muted-foreground">Cargando...</div>
+      </div>
+    );
+  }
+
+  return (
+    <Component
+      userId={userId}
+      onSave={handleSave}
+      onComplete={handleComplete}
+      initialResponses={initialResponses}
+      onResponseChange={handleResponseChange}
+    />
+  );
 }

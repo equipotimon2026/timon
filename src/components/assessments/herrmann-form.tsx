@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -94,12 +94,14 @@ interface HerrmannFormProps {
   userId: number
   onComplete: () => void
   onSave: (sectionId: number, responses: any, meta: object) => Promise<void>
+  initialResponses?: any
+  onResponseChange?: (responses: any) => void
 }
 
-export function HerrmannForm({ userId, onComplete, onSave }: HerrmannFormProps) {
+export function HerrmannForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: HerrmannFormProps) {
   const [currentStep, setCurrentStep] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
-  const [responses, setResponses] = useState<HerrmannResponse>({
+  const [responses, setResponses] = useState<HerrmannResponse>(initialResponses ?? {
     motivacion: [],
     aprendizaje: [],
     aprendizajeModo: [],
@@ -115,6 +117,10 @@ export function HerrmannForm({ userId, onComplete, onSave }: HerrmannFormProps) 
     visionProblema: "",
     frasesAproximadas: [],
   })
+
+  useEffect(() => {
+    onResponseChange?.(responses);
+  }, [responses]);
 
   const getActiveSteps = () => {
     const choice = responses.comprarChoice

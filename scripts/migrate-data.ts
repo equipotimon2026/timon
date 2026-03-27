@@ -101,6 +101,35 @@ async function migrateUniversity() {
   console.log('');
 }
 
+async function migrateUsers() {
+  console.log('\n👤 Migrating users...');
+  const rows = readCSV('users.csv');
+
+  const data = rows.map((r) => ({
+    id: parseInt(r.id),
+    session_id: cleanValue(r.session_id),
+    first_name: cleanValue(r.first_name),
+    last_name: cleanValue(r.last_name),
+    age: r.age ? parseInt(r.age) : null,
+    school: cleanValue(r.school),
+    school_year: cleanValue(r.school_year),
+    email: cleanValue(r.email),
+    phone_number: cleanValue(r.phone_number),
+    persona: null,
+    onboarding_completed: true,
+    auth_id: null,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+  }));
+
+  const { error } = await supabase.from('users').upsert(data, { onConflict: 'id' });
+  if (error) {
+    console.error('  Error:', error.message);
+  } else {
+    console.log(`  Migrated ${data.length} users`);
+  }
+}
+
 async function migrateSurveyResponses() {
   console.log('\n📝 Migrating survey_responses...');
   const rows = readCSV('survey_responses.csv');
@@ -188,7 +217,7 @@ async function migrateSectionResults() {
 
 async function resetSequences() {
   console.log('\n🔄 Resetting ID sequences...');
-  const tables = ['sections', 'university', 'survey_responses', 'responses', 'section_results'];
+  const tables = ['users', 'sections', 'university', 'survey_responses', 'responses', 'section_results'];
   for (const table of tables) {
     const { error } = await supabase.rpc('reset_sequence', { table_name: table });
     if (error) {
@@ -203,17 +232,11 @@ async function main() {
   console.log(`   Supabase URL: ${SUPABASE_URL}`);
   console.log(`   Data dir: ${DATA_DIR}`);
 
-  // Order matters: sections first (referenced by others), then independent tables
+  // Order matters: sections first, then users, then tables that reference user_id
   await migrateSections();
+  await migrateUsers();
   await migrateUniversity();
   await migrateSurveyResponses();
-
-  // These depend on users existing - they reference user_id
-  // The old Neon DB had users, but we haven't exported them
-  // These will only work if the users table has matching IDs
-  console.log('\n⚠️  Note: responses and section_results reference user_id.');
-  console.log('   If users table is empty, these inserts will fail due to FK constraints.');
-  console.log('   You may need to migrate users first or temporarily disable FK checks.\n');
 
   try {
     await migrateResponses();

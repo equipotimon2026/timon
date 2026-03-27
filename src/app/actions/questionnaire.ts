@@ -86,3 +86,50 @@ export async function saveQuestionnaireResponse(input: SaveQuestionnaireInput) {
     responsesCount: input.responses.length,
   };
 }
+
+// ── Draft management ──
+
+export async function saveDraft(input: { sectionId: number; draftData: unknown }) {
+  const supabase = await createServerSupabaseClient();
+  const userId = await getUserProfileId(supabase);
+
+  const { error } = await supabase
+    .from('response_drafts')
+    .upsert(
+      {
+        user_id: userId,
+        section_id: input.sectionId,
+        draft_data: input.draftData,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,section_id' }
+    );
+
+  if (error) throw error;
+}
+
+export async function getDraft(sectionId: number): Promise<unknown | null> {
+  const supabase = await createServerSupabaseClient();
+  const userId = await getUserProfileId(supabase);
+
+  const { data, error } = await supabase
+    .from('response_drafts')
+    .select('draft_data')
+    .eq('user_id', userId)
+    .eq('section_id', sectionId)
+    .single();
+
+  if (error || !data) return null;
+  return data.draft_data;
+}
+
+export async function deleteDraft(sectionId: number) {
+  const supabase = await createServerSupabaseClient();
+  const userId = await getUserProfileId(supabase);
+
+  await supabase
+    .from('response_drafts')
+    .delete()
+    .eq('user_id', userId)
+    .eq('section_id', sectionId);
+}

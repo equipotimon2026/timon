@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -22,17 +22,23 @@ interface AutodescubrimientoFormProps {
   userId: number
   onComplete: () => void
   onSave: (sectionId: number, responses: any, meta: object) => Promise<void>
+  initialResponses?: any
+  onResponseChange?: (responses: any) => void
 }
 
-export function AutodescubrimientoForm({ userId, onComplete, onSave }: AutodescubrimientoFormProps) {
+export function AutodescubrimientoForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: AutodescubrimientoFormProps) {
   const [currentSection, setCurrentSection] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
-  const [responses, setResponses] = useState<AutodescubrimientoResponse>({
+  const [responses, setResponses] = useState<AutodescubrimientoResponse>(initialResponses ?? {
     intereses: {},
     autobiografia: {},
     estilosAprendizaje: {},
     preguntasAbiertas: {},
   })
+
+  useEffect(() => {
+    onResponseChange?.(responses);
+  }, [responses]);
 
   const sections = [
     { id: "intereses", title: "Explorando mis Intereses" },

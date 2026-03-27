@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -79,12 +79,16 @@ const blocks: Block[] = [
   },
 ]
 
-interface UniversidadFormProps { userId: number; onComplete: () => void; onSave: (sectionId: number, responses: any, meta: object) => Promise<void> }
+interface UniversidadFormProps { userId: number; onComplete: () => void; onSave: (sectionId: number, responses: any, meta: object) => Promise<void>; initialResponses?: any; onResponseChange?: (responses: any) => void }
 
-export function UniversidadForm({ userId, onComplete, onSave }: UniversidadFormProps) {
+export function UniversidadForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: UniversidadFormProps) {
   const [currentBlock, setCurrentBlock] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
-  const [answers, setAnswers] = useState<Record<string, string | string[] | Record<string, string>>>({})
+  const [answers, setAnswers] = useState<Record<string, string | string[] | Record<string, string>>>(initialResponses ?? {})
+
+  useEffect(() => {
+    onResponseChange?.(answers);
+  }, [answers]);
 
   const block = blocks[currentBlock]
   const progress = ((currentBlock + 1) / blocks.length) * 100

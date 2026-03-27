@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,16 +20,24 @@ interface EstiloVidaFormProps {
   userId: number
   onComplete: () => void
   onSave: (sectionId: number, responses: any, meta: object) => Promise<void>
+  initialResponses?: any
+  onResponseChange?: (responses: any) => void
 }
 
-export function EstiloVidaForm({ userId, onComplete, onSave }: EstiloVidaFormProps) {
+const defaultEstiloVidaResponse: EstiloVidaResponse = {
+  reconociendoIntereses: { meGusta: Array(18).fill(""), noMeGusta: Array(18).fill(""), actividadesCotidianas: Array(18).fill(""), carrerasRelacionadas: Array(9).fill("") },
+  desiderativoOcupacional: { preferencias: [{ carrera: "", porque: "" }, { carrera: "", porque: "" }, { carrera: "", porque: "" }], rechazos: [{ carrera: "", porque: "" }, { carrera: "", porque: "" }, { carrera: "", porque: "" }] },
+  estiloVidaLaboral: {},
+}
+
+export function EstiloVidaForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: EstiloVidaFormProps) {
   const [currentSection, setCurrentSection] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
-  const [responses, setResponses] = useState<EstiloVidaResponse>({
-    reconociendoIntereses: { meGusta: Array(18).fill(""), noMeGusta: Array(18).fill(""), actividadesCotidianas: Array(18).fill(""), carrerasRelacionadas: Array(9).fill("") },
-    desiderativoOcupacional: { preferencias: [{ carrera: "", porque: "" }, { carrera: "", porque: "" }, { carrera: "", porque: "" }], rechazos: [{ carrera: "", porque: "" }, { carrera: "", porque: "" }, { carrera: "", porque: "" }] },
-    estiloVidaLaboral: {},
-  })
+  const [responses, setResponses] = useState<EstiloVidaResponse>(initialResponses ?? defaultEstiloVidaResponse)
+
+  useEffect(() => {
+    onResponseChange?.(responses);
+  }, [responses]);
 
   const sections = [
     { id: "reconociendoIntereses", title: "Reconociendo Intereses" },
