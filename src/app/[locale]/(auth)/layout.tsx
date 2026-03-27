@@ -55,11 +55,6 @@ export default function AuthLayout({
         <div className="w-full max-w-md animate-fade-up animation-delay-100">
           {children}
         </div>
-
-        {/* Footer */}
-        <p className="mt-8 text-center text-xs text-muted-foreground animate-fade-in animation-delay-300">
-          Timon
-        </p>
       </div>
     </div>
   );

@@ -16,7 +16,7 @@ interface HomeContentProps {
 }
 
 export function HomeContent({ initialProfile, initialCompletedSections }: HomeContentProps) {
-  const { profile, setProfile, fetchProfile, signOut } = useAuthStore();
+  const { profile, setProfile, fetchProfile } = useAuthStore();
   const { completedSections, setCompletedSections } = useAssessmentStore();
   const router = useRouter();
 
@@ -58,7 +58,6 @@ export function HomeContent({ initialProfile, initialCompletedSections }: HomeCo
     <CategorySelection
       completedSections={completedIds}
       userName={currentProfile?.first_name ?? 'Usuario'}
-      onSignOut={signOut}
       onNavigate={(id) => router.push(`/assessment/${id}`)}
     />
   );

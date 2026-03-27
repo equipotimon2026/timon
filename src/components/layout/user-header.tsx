@@ -4,21 +4,20 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { User, Settings, LogOut } from "lucide-react"
+import { useAuthStore } from "@/stores/auth-store"
 
 interface UserHeaderProps {
   userName: string
-  onSignOut: () => void
 }
 
-export function UserHeader({ userName = "Usuario", onSignOut }: UserHeaderProps) {
-  const handleLogout = () => {
-    onSignOut();
-  };
+export function UserHeader({ userName = "Usuario" }: UserHeaderProps) {
+  const { signOut } = useAuthStore();
 
   return (
     <div className="flex items-center justify-between border-b border-border bg-background px-6 py-4">
@@ -40,19 +39,17 @@ export function UserHeader({ userName = "Usuario", onSignOut }: UserHeaderProps)
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <button
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground cursor-pointer"
-          >
+          <DropdownMenuItem className="cursor-pointer">
             <Settings className="h-4 w-4" />
             Configuracion
-          </button>
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-destructive/10 cursor-pointer"
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => signOut()}
+            className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
           >
             <LogOut className="h-4 w-4" />
             Cerrar sesion
-          </button>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

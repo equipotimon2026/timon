@@ -7,7 +7,6 @@ import {
   forgotPasswordSchema,
   type ForgotPasswordInput,
 } from '@/lib/validations/auth';
-import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { KeyRound, Mail, ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
@@ -30,21 +29,27 @@ export default function ForgotPasswordPage() {
     setIsSubmitting(true);
     setError(null);
 
-    const supabase = createClient();
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-      data.email,
-      {
-        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: data.email,
+          origin: window.location.origin,
+        }),
+      });
+
+      if (!res.ok) {
+        const result = await res.json();
+        setError(result.error || 'Error al enviar el email');
+        setIsSubmitting(false);
+        return;
       }
-    );
 
-    if (resetError) {
-      setError(resetError.message);
-      setIsSubmitting(false);
-      return;
+      setSuccess(true);
+    } catch {
+      setError('Error de conexion');
     }
-
-    setSuccess(true);
     setIsSubmitting(false);
   };
 

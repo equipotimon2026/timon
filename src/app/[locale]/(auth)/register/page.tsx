@@ -1,16 +1,18 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { registerSchema, type RegisterInput } from '@/lib/validations/auth';
-import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { UserPlus, Mail, Lock, ArrowRight, CheckCircle2, User } from 'lucide-react';
 
 export default function RegisterPage() {
   const t = useTranslations('auth');
+  const searchParams = useSearchParams();
+  const prefillEmail = searchParams.get('email') ?? '';
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -21,6 +23,9 @@ export default function RegisterPage() {
     formState: { errors },
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      email: prefillEmail,
+    },
   });
 
   const onSubmit = async (data: RegisterInput) => {
@@ -28,40 +33,32 @@ export default function RegisterPage() {
     setError(null);
 
     try {
-      const supabase = createClient();
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: {
-            first_name: data.firstName,
-            last_name: data.lastName,
-          },
-        },
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+          firstName: data.firstName,
+          lastName: data.lastName,
+        }),
       });
+      const result = await res.json();
 
-      if (signUpError) {
-        setError(signUpError.message);
+      if (!res.ok) {
+        setError(result.error || 'Error al crear la cuenta');
         setIsSubmitting(false);
         return;
       }
 
-      // If user was created and has a session (email confirmation disabled)
-      if (signUpData.session) {
-        window.location.href = '/es';
-        return;
-      }
-
-      // If user was created but needs email confirmation
-      if (signUpData.user && !signUpData.session) {
+      if (result.needsConfirmation) {
         setSuccess(true);
         setIsSubmitting(false);
         return;
       }
 
-      // Fallback: something unexpected
-      setError('Ocurrio un error inesperado. Intenta de nuevo.');
-      setIsSubmitting(false);
+      // Session created, redirect
+      window.location.href = '/es';
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error de conexion. Intenta de nuevo.');
       setIsSubmitting(false);

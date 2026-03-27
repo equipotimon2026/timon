@@ -1,6 +1,4 @@
 import { create } from 'zustand';
-import { createClient } from '@/lib/supabase/client';
-import type { User } from '@supabase/supabase-js';
 
 export interface Profile {
   id: number;
@@ -19,17 +17,17 @@ export interface Profile {
 }
 
 interface AuthStore {
-  user: User | null;
+  user: any | null;
   profile: Profile | null;
   isLoading: boolean;
-  setUser: (user: User | null) => void;
+  setUser: (user: any | null) => void;
   setProfile: (profile: Profile | null) => void;
   fetchProfile: () => Promise<void>;
   signOut: () => Promise<void>;
   reset: () => void;
 }
 
-export const useAuthStore = create<AuthStore>((set, get) => ({
+export const useAuthStore = create<AuthStore>((set) => ({
   user: null,
   profile: null,
   isLoading: true,
@@ -38,29 +36,26 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   setProfile: (profile) => set({ profile }),
 
   fetchProfile: async () => {
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const res = await fetch('/api/auth/profile');
+      const data = await res.json();
 
-    if (!user) {
+      if (!data.user) {
+        set({ user: null, profile: null, isLoading: false });
+        return;
+      }
+
+      set({ user: data.user, profile: data.profile, isLoading: false });
+    } catch {
       set({ user: null, profile: null, isLoading: false });
-      return;
     }
-
-    const { data: profile } = await supabase
-      .from('users')
-      .select('*')
-      .eq('auth_id', user.id)
-      .single();
-
-    set({ user, profile, isLoading: false });
   },
 
   signOut: async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    await fetch('/api/auth/sign-out', { method: 'POST' });
+    localStorage.clear();
     set({ user: null, profile: null });
+    window.location.href = '/es/login';
   },
 
   reset: () => set({ user: null, profile: null, isLoading: true }),
