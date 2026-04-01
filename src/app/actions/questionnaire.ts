@@ -99,7 +99,7 @@ export async function saveDraft(input: { sectionId: number; draftData: unknown }
       {
         user_id: userId,
         section_id: input.sectionId,
-        draft_data: input.draftData,
+        draft_data: input.draftData as Record<string, unknown>,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'user_id,section_id' }

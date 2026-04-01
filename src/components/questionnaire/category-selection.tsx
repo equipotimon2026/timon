@@ -26,7 +26,7 @@ type CategoryGroup = {
 interface CategorySelectionProps {
   userName: string
   completedSections: string[]
-  onSignOut: () => void
+  onSignOut?: () => void
   onNavigate?: (assessmentId: string) => void
 }
 

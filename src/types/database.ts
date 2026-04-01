@@ -239,6 +239,43 @@ export type Database = {
           },
         ];
       };
+      response_drafts: {
+        Row: {
+          id: number;
+          user_id: number;
+          section_id: number;
+          draft_data: Record<string, unknown>;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: number;
+          user_id: number;
+          section_id: number;
+          draft_data: Record<string, unknown>;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: number;
+          user_id?: number;
+          section_id?: number;
+          draft_data?: Record<string, unknown>;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "response_drafts_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "response_drafts_section_id_fkey";
+            columns: ["section_id"];
+            referencedRelation: "sections";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       university: {
         Row: {
           id: number;
