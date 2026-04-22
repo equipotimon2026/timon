@@ -184,12 +184,10 @@ export function CategorySelection({
   const categories = categoryGroups.flatMap((group) => group.assessments)
   const completedCount = categories.filter((c) => c.completed).length
   const totalCount = categories.length
-  const progress = Math.round((completedCount / totalCount) * 100)
   const header = getMotivationalHeader(completedCount, totalCount)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background">
-      <div className="mx-auto max-w-7xl px-6 py-12 sm:px-8 lg:px-12">
+    <>
         {/* Header */}
         <div className="mb-12 text-center animate-fade-up">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
@@ -202,32 +200,6 @@ export function CategorySelection({
             {header.subtitle}
           </p>
 
-          {/* Progress Bar */}
-          <div className="mx-auto mt-8 max-w-md animate-fade-up animation-delay-100">
-            <div className="mb-3 flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Progreso general</span>
-              <span className="font-semibold text-primary">
-                {completedCount} de {totalCount}
-              </span>
-            </div>
-            <div className="relative h-3 w-full overflow-hidden rounded-full bg-secondary">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-all duration-700 ease-out"
-                style={{ width: `${progress}%` }}
-              />
-              {/* Shimmer overlay on progress bar */}
-              {progress > 0 && progress < 100 && (
-                <div
-                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"
-                  style={{ width: `${progress}%` }}
-                />
-              )}
-            </div>
-            {/* Percentage label */}
-            <p className="mt-2 text-center text-xs font-medium text-muted-foreground">
-              {progress}% completado
-            </p>
-          </div>
         </div>
 
         {/* Category Groups */}
@@ -368,7 +340,6 @@ export function CategorySelection({
             Puedes completar las secciones en el orden que prefieras. Tu progreso se guarda automaticamente.
           </p>
         </div>
-      </div>
-    </div>
+    </>
   )
 }

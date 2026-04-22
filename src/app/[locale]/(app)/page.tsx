@@ -18,12 +18,5 @@ export default async function HomePage() {
 
   if (!profile) return redirect('/es/login');
 
-  const { data: completedResults } = await supabase
-    .from('section_results')
-    .select('section_id')
-    .eq('user_id', profile.id) as { data: { section_id: number }[] | null };
-
-  const completedSections = completedResults?.map((r) => r.section_id) ?? [];
-
-  return <HomeContent initialProfile={profile} initialCompletedSections={completedSections} />;
+  return <HomeContent initialProfile={profile} />;
 }

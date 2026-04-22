@@ -30,7 +30,16 @@ export async function POST(req: NextRequest) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    return NextResponse.json({ error: 'Contraseña incorrecta' }, { status: 401 });
+    console.error('[login] Supabase error:', error.message, error.status);
+
+    const message =
+      error.message === 'Invalid login credentials'
+        ? 'Contraseña incorrecta'
+        : error.message === 'Email not confirmed'
+          ? 'Necesitás confirmar tu email antes de iniciar sesión. Revisá tu bandeja de entrada.'
+          : error.message;
+
+    return NextResponse.json({ error: message }, { status: 401 });
   }
 
   return response;
