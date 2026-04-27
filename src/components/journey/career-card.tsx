@@ -67,22 +67,87 @@ export function CareerCard({ career, rank, onSelect, variant = "default" }: Care
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1">{career.field}</p>
                 {career.alternativeNames && career.alternativeNames.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5 items-center">
-                    <span className="text-xs text-muted-foreground">También como:</span>
-                    {career.alternativeNames.slice(0, 3).map((name, i) => (
-                      <span
-                        key={i}
-                        className="text-xs px-2 py-0.5 rounded-full border border-border/60 
-                                   text-muted-foreground bg-muted/30"
-                      >
-                        {name}
-                      </span>
-                    ))}
-                    {career.alternativeNames.length > 3 && (
-                      <span className="text-xs text-muted-foreground">
-                        +{career.alternativeNames.length - 3} más
-                      </span>
-                    )}
+                  <div style={{
+                    marginTop: '12px',
+                    padding: '12px 14px',
+                    backgroundColor: 'hsl(var(--muted))',
+                    borderRadius: 'var(--radius)',
+                    border: '0.5px solid hsl(var(--border))'
+                  }}>
+                    <p style={{
+                      fontSize: '11px',
+                      fontWeight: 500,
+                      color: 'hsl(var(--muted-foreground))',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.06em',
+                      marginBottom: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <span style={{
+                        display: 'inline-block',
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        backgroundColor: '#7F77DD',
+                        flexShrink: 0
+                      }} />
+                      También la vas a encontrar como
+                    </p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {career.alternativeNames.slice(0, 4).map((name, i) => {
+                        const palettes = [
+                          { bg: '#EEEDFE', color: '#3C3489', check: '#534AB7' },
+                          { bg: '#E1F5EE', color: '#085041', check: '#0F6E56' },
+                          { bg: '#FAEEDA', color: '#633806', check: '#854F0B' },
+                          { bg: '#FAECE7', color: '#712B13', check: '#993C1D' },
+                        ]
+                        const p = palettes[i % palettes.length]
+                        return (
+                          <span
+                            key={i}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              padding: '4px 10px',
+                              borderRadius: '99px',
+                              fontSize: '12px',
+                              backgroundColor: p.bg,
+                              color: p.color,
+                            }}
+                          >
+                            <span style={{
+                              width: '12px',
+                              height: '12px',
+                              borderRadius: '50%',
+                              backgroundColor: p.check,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}>
+                              <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                <polyline
+                                  points="1.5,4 3.5,6 6.5,2"
+                                  stroke="white"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            </span>
+                            {name}
+                          </span>
+                        )
+                      })}
+                      {career.alternativeNames.length > 4 && (
+                        <span style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', alignSelf: 'center' }}>
+                          +{career.alternativeNames.length - 4} más
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
