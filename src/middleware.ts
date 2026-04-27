@@ -14,8 +14,10 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = /^\/(es|en)\/(login|register|forgot-password)/.test(
     pathname
   );
+  // Preview routes for development (no auth required)
+  const isPreviewRoute = /^\/(es|en)\/preview-/.test(pathname);
   const isProtectedRoute =
-    /^\/(es|en)\//.test(pathname) && !isAuthRoute;
+    /^\/(es|en)\//.test(pathname) && !isAuthRoute && !isPreviewRoute;
 
   // Redirect authenticated users away from auth pages
   if (isAuthRoute && user) {
