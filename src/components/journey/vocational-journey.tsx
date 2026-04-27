@@ -54,11 +54,29 @@ function mapAgentStatus(status: string): "ÓPTIMO" | "ALERTA" | "PELIGRO" {
 }
 
 function transformAgentCareers(agentCareers: AgentCareer[]): Career[] {
+  // Demo data for visual preview - will be ignored when agent returns these fields
+  const demoAlternativeNames: Record<number, { commonName: string; alternativeNames: string[] }> = {
+    0: {
+      commonName: "Física",
+      alternativeNames: ["Licenciatura en Física", "Física y Astronomía", "Ciencias Físicas"]
+    },
+    1: {
+      commonName: "Astronomía",
+      alternativeNames: ["Licenciatura en Astronomía", "Astrofísica", "Física y Astronomía"]
+    },
+    2: {
+      commonName: "Ciencias Ambientales",
+      alternativeNames: ["Ingeniería Ambiental", "Gestión Ambiental", "Ciencias de la Tierra"]
+    },
+  }
+
   return agentCareers.map((c, idx) => ({
     id: idx + 1,
     name: c.name,
     field: c.field,
     matchPercentage: c.matchPercentage,
+    commonName: demoAlternativeNames[idx]?.commonName,
+    alternativeNames: demoAlternativeNames[idx]?.alternativeNames,
     definition: { description: c.lifeGlimpse, purpose: c.detail.problems.purpose },
     competencies: c.detail.problems.competencies,
     academic: {
