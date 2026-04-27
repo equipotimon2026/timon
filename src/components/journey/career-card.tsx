@@ -32,7 +32,7 @@ export function CareerCard({ career, rank, onSelect, variant = "default" }: Care
           </span>
           <div className="flex-1 min-w-0">
             <h3 className="font-medium text-foreground group-hover:text-primary transition-colors truncate">
-              {career.name}
+              {career.commonName ?? career.name}
             </h3>
             <p className="text-sm text-muted-foreground">{career.field}</p>
           </div>
@@ -63,9 +63,28 @@ export function CareerCard({ career, rank, onSelect, variant = "default" }: Care
               </span>
               <div>
                 <h3 className="text-xl md:text-2xl font-serif text-foreground group-hover:text-primary transition-colors">
-                  {career.name}
+                  {career.commonName ?? career.name}
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1">{career.field}</p>
+                {career.alternativeNames && career.alternativeNames.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5 items-center">
+                    <span className="text-xs text-muted-foreground">También como:</span>
+                    {career.alternativeNames.slice(0, 3).map((name, i) => (
+                      <span
+                        key={i}
+                        className="text-xs px-2 py-0.5 rounded-full border border-border/60 
+                                   text-muted-foreground bg-muted/30"
+                      >
+                        {name}
+                      </span>
+                    ))}
+                    {career.alternativeNames.length > 3 && (
+                      <span className="text-xs text-muted-foreground">
+                        +{career.alternativeNames.length - 3} más
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

@@ -12,7 +12,7 @@ import {
   StatusIndicator
 } from "@/components/journey/narrative-blocks"
 import { CareerCard, CareerFitBreakdown } from "@/components/journey/career-card"
-import { ArrowLeft, ExternalLink, Briefcase, GraduationCap, TrendingUp, Clock, AlertTriangle } from "lucide-react"
+import { ArrowLeft, ExternalLink, Briefcase, GraduationCap, TrendingUp, Clock, AlertTriangle, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface ActCarrerasProps {
@@ -197,8 +197,24 @@ function ChapterDetalle({
           </div>
 
           <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif text-foreground leading-tight mb-6">
-            {career.name}
+            {career.commonName ?? career.name}
           </h1>
+
+          {career.alternativeNames && career.alternativeNames.length > 0 && (
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-muted/40 
+                            border border-border/50 mb-6">
+              <Info className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm text-foreground font-medium mb-1">
+                  Esta carrera puede aparecer con distintos nombres según la universidad.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  También la vas a encontrar como:{" "}
+                  {career.alternativeNames.join(" · ")}
+                </p>
+              </div>
+            </div>
+          )}
 
           <p className="text-xl text-muted-foreground leading-relaxed">
             {career.definition.description}
@@ -402,6 +418,12 @@ function ChapterDetalle({
           <p className="text-muted-foreground mb-6">
             El siguiente paso es ver dónde podrías construirlo. Cada universidad ofrece una experiencia diferente del mismo camino.
           </p>
+          {career.alternativeNames && career.alternativeNames.length > 0 && (
+            <p className="text-sm text-muted-foreground italic mb-4">
+              Cuando explores universidades, puede que veas esta carrera con un nombre 
+              distinto — todos llevan al mismo camino.
+            </p>
+          )}
           <CTAButton onClick={onNavigateToUniversidades} size="large">
             Ver dónde estudiar esto
           </CTAButton>

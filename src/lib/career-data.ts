@@ -3,6 +3,8 @@ export interface Career {
   name: string
   field: string
   matchPercentage: number
+  commonName?: string
+  alternativeNames?: string[]
   definition: {
     description: string
     purpose: string
@@ -88,6 +90,13 @@ export const careersData: Career[] = [
     name: "Ingeniería en Sistemas de Información",
     field: "Tecnología",
     matchPercentage: 87,
+    commonName: "Ingeniería en Sistemas",
+    alternativeNames: [
+      "Ingeniería Informática",
+      "Licenciatura en Sistemas",
+      "Ingeniería de Software",
+      "Ingeniería en Computación"
+    ],
     definition: {
       description: "Esta profesión se define como el estudio y aplicación de principios computacionales y algorítmicos para gestionar sistemas de información y arquitecturas de software empresarial.",
       purpose: "La función indispensable de este profesional es resolver la ineficiencia en el procesamiento de datos y la automatización de procesos organizacionales."
@@ -175,6 +184,13 @@ export const careersData: Career[] = [
     name: "Licenciatura en Administración de Empresas",
     field: "Negocios",
     matchPercentage: 85,
+    commonName: "Administración y Negocios",
+    alternativeNames: [
+      "Licenciatura en Negocios",
+      "Dirección de Empresas",
+      "Administración de Empresas",
+      "Gestión de Empresas"
+    ],
     definition: {
       description: "Esta profesión se define como el estudio y aplicación de principios de gestión organizacional y estrategia empresarial para gestionar recursos y procesos corporativos.",
       purpose: "La función indispensable de este profesional es resolver la ineficiencia en la asignación de recursos y la coordinación de equipos de trabajo."
@@ -436,6 +452,13 @@ export const careersData: Career[] = [
     name: "Ciencia de Datos",
     field: "Tecnología & Análisis",
     matchPercentage: 76,
+    commonName: "Ciencia de Datos",
+    alternativeNames: [
+      "Tecnología Digital",
+      "Analítica & Data Science",
+      "Ingeniería de Datos",
+      "Data Analytics"
+    ],
     definition: {
       description: "Esta profesión se define como el estudio y aplicación de métodos estadísticos, matemáticos y computacionales para gestionar la extracción de conocimiento desde grandes volúmenes de datos.",
       purpose: "La función indispensable de este profesional es resolver la incapacidad de las organizaciones para convertir datos en decisiones estratégicas."
