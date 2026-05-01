@@ -16,6 +16,10 @@ import { EstiloVidaForm } from '@/components/assessments/estilo-vida-form';
 import { VisionFuturoForm } from '@/components/assessments/vision-futuro-form';
 import { ArbolGenealogForm } from '@/components/assessments/arbol-genealogico-form';
 import { UniversidadForm } from '@/components/assessments/universidad-form';
+import { VibecheckForm } from '@/components/assessments/vibecheck-form';
+import { VoscolegioForm } from '@/components/assessments/voscolegio-form';
+import { PadresForm } from '@/components/assessments/padres-form';
+import { ProfesionalesForm } from '@/components/assessments/profesionales-form';
 
 const ASSESSMENT_MAP: Record<string, { sectionId: number; Component: any }> = {
   'mips': { sectionId: SECTION_IDS.MILLON, Component: MIPSForm },
@@ -28,14 +32,20 @@ const ASSESSMENT_MAP: Record<string, { sectionId: number; Component: any }> = {
   'vision-futuro': { sectionId: SECTION_IDS.FUTURO, Component: VisionFuturoForm },
   'arbol-genealogico': { sectionId: SECTION_IDS.FAMILIA, Component: ArbolGenealogForm },
   'universidad': { sectionId: SECTION_IDS.UNIVERSIDAD, Component: UniversidadForm },
+  'vibecheck': { sectionId: SECTION_IDS.VIBECHECK, Component: VibecheckForm },
+  'voscolegio': { sectionId: SECTION_IDS.VOSCOLEGIO, Component: VoscolegioForm },
+  'padres': { sectionId: SECTION_IDS.PADRES, Component: PadresForm },
+  'profesionales': { sectionId: SECTION_IDS.PROFESIONALES, Component: ProfesionalesForm },
 };
 
 interface AssessmentWrapperProps {
   assessmentId: string;
   userId: number;
+  /** Optional: called after completion instead of router.push('/') */
+  onDone?: () => void;
 }
 
-export function AssessmentWrapper({ assessmentId, userId }: AssessmentWrapperProps) {
+export function AssessmentWrapper({ assessmentId, userId, onDone }: AssessmentWrapperProps) {
   const router = useRouter();
   const { markCompleted } = useAssessmentStore();
   const [initialResponses, setInitialResponses] = useState<unknown>(null);
@@ -68,11 +78,11 @@ export function AssessmentWrapper({ assessmentId, userId }: AssessmentWrapperPro
 
   const { Component } = assessment;
 
-  const handleSave = async (sid: number, responses: any, meta: Record<string, unknown>) => {
-    const calculator = getCalculatorForSection(sid);
+  const handleSave = async (_sid: number, responses: any, meta: Record<string, unknown>) => {
+    const calculator = getCalculatorForSection(sectionId);
     const scoreData = calculator.calculateScore(responses);
     await saveQuestionnaireResponse({
-      sectionId: sid,
+      sectionId,
       responses,
       scoreData,
       meta,
@@ -83,7 +93,8 @@ export function AssessmentWrapper({ assessmentId, userId }: AssessmentWrapperPro
     if (debounceRef.current) clearTimeout(debounceRef.current);
     await deleteDraft(sectionId).catch(() => {});
     markCompleted(sectionId);
-    router.push('/');
+    if (onDone) onDone();
+    else router.push('/');
   };
 
   if (isLoadingDraft) {

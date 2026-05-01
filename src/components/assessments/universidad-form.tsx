@@ -1,265 +1,319 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { Progress } from "@/components/ui/progress"
-import { Checkbox } from "@/components/ui/checkbox"
-import { ChevronRight, ChevronLeft } from "lucide-react"
+import { cn } from "@/lib/utils"
 
-type QuestionType = "abc" | "yesno" | "number" | "scale" | "text" | "multiselect" | "ranking"
+/* V0 universidad.html — 5-step wizard */
 
-type Question = {
-  id: string; question: string; type: QuestionType; options?: { value: string; label: string }[]; placeholder?: string; min?: number; max?: number
+type State = {
+  costo: string; beca: boolean
+  zona: string; zonaUniv: string; viaje: string; distancia: string
+  examen: string; preparacion: string
+  prestigio: string; valores: string; instalaciones: string
+  podio: Record<string, number> // factorId → position (1-5)
 }
 
-const rankingCategories = [
-  { value: "critico", label: "Critico", color: "bg-red-500" },
-  { value: "importante", label: "Importante", color: "bg-orange-500" },
-  { value: "levemente", label: "Levemente importante", color: "bg-yellow-500" },
-  { value: "indiferente", label: "Indiferente", color: "bg-gray-400" },
+const COSTO_OPTS = [
+  { val: "sinCuota", label: "Sin cuota, gratis", sub: "No podemos ir a una universidad privada" },
+  { val: "cuotaMedia", label: "Cuota media", sub: "Podemos pagar algunas privadas no muy caras, o ir a las caras si nos dan beca" },
+  { val: "cuotaAlta", label: "Cuota alta", sub: "Tenemos la posibilidad de poder pagar casi cualquier universidad" },
 ]
 
-type Block = { id: string; title: string; subtitle: string; questions: Question[] }
-
-const blocks: Block[] = [
-  {
-    id: "economia", title: "Costo y Becas", subtitle: "Factor Economico",
-    questions: [
-      { id: "cuota", question: "En cuanto al contexto economico de tu familia, que tipo de cuota decidieron pagar para tus estudios?", type: "abc", options: [
-        { value: "A", label: "Sin cuota, gratis. No podemos ir a una universidad privada." },
-        { value: "B", label: "Cuota media. Podemos pagar algunas universidades privadas que no sean muy caras, o ir a las caras si nos dan beca." },
-        { value: "C", label: "Cuota alta. Tenemos la posibilidad de poder pagar casi cualquier universidad." },
-      ]},
-      { id: "beca", question: "Esfuerzo extra: En caso de necesitar beca, estoy dispuesto a cumplir con los requisitos academicos (promedio alto, asistencia perfecta) que suelen pedir para mantenerla?", type: "yesno" },
-    ],
-  },
-  {
-    id: "logistica", title: "Ubicacion y Viaje", subtitle: "Factor Logistico",
-    questions: [
-      { id: "lugar_vivienda", question: "Donde vas a vivir en los anos que estudies? (Provincia, barrio)", type: "text", placeholder: "Ej: CABA, Palermo" },
-      { id: "zona", question: "Zona: Donde aceptarias que este ubicada la universidad a la que quieras asistir?", type: "multiselect", options: [
-        { value: "caba_norte", label: "CABA Norte" }, { value: "caba_sur", label: "CABA Sur" }, { value: "caba_centro", label: "CABA Centro" },
-        { value: "zona_norte", label: "Zona Norte GBA" }, { value: "zona_sur", label: "Zona Sur GBA" }, { value: "zona_oeste", label: "Zona Oeste GBA" },
-        { value: "interior", label: "Interior del pais" }, { value: "cualquiera", label: "Me da igual / Cualquier lugar" },
-      ]},
-    ],
-  },
-  {
-    id: "ingreso", title: "Requisitos de Inscripcion", subtitle: "Factor de Ingreso",
-    questions: [
-      { id: "disposicion_ingreso", question: "Disposicion al ingreso: Estoy dispuesto a preparar un examen de ingreso exigente o hacer un curso de nivelacion largo antes de empezar la carrera oficialmente?", type: "yesno" },
-    ],
-  },
-  {
-    id: "identidad", title: "Otros Elementos", subtitle: "Factor Identidad y Extras",
-    questions: [
-      { id: "prestigio", question: "Perfil Institucional: Es importante para mi que la universidad tenga cierto prestigio o reconocimiento social, o priorizo otras cosas?", type: "abc", options: [
-        { value: "A", label: "Si, el prestigio es muy importante para mi" }, { value: "B", label: "Me importa un poco, pero no es lo principal" }, { value: "C", label: "No me importa, priorizo otras cosas" },
-      ]},
-      { id: "valores", question: "Valores: Busco una universidad con una afiliacion religiosa o ideologia especifica, o prefiero un ambiente laico?", type: "abc", options: [
-        { value: "A", label: "Prefiero una universidad con afiliacion religiosa" }, { value: "B", label: "Prefiero un ambiente laico/diverso" }, { value: "C", label: "Me es indiferente" },
-      ]},
-      { id: "entorno", question: "El entorno: Me importa como son las instalaciones (campus, laboratorios, tecnologia) o me da igual mientras el nivel academico sea bueno?", type: "abc", options: [
-        { value: "A", label: "Las instalaciones son muy importantes para mi" }, { value: "B", label: "Me importa un poco, pero priorizo lo academico" }, { value: "C", label: "Me da igual, solo me importa el nivel academico" },
-      ]},
-    ],
-  },
-  {
-    id: "podio", title: "Podio de Prioridades", subtitle: "Ordenar por importancia",
-    questions: [
-      { id: "ranking", question: "Recien discutimos 5 temas. Asignale a cada uno una categoria de importancia:", type: "ranking", options: [
-        { value: "costo", label: "Costo" }, { value: "ubicacion", label: "Ubicacion" }, { value: "tiempo_ingreso", label: "Tiempo extra por examen de ingreso" },
-        { value: "reconocimiento", label: "Reconocimiento institucional y calidad de las instalaciones" }, { value: "afiliacion", label: "Afiliacion religiosa" },
-      ]},
-    ],
-  },
+const YESNO = [
+  [
+    { val: "si", emoji: "💪", label: "Sí", sub: "Me la banco" },
+    { val: "depende", emoji: "🤔", label: "Depende", sub: "De la carrera" },
+    { val: "no", emoji: "😬", label: "No", sub: "Prefiero ingreso directo" },
+  ],
+  [
+    { val: "si", emoji: "📚", label: "Sí", sub: "Puedo prepararme bien" },
+    { val: "masomenos", emoji: "😅", label: "Más o menos", sub: "Algo de tiempo tengo" },
+    { val: "no", emoji: "⏰", label: "No", sub: "El tiempo es limitado" },
+  ],
 ]
 
-interface UniversidadFormProps { userId: number; onComplete: () => void; onSave: (sectionId: number, responses: any, meta: object) => Promise<void>; initialResponses?: any; onResponseChange?: (responses: any) => void }
+const CHIP_GROUPS = [
+  { id: "prestigio", label: "Prestigio", opts: ["Muy importante","Algo importante","No me importa"] },
+  { id: "valores", label: "Valores e ideología", opts: ["Afiliación religiosa","Ambiente laico","Me es indiferente"] },
+  { id: "instalaciones", label: "Instalaciones (campus, laboratorios, tecnología)", opts: ["Me importa mucho","Algo me importa","No es prioritario"] },
+]
 
-export function UniversidadForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: UniversidadFormProps) {
-  const [currentBlock, setCurrentBlock] = useState(0)
-  const [isSaving, setIsSaving] = useState(false)
-  const [answers, setAnswers] = useState<Record<string, string | string[] | Record<string, string>>>(initialResponses ?? {})
+const PODIO_FACTORS = [
+  { id: "costo", emoji: "💰", label: "Costo" },
+  { id: "ubicacion", emoji: "📍", label: "Ubicación" },
+  { id: "ingreso", emoji: "📝", label: "Tiempo de ingreso" },
+  { id: "prestigio", emoji: "✨", label: "Prestigio e instalaciones" },
+  { id: "afiliacion", emoji: "🏛️", label: "Afiliación religiosa o ideológica" },
+]
 
-  useEffect(() => {
-    onResponseChange?.(answers);
-  }, [answers]);
+const RANKS = [
+  { pos: 1, label: "Más importante" },{ pos: 2, label: "Muy importante" },{ pos: 3, label: "Importa" },
+  { pos: 4, label: "Menos clave" },{ pos: 5, label: "Menos importante" },
+]
 
-  const block = blocks[currentBlock]
-  const progress = ((currentBlock + 1) / blocks.length) * 100
+interface Props {
+  userId: number; onComplete: () => void
+  onSave: (sectionId: number, responses: any, meta: object) => Promise<void>
+  initialResponses?: any; onResponseChange?: (responses: any) => void
+}
 
-  const handleAnswer = (questionId: string, value: string) => { setAnswers((prev) => ({ ...prev, [questionId]: value })) }
-  const handleMultiSelect = (questionId: string, value: string) => {
-    setAnswers((prev) => {
-      const current = (prev[questionId] as string[]) || []
-      const newValue = current.includes(value) ? current.filter((v) => v !== value) : [...current, value]
-      return { ...prev, [questionId]: newValue }
-    })
+export function UniversidadForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: Props) {
+  const [step, setStep] = useState(0)
+  const [state, setState] = useState<State>(initialResponses ?? {
+    costo: "", beca: false, zona: "", zonaUniv: "", viaje: "", distancia: "",
+    examen: "", preparacion: "", prestigio: "", valores: "", instalaciones: "", podio: {},
+  })
+  const [saving, setSaving] = useState(false)
+  const [done, setDone] = useState(false)
+  const [selectedFactor, setSelectedFactor] = useState<string | null>(null)
+
+  useEffect(() => { onResponseChange?.(state) }, [state]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const set = (k: keyof State, v: any) => setState((s) => ({ ...s, [k]: v }))
+
+  const stepReady = (i: number) => {
+    if (i === 0) return state.costo !== ""
+    if (i === 1) return state.zona.trim().length > 0
+    if (i === 2) return state.examen !== "" && state.preparacion !== ""
+    if (i === 3) return state.prestigio !== "" && state.valores !== "" && state.instalaciones !== ""
+    if (i === 4) return Object.keys(state.podio).length === 5
+    return false
   }
-  const handleRanking = (questionId: string, itemValue: string, category: string) => {
-    setAnswers((prev) => {
-      const current = (prev[questionId] as Record<string, string>) || {}
-      return { ...prev, [questionId]: { ...current, [itemValue]: category } }
-    })
-  }
 
-  const isBlockComplete = () => {
-    return block.questions.every((q) => {
-      const answer = answers[q.id]
-      if (q.type === "multiselect") return Array.isArray(answer) && answer.length > 0
-      if (q.type === "ranking" && q.options) { const ranking = answer as Record<string, string>; return ranking && q.options.every((opt) => ranking[opt.value]) }
-      return answer && answer !== ""
-    })
-  }
-
-  const isFormCompleteOverall = () => {
-    return blocks.every((b) => {
-      return b.questions.every((q) => {
-        const answer = answers[q.id]
-        if (q.type === "multiselect") return Array.isArray(answer) && answer.length > 0
-        if (q.type === "ranking" && q.options) { const ranking = answer as Record<string, string>; return ranking && q.options.every((opt) => ranking[opt.value]) }
-        return answer && answer !== ""
-      })
-    })
-  }
-
-  const handleSubmit = async () => {
-    if (!isFormCompleteOverall()) return
-    setIsSaving(true)
+  const handleSave = async () => {
+    setSaving(true)
     try {
-      const formattedResponses: any[] = []
-      let questionNumber = 1
-      blocks.forEach(b => {
-        b.questions.forEach(question => {
-          const answer = answers[question.id]
-          if (answer !== undefined && answer !== "") {
-            let formattedAnswer: string
-            if (question.type === "abc" || question.type === "yesno") {
-              if (question.type === "yesno") { formattedAnswer = answer === "si" ? "Si" : "No" }
-              else if (question.options) { const option = question.options.find(opt => opt.value === answer); formattedAnswer = option ? option.label : answer as string }
-              else { formattedAnswer = answer as string }
-            } else if (question.type === "multiselect" && Array.isArray(answer) && question.options) {
-              const labels = answer.map(value => { const option = question.options!.find(opt => opt.value === value); return option ? option.label : value })
-              formattedAnswer = JSON.stringify(labels)
-            } else if (question.type === "ranking" && question.options) {
-              const ranking = answer as Record<string, string>
-              const formattedRanking: Record<string, string> = {}
-              Object.entries(ranking).forEach(([itemValue, category]) => {
-                const option = question.options!.find(opt => opt.value === itemValue)
-                const itemLabel = option ? option.label : itemValue
-                const categoryLabel = rankingCategories.find(cat => cat.value === category)?.label || category
-                formattedRanking[itemLabel] = categoryLabel
-              })
-              formattedAnswer = JSON.stringify(formattedRanking)
-            } else { formattedAnswer = Array.isArray(answer) ? JSON.stringify(answer) : answer as string }
-            formattedResponses.push({ questionNumber, question: question.question, responseText: formattedAnswer })
-            questionNumber++
-          }
-        })
-      })
-      await onSave(0, formattedResponses, { totalBlocks: blocks.length, section: "universidad" })
-      onComplete()
-    } catch (error) {
-      console.error("Error saving responses:", error)
-    } finally {
-      setIsSaving(false)
-    }
+      await onSave(0, [
+        { questionNumber: 1, question: "Costo", responseText: state.costo },
+        { questionNumber: 2, question: "Beca", responseText: state.beca ? "Sí" : "No" },
+        { questionNumber: 3, question: "Zona de vivienda", responseText: state.zona },
+        { questionNumber: 4, question: "Zona universidad", responseText: state.zonaUniv },
+        { questionNumber: 5, question: "Tiempo de viaje", responseText: state.viaje },
+        { questionNumber: 6, question: "Dispuesto a mudarse", responseText: state.distancia },
+        { questionNumber: 7, question: "Examen eliminatorio", responseText: state.examen },
+        { questionNumber: 8, question: "Tiempo de preparación", responseText: state.preparacion },
+        { questionNumber: 9, question: "Prestigio", responseText: state.prestigio },
+        { questionNumber: 10, question: "Valores e ideología", responseText: state.valores },
+        { questionNumber: 11, question: "Instalaciones", responseText: state.instalaciones },
+        { questionNumber: 12, question: "Podio de prioridades", responseText: JSON.stringify(state.podio) },
+      ], { section: "universidad" })
+      setDone(true); setTimeout(() => onComplete(), 1500)
+    } catch (e) { console.error(e) } finally { setSaving(false) }
   }
+
+  const assignToRank = (pos: number) => {
+    if (!selectedFactor) return
+    setState((s) => {
+      const next = { ...s.podio }
+      // Remove factor from current position
+      Object.keys(next).forEach((k) => { if (next[k] === pos) delete next[k] })
+      // Remove this factor from any position
+      delete next[selectedFactor]
+      next[selectedFactor] = pos
+      return { ...s, podio: next }
+    })
+    setSelectedFactor(null)
+  }
+
+  if (done) return (
+    <div style={{ background: "#F9F8F6", minHeight: "100%" }} className="flex flex-col items-center justify-center text-center px-6 py-16">
+      <span className="text-[52px] mb-6">🎓</span>
+      <h2 className="text-[26px] font-bold tracking-tight mb-2" style={{ color: "#1A1918" }}>¡Tu perfil universitario está listo!</h2>
+      <p className="text-[15px]" style={{ color: "#7A7570" }}>Guardamos tus prioridades.</p>
+    </div>
+  )
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <div className="mb-6">
-        <div className="mb-2 flex items-center justify-between text-sm">
-          <span className="font-medium text-foreground">Bloque {currentBlock + 1} de {blocks.length}</span>
-          <span className="text-muted-foreground">{Math.round(progress)}%</span>
+    <div style={{ background: "#F9F8F6", minHeight: "100%" }} className="flex flex-col">
+      <div className="sticky top-0 z-10 border-b" style={{ background: "#F9F8F6", borderColor: "#EDE8E1" }}>
+        <div className="flex items-center justify-between px-5 py-3.5">
+          <span className="text-[15px] font-bold" style={{ color: "#1A1918" }}>Universidad</span>
+          <span className="text-xs" style={{ color: "#B2ADA6" }}>Paso {step + 1} de 5</span>
         </div>
-        <Progress value={progress} className="h-2" />
-      </div>
-
-      <div className="mb-6 text-center">
-        <h2 className="text-2xl font-bold text-foreground">{block.title}</h2>
-        <p className="text-sm text-muted-foreground">{block.subtitle}</p>
-      </div>
-
-      <Card className="p-6">
-        <div className="space-y-6">
-          {block.questions.map((question) => (
-            <div key={question.id} className="space-y-3">
-              <Label className="text-base font-medium">{question.question}</Label>
-
-              {question.type === "abc" && question.options && (
-                <RadioGroup value={(answers[question.id] as string) || ""} onValueChange={(value) => handleAnswer(question.id, value)} className="space-y-2">
-                  {question.options.map((option) => (
-                    <div key={option.value} className="flex items-center space-x-3 rounded-lg border p-3 transition-colors hover:bg-secondary/50">
-                      <RadioGroupItem value={option.value} id={`${question.id}-${option.value}`} />
-                      <Label htmlFor={`${question.id}-${option.value}`} className="flex-1 cursor-pointer text-sm"><span className="font-semibold text-primary">{option.value}.</span> {option.label}</Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              )}
-
-              {question.type === "yesno" && (
-                <RadioGroup value={(answers[question.id] as string) || ""} onValueChange={(value) => handleAnswer(question.id, value)} className="flex gap-4">
-                  <div className="flex items-center space-x-2 rounded-lg border px-4 py-2 transition-colors hover:bg-secondary/50"><RadioGroupItem value="si" id={`${question.id}-si`} /><Label htmlFor={`${question.id}-si`} className="cursor-pointer">Si</Label></div>
-                  <div className="flex items-center space-x-2 rounded-lg border px-4 py-2 transition-colors hover:bg-secondary/50"><RadioGroupItem value="no" id={`${question.id}-no`} /><Label htmlFor={`${question.id}-no`} className="cursor-pointer">No</Label></div>
-                </RadioGroup>
-              )}
-
-              {question.type === "text" && (
-                <Input type="text" placeholder={question.placeholder} value={(answers[question.id] as string) || ""} onChange={(e) => handleAnswer(question.id, e.target.value)} className="max-w-md" />
-              )}
-
-              {question.type === "multiselect" && question.options && (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {question.options.map((option) => {
-                    const selected = ((answers[question.id] as string[]) || []).includes(option.value)
-                    return (
-                      <div key={option.value} className={`flex items-center space-x-3 rounded-lg border p-3 transition-colors cursor-pointer ${selected ? "border-primary bg-primary/10" : "hover:bg-secondary/50"}`} onClick={() => handleMultiSelect(question.id, option.value)}>
-                        <Checkbox checked={selected} onCheckedChange={() => handleMultiSelect(question.id, option.value)} />
-                        <Label className="flex-1 cursor-pointer text-sm">{option.label}</Label>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              {question.type === "ranking" && question.options && (
-                <div className="space-y-4">
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {rankingCategories.map((cat) => (<span key={cat.value} className={`${cat.color} text-white text-xs px-2 py-1 rounded`}>{cat.label}</span>))}
-                  </div>
-                  {question.options.map((option) => {
-                    const ranking = (answers[question.id] as Record<string, string>) || {}
-                    return (
-                      <div key={option.value} className="space-y-2">
-                        <Label className="text-sm font-medium">{option.label}</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {rankingCategories.map((cat) => (
-                            <button key={cat.value} type="button" onClick={() => handleRanking(question.id, option.value, cat.value)}
-                              className={`text-xs px-3 py-2 rounded-lg border transition-colors ${ranking[option.value] === cat.value ? `${cat.color} text-white border-transparent` : "hover:bg-secondary/50"}`}>{cat.label}</button>
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
+        {/* Progress dots */}
+        <div className="flex gap-1.5 px-5 pb-3">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div key={i} className="flex-1 h-[3px] rounded-full transition-colors" style={{ background: i <= step ? "#1A1918" : "#EDE8E1" }} />
           ))}
         </div>
-      </Card>
+      </div>
 
-      <div className="mt-6 flex items-center justify-between">
-        <Button variant="outline" onClick={() => setCurrentBlock((prev) => prev - 1)} disabled={currentBlock === 0}><ChevronLeft className="mr-2 h-4 w-4" />Anterior</Button>
-        {currentBlock < blocks.length - 1 ? (
-          <Button onClick={() => setCurrentBlock((prev) => prev + 1)} disabled={!isBlockComplete()}>Siguiente<ChevronRight className="ml-2 h-4 w-4" /></Button>
+      <div className="flex-1 px-4 pt-6 pb-24 max-w-[960px] mx-auto w-full lg:px-12">
+        {/* Step 0: Costo */}
+        {step === 0 && (
+          <div className="space-y-4">
+            <div className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: "#B2ADA6" }}>Paso 1 de 5</div>
+            <h2 className="text-[26px] font-bold" style={{ color: "#1A1918" }}>Costo</h2>
+            <p className="text-sm" style={{ color: "#7A7570" }}>¿Qué tipo de cuota decidieron pagar para tus estudios?</p>
+            <div className="space-y-3 mt-4">
+              {COSTO_OPTS.map((o) => (
+                <button key={o.val} onClick={() => set("costo", o.val)}
+                  className="w-full flex items-center gap-3 px-[18px] py-4 rounded-[14px] border-2 text-left transition-all"
+                  style={{ borderColor: state.costo === o.val ? "#1A1918" : "#EDE8E1", background: state.costo === o.val ? "#F5F3F0" : "white" }}>
+                  <div className="w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0"
+                    style={{ borderColor: state.costo === o.val ? "#1A1918" : "#EDE8E1" }}>
+                    {state.costo === o.val && <div className="w-2 h-2 rounded-full bg-[#1A1918]" />}
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold" style={{ color: "#1A1918" }}>{o.label}</div>
+                    <div className="text-xs" style={{ color: "#7A7570" }}>{o.sub}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center justify-between mt-4 px-1">
+              <span className="text-sm" style={{ color: "#7A7570" }}>¿Dispuesto/a a cumplir requisitos de beca?</span>
+              <button onClick={() => set("beca", !state.beca)}
+                className="w-[44px] h-[26px] rounded-full transition-colors relative" style={{ background: state.beca ? "#1A1918" : "#EDE8E1" }}>
+                <div className="w-[22px] h-[22px] rounded-full bg-white absolute top-[2px] transition-all" style={{ left: state.beca ? "20px" : "2px" }} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 1: Ubicación */}
+        {step === 1 && (
+          <div className="space-y-4">
+            <div className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: "#B2ADA6" }}>Paso 2 de 5</div>
+            <h2 className="text-[26px] font-bold" style={{ color: "#1A1918" }}>Ubicación y Viaje</h2>
+            {[
+              { key: "zona" as const, label: "¿Dónde vas a vivir mientras estudiás?", ph: "Ej: CABA, Palermo / Rosario..." },
+              { key: "zonaUniv" as const, label: "¿Dónde aceptarías que esté la universidad?", ph: "Ej: CABA, zona norte, cualquier lugar..." },
+              { key: "viaje" as const, label: "¿Cuánto tiempo de viaje aceptás?", ph: "Ej: hasta 1 hora, no me importa..." },
+              { key: "distancia" as const, label: "¿Dispuesto/a a mudarte si fuera necesario?", ph: "Ej: Sí / Tal vez / No" },
+            ].map((f) => (
+              <div key={f.key} className="space-y-1">
+                <label className="text-sm font-semibold" style={{ color: "#1A1918" }}>{f.label}</label>
+                <input type="text" value={state[f.key]} onChange={(e) => set(f.key, e.target.value)} placeholder={f.ph}
+                  className="w-full px-4 py-3.5 rounded-xl border text-sm outline-none transition-colors"
+                  style={{ borderColor: "#EDE8E1", color: "#1A1918", fontFamily: "inherit" }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "#1A1918" }} onBlur={(e) => { e.currentTarget.style.borderColor = "#EDE8E1" }} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Step 2: Requisitos */}
+        {step === 2 && (
+          <div className="space-y-6">
+            <div className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: "#B2ADA6" }}>Paso 3 de 5</div>
+            <h2 className="text-[26px] font-bold" style={{ color: "#1A1918" }}>Requisitos de Inscripción</h2>
+            {YESNO.map((group, gi) => (
+              <div key={gi} className="space-y-2">
+                <p className="text-sm font-semibold" style={{ color: "#1A1918" }}>
+                  {gi === 0 ? "¿Dispuesto/a a rendir un examen eliminatorio?" : "¿Tenés tiempo para prepararte antes de entrar?"}
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  {group.map((o) => {
+                    const selected = gi === 0 ? state.examen === o.val : state.preparacion === o.val
+                    return (
+                      <button key={o.val} onClick={() => set(gi === 0 ? "examen" : "preparacion", o.val)}
+                        className={cn("flex flex-col items-center py-5 px-3 rounded-[14px] border-2 transition-all hover:-translate-y-0.5",
+                          selected ? "border-[#1A1918] bg-[#F5F3F0]" : "border-[#EDE8E1] bg-white")}>
+                        <span className="text-[30px] mb-2">{o.emoji}</span>
+                        <span className="text-lg font-bold" style={{ color: "#1A1918" }}>{o.label}</span>
+                        <span className="text-[11.5px]" style={{ color: "#7A7570" }}>{o.sub}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Step 3: Perfil Institucional */}
+        {step === 3 && (
+          <div className="space-y-5">
+            <div className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: "#B2ADA6" }}>Paso 4 de 5</div>
+            <h2 className="text-[26px] font-bold" style={{ color: "#1A1918" }}>Perfil Institucional</h2>
+            <p className="text-sm" style={{ color: "#7A7570" }}>¿Qué priorizás en la institución?</p>
+            {CHIP_GROUPS.map((g) => (
+              <div key={g.id} className="space-y-2">
+                <label className="text-sm font-semibold" style={{ color: "#1A1918" }}>{g.label}</label>
+                <div className="flex flex-wrap gap-2">
+                  {g.opts.map((o) => {
+                    const on = state[g.id as keyof State] === o
+                    return (
+                      <button key={o} onClick={() => set(g.id as keyof State, o)}
+                        className="px-[15px] py-[8px] rounded-full border text-[13px] font-medium transition-all active:scale-[0.96]"
+                        style={{ background: on ? "#1A1918" : "white", color: on ? "white" : "#1A1918", borderColor: on ? "#1A1918" : "#EDE8E1" }}>
+                        {o}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Step 4: Podio */}
+        {step === 4 && (
+          <div className="space-y-5">
+            <div className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: "#B2ADA6" }}>Paso 5 de 5</div>
+            <h2 className="text-[26px] font-bold" style={{ color: "#1A1918" }}>Armá tu Podio</h2>
+            <p className="text-sm" style={{ color: "#7A7570" }}>Tocá un factor, luego tocá la posición donde querés colocarlo.</p>
+
+            {/* Source factors */}
+            <div className="flex flex-wrap gap-2">
+              {PODIO_FACTORS.filter((f) => !(f.id in state.podio)).map((f) => (
+                <button key={f.id} onClick={() => setSelectedFactor(f.id)}
+                  className={cn("px-3 py-2 rounded-xl border text-sm font-medium transition-all",
+                    selectedFactor === f.id ? "border-[#1A1918] bg-[#F5F3F0]" : "border-[#EDE8E1] bg-white")}>
+                  {f.emoji} {f.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Rank zones */}
+            <div className="grid grid-cols-2 gap-3">
+              {RANKS.map((rank) => {
+                const placed = PODIO_FACTORS.find((f) => state.podio[f.id] === rank.pos)
+                return (
+                  <button key={rank.pos} onClick={() => assignToRank(rank.pos)}
+                    className={cn("rounded-[14px] border-2 border-dashed p-4 text-left transition-all min-h-[80px]",
+                      selectedFactor ? "border-[#1A1918] bg-[#FAFAF8] cursor-pointer" : "border-[#EDE8E1]",
+                      rank.pos === 5 && "col-span-2")}
+                    style={{ borderStyle: placed ? "solid" : "dashed" }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg font-bold" style={{ color: "#1A1918" }}>{rank.pos}°</span>
+                      <span className="text-xs" style={{ color: "#7A7570" }}>{rank.label}</span>
+                    </div>
+                    {placed && (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className="px-2.5 py-1 rounded-lg text-xs font-medium" style={{ background: "#F5F3F0", color: "#1A1918" }}>
+                          {placed.emoji} {placed.label}
+                        </span>
+                        <button onClick={(e) => { e.stopPropagation(); setState((s) => { const p = { ...s.podio }; delete p[placed.id]; return { ...s, podio: p } }) }}
+                          className="text-xs px-1.5 py-0.5 rounded text-[#7A7570] hover:text-[#1A1918]">✕</button>
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="sticky bottom-0 z-10 px-4 pb-7 pt-3 flex items-center justify-between lg:px-12" style={{ background: "linear-gradient(transparent, #F9F8F6 40%)" }}>
+        <button onClick={() => setStep((s) => s - 1)} disabled={step === 0}
+          className="px-5 py-3 rounded-[14px] border text-sm font-semibold transition-opacity disabled:opacity-0"
+          style={{ borderColor: "#EDE8E1", color: "#7A7570" }}>← Atrás</button>
+        {step < 4 ? (
+          <button onClick={() => setStep((s) => s + 1)} disabled={!stepReady(step)}
+            className={cn("px-8 py-3.5 rounded-[14px] text-[15px] font-bold text-white transition-all",
+              stepReady(step) ? "hover:opacity-[0.88]" : "opacity-35 pointer-events-none")} style={{ background: "#1A1918" }}>
+            Siguiente
+          </button>
         ) : (
-          <Button onClick={handleSubmit} disabled={!isBlockComplete() || isSaving}>{isSaving ? "Guardando..." : "Guardar y Finalizar"}</Button>
+          <button onClick={handleSave} disabled={!stepReady(4) || saving}
+            className={cn("px-8 py-3.5 rounded-[14px] text-[15px] font-bold text-white transition-all",
+              stepReady(4) ? "hover:opacity-[0.88]" : "opacity-35 pointer-events-none")} style={{ background: "#1A1918" }}>
+            {saving ? "Guardando..." : "Terminar y guardar"}
+          </button>
         )}
       </div>
     </div>

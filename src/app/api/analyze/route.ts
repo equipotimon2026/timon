@@ -20,6 +20,10 @@ const SECTION_NAMES: Record<number, { key: string; name: string }> = {
   [SECTION_IDS.FUTURO]: { key: 'FUTURO', name: 'Visión Futuro' },
   [SECTION_IDS.FAMILIA]: { key: 'FAMILIA', name: 'Árbol Genealógico' },
   [SECTION_IDS.UNIVERSIDAD]: { key: 'UNIVERSIDAD', name: 'Universidad' },
+  [SECTION_IDS.VIBECHECK]: { key: 'VIBECHECK', name: 'Identificación de Perfil' },
+  [SECTION_IDS.VOSCOLEGIO]: { key: 'VOSCOLEGIO', name: 'Vos y el Colegio' },
+  [SECTION_IDS.PADRES]: { key: 'PADRES', name: 'Perspectiva Familiar' },
+  [SECTION_IDS.PROFESIONALES]: { key: 'PROFESIONALES', name: 'Hablemos con Profesionales' },
 };
 
 function getResponseType(row: {

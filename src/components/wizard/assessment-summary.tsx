@@ -3,29 +3,19 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, Sparkles } from 'lucide-react';
+import { CheckCircle2, Circle, Sparkles } from 'lucide-react';
 import { LoadingScreen } from './loading-screen';
-
-const ASSESSMENT_LABELS = [
-  { title: 'Personalidad y Estilos', subtitle: 'MIPS - MILLON' },
-  { title: 'Intereses y Aptitudes', subtitle: 'RIASEC - HOLLAND' },
-  { title: 'Dominancia Cerebral', subtitle: 'NED HERRMANN' },
-  { title: 'Inteligencias Múltiples', subtitle: 'GARDNER' },
-  { title: 'Técnicas Proyectivas', subtitle: 'FRASES INCOMPLETAS' },
-  { title: 'Auto-descubrimiento', subtitle: 'ESTILOS Y TALENTOS' },
-  { title: 'Estilo de Vida', subtitle: 'PREFERENCIAS LABORALES' },
-  { title: 'Visión y Proyección a Futuro', subtitle: 'TOOLKIT DE PROYECCIÓN' },
-  { title: 'Árbol Genealógico', subtitle: 'CONTEXTO FAMILIAR' },
-  { title: 'Elección de Universidad', subtitle: 'FACTORES DE DECISIÓN' },
-];
+import { JOURNEY_STEPS_CONFIG } from '@/components/journey-path';
 
 interface AssessmentSummaryProps {
   onResultsReceived: (data: unknown) => void;
   assessmentId?: string | null;
   assessmentStatus?: string | null;
+  completedSectionIds?: number[];
 }
 
-export function AssessmentSummary({ onResultsReceived, assessmentId, assessmentStatus }: AssessmentSummaryProps) {
+export function AssessmentSummary({ onResultsReceived, assessmentId, assessmentStatus, completedSectionIds = [] }: AssessmentSummaryProps) {
+  const completedSet = new Set(completedSectionIds);
   const hasExistingAssessment = !!assessmentStatus && assessmentStatus !== 'failed';
   const [state, setState] = useState<'idle' | 'loading' | 'polling' | 'error'>(
     assessmentId ? 'polling' : 'idle'
@@ -160,22 +150,33 @@ export function AssessmentSummary({ onResultsReceived, assessmentId, assessmentS
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {ASSESSMENT_LABELS.map((assessment, i) => (
-          <Card
-            key={i}
-            className="flex items-center gap-3 border-accent/20 bg-accent/5 p-4"
-          >
-            <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-accent" />
-            <div>
-              <p className="text-sm font-semibold text-foreground">
-                {assessment.title}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {assessment.subtitle}
-              </p>
-            </div>
-          </Card>
-        ))}
+        {JOURNEY_STEPS_CONFIG.map((step) => {
+          const isDone = step.sectionId !== null && completedSet.has(step.sectionId);
+          return (
+            <Card
+              key={step.id}
+              className={`flex items-center gap-3 p-4 ${
+                isDone
+                  ? 'border-accent/20 bg-accent/5'
+                  : 'border-border bg-muted/30'
+              }`}
+            >
+              {isDone ? (
+                <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-accent" />
+              ) : (
+                <Circle className="h-5 w-5 flex-shrink-0 text-muted-foreground/40" />
+              )}
+              <div>
+                <p className={`text-sm font-semibold ${isDone ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {step.title}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {step.subtitle}
+                </p>
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
       {state === 'error' && (

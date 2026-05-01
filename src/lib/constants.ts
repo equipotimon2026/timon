@@ -11,6 +11,10 @@ export const SECTION_IDS = {
   FUTURO: 10,
   FAMILIA: 11,
   UNIVERSIDAD: 12,
+  VIBECHECK: 13,
+  VOSCOLEGIO: 14,
+  PADRES: 15,
+  PROFESIONALES: 16,
 } as const;
 
 export type SectionCode = keyof typeof SECTION_IDS;

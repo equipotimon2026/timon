@@ -1,0 +1,1289 @@
+{
+  "meta": {
+    "source": "timon-push-main (V0 prototype)",
+    "extractedAt": "2026-04-30",
+    "totalModules": 13,
+    "note": "All data was hardcoded in HTML/JS files. No API or database."
+  },
+  "modules": [
+    {
+      "id": "vibecheck",
+      "order": 1,
+      "title": "¿Con quién te sentís identificado/a?",
+      "subtitle": "Conocé experiencias de personas en tu misma situación.",
+      "color": { "accent": "#10B981", "bg": "#ECFDF5", "glow": "rgba(16,185,129,.15)" },
+      "storageKeys": ["vibecheck_persona", "vibecheck_done", "vibecheck_answer", "vibecheck_data"],
+      "type": "persona-selection",
+      "questions": [
+        {
+          "id": "persona_select",
+          "text": "¿Con quién te sentís identificado/a?",
+          "type": "single-card-select",
+          "options": [
+            {
+              "id": "desorientado",
+              "name": "Julián Cortés",
+              "label": "El Desorientado",
+              "emoji": "🧭",
+              "summary": "No sabe qué quiere ni por dónde arrancar.",
+              "followUp": {
+                "text": "¿Cuál dirías que es tu mayor miedo hoy a la hora de pensar en el futuro, o qué es lo primero que necesitás que te ayuden a destrabar?",
+                "type": "textarea",
+                "minLength": 50
+              }
+            },
+            {
+              "id": "multipotencial",
+              "name": "Sofía Herrera",
+              "label": "La Multipotencial",
+              "emoji": "⚡",
+              "summary": "Le va bien en todo y no puede elegir uno.",
+              "followUp": {
+                "text": "¿Cuáles son esos dos o tres intereses o hobbies tuyos que parecen no tener nada que ver entre sí, pero que en el fondo te encantaría combinar?",
+                "type": "textarea",
+                "minLength": 50
+              }
+            },
+            {
+              "id": "detallista",
+              "name": "Martín Navarro",
+              "label": "El Detallista",
+              "emoji": "🔍",
+              "summary": "Ya filtró el área pero no puede desempatar opciones.",
+              "followUp": {
+                "text": "¿Cuáles son exactamente esas dos o tres carreras que tenés en mente y que hoy necesitás desempatar con urgencia?",
+                "type": "textarea",
+                "minLength": 50
+              }
+            },
+            {
+              "id": "desconectada",
+              "name": "Valentina Rojas",
+              "label": "La Desconectada",
+              "emoji": "💻",
+              "summary": "Sus talentos reales no encajan en el sistema educativo.",
+              "followUp": {
+                "text": "¿Cuál es esa habilidad, tema o proyecto fuera del colegio en el que sabés que le ponés garra y te gustaría descubrir si tiene salida en el mundo real?",
+                "type": "textarea",
+                "minLength": 50
+              }
+            },
+            {
+              "id": "convencido",
+              "name": "Lucas Benítez",
+              "label": "El Convencido",
+              "emoji": "🎯",
+              "summary": "Ya lo tiene decidido y solo busca confirmación externa.",
+              "followUp": {
+                "text": "¿Cuál es esa carrera que ya elegiste y qué duda puntual necesitás que te respondan hoy para irte 100% tranquilo?",
+                "type": "textarea",
+                "minLength": 50
+              }
+            },
+            {
+              "id": "confirmada",
+              "name": "Camila Silva",
+              "label": "La Confirmada",
+              "emoji": "🚀",
+              "summary": "Sabe qué quiere, ahora optimiza el cómo y el dónde.",
+              "followUp": {
+                "text": "¿Qué carrera elegiste y qué dato duro necesitás comparar ahora mismo —universidades, especializaciones o proyección— para armar tu plan?",
+                "type": "textarea",
+                "minLength": 50
+              }
+            },
+            {
+              "id": "tiburon",
+              "name": "Tomás Quiroga",
+              "label": "El Tiburón",
+              "emoji": "📈",
+              "summary": "Ve la carrera como inversión pura, solo le importa la rentabilidad.",
+              "followUp": {
+                "text": "¿Tenés algún rubro en la mira, o querés ver directamente cuáles son las áreas con mejores sueldos y proyección hoy en día?",
+                "type": "textarea",
+                "minLength": 50
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "voscolegio",
+      "order": 2,
+      "title": "Vos y el colegio",
+      "subtitle": "Tu historia dentro del sistema educativo.",
+      "color": { "accent": "#F59E0B", "bg": "#FFFBEB", "glow": "rgba(245,158,11,.15)" },
+      "storageKeys": ["voscolegio_done", "voscolegio_data"],
+      "type": "mixed",
+      "questions": [
+        {
+          "id": "quemado",
+          "text": "Del 1 al 10, ¿qué tan quemado/a te tiene la típica pregunta de '¿y vos qué vas a estudiar/hacer de tu vida?' en las reuniones familiares?",
+          "type": "slider",
+          "min": 1,
+          "max": 10,
+          "minLabel": "1 · Me chupa un huevo",
+          "maxLabel": "10 · Me quiero ir del país"
+        },
+        {
+          "id": "contenido",
+          "text": "Cuando abrís YouTube, TikTok o Instagram y te perdés mirando algo por horas sin darte cuenta del tiempo... ¿de qué trata ese contenido?",
+          "type": "textarea",
+          "hint": "Pueden ser varios temas. Sé específico/a — no 'entretenimiento' sino qué tipo.",
+          "placeholder": "Ej: tutoriales de diseño 3D, partidas de League of Legends, videos de cocina rara, true crime...",
+          "minLength": 3
+        },
+        {
+          "id": "materias",
+          "text": "Materias",
+          "type": "subject-rating",
+          "minRequired": 10,
+          "ratingOptions": [
+            { "value": "megusta", "label": "Me gusta", "color": "#85B882" },
+            { "value": "indiferente", "label": "Indiferente", "color": "#B2ADA6" },
+            { "value": "nomegusta", "label": "No me gusta", "color": "#E07070" }
+          ],
+          "subjects": [
+            "Matemática",
+            "Lengua y Literatura",
+            "Historia",
+            "Geografía",
+            "Biología",
+            "Física",
+            "Química",
+            "Inglés",
+            "Educación Física",
+            "Formación Ética y Ciudadana",
+            "Filosofía",
+            "Economía / Economía Política",
+            "Contabilidad / Administración",
+            "Informática / Tecnología",
+            "Arte / Educación Artística",
+            "Música",
+            "Construcción de Ciudadanía / Sociales"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "familia",
+      "order": 3,
+      "title": "Contexto Familiar",
+      "subtitle": "Tu árbol familiar y el entorno que te formó.",
+      "color": { "accent": "#EC4899", "bg": "#FDF2F8", "glow": "rgba(236,72,153,.15)" },
+      "storageKeys": ["familia_data"],
+      "type": "form",
+      "questions": [
+        { "id": "q1", "text": "¿A qué se dedican o se dedicaron las personas adultas más influyentes de tu entorno?", "type": "textarea" },
+        { "id": "q2", "text": "¿Hay alguien en tu familia o entorno cercano cuyo recorrido laboral admires? ¿Quién y por qué?", "type": "textarea" },
+        { "id": "q3", "text": "¿Hay algún recorrido laboral o forma de vida que no quisieras repetir? ¿Cuál y por qué?", "type": "textarea" },
+        { "id": "q4", "text": "En tu casa, ¿qué se valora más?", "type": "textarea" },
+        { "id": "q5", "text": "¿Sentís que hay expectativas sobre lo que deberías estudiar o hacer? ¿Cuáles?", "type": "textarea" },
+        {
+          "id": "apoyo",
+          "text": "¿Te sentís apoyado/a para elegir por vos mismo/a?",
+          "type": "single-chip",
+          "options": ["Sí", "Más o menos", "No"]
+        },
+        {
+          "id": "entorno",
+          "text": "Cuando hablás de tu futuro con tu entorno, ¿qué pasa generalmente?",
+          "type": "single-chip",
+          "options": [
+            "Me escuchan y acompañan",
+            "Me orientan bastante",
+            "Me presionan",
+            "Casi no se habla del tema"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "padres",
+      "order": 4,
+      "title": "Perspectiva Familiar",
+      "subtitle": "Para que lo complete un padre, tutor o familiar cercano.",
+      "color": { "accent": "#D97706", "bg": "#FFFBEB", "glow": "rgba(217,119,6,.15)" },
+      "storageKeys": ["padres_data"],
+      "type": "chatbot",
+      "sections": [
+        {
+          "id": "sobre_vos",
+          "title": "Sobre vos",
+          "questions": [
+            { "id": "p1", "text": "¿Cuál es tu nombre y apellido, tu edad y tu ocupación actual?", "type": "text", "minLength": 5, "placeholder": "Nombre, edad y ocupación..." },
+            { "id": "p2", "text": "¿Te sentís satisfecho/a con tu ocupación actual?", "type": "text", "minLength": 50 },
+            {
+              "id": "p3",
+              "text": "¿Comenzaste y abandonaste alguna carrera en algún momento?",
+              "type": "options",
+              "options": ["Sí", "No"],
+              "branches": {
+                "Sí": { "id": "p4a", "text": "¿Cuál fue esa carrera y qué pasó? Contanos un poco más.", "type": "text", "minLength": 50 },
+                "No": { "id": "p4b", "text": "¿Te hubiese gustado realizar otra actividad o estudiar otra carrera? ¿Cuál? ¿Recordás por qué no lo hiciste?", "type": "text", "minLength": 50 }
+              }
+            },
+            { "id": "p5", "text": "¿Cuáles son las profesiones y ocupaciones que más valorás hoy en día?", "type": "text", "minLength": 50 },
+            { "id": "p6", "text": "¿Creés que hay carreras con mayor salida laboral actualmente? ¿Cuáles sí y cuáles menos?", "type": "text", "minLength": 50 }
+          ]
+        },
+        {
+          "id": "sobre_estudiante",
+          "title": "Sobre el/la estudiante",
+          "questions": [
+            { "id": "p7", "text": "¿Hay alguna ocupación o profesión particular que te gustaría ver en [estudiante]? ¿Cuál y por qué?", "type": "text", "minLength": 50 },
+            { "id": "p8", "text": "¿Qué habilidades o cualidades destacarías en [estudiante]? ¿Qué aspectos crees que debería trabajar en lo personal?", "type": "text", "minLength": 50 },
+            { "id": "p9", "text": "¿Cómo ves la posibilidad de que [estudiante] empiece a trabajar en lugar de estudiar?", "type": "text", "minLength": 50 },
+            { "id": "p10", "text": "Para terminar, ¿hay algo más que quieras agregar? Cualquier comentario que sientas que puede ser útil.", "type": "text", "minLength": 50 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dominancia",
+      "order": 5,
+      "title": "Dominancia",
+      "subtitle": "Cómo pensás, aprendés y tomás decisiones.",
+      "color": { "accent": "#6366F1", "bg": "#EEF2FF", "glow": "rgba(99,102,241,.15)" },
+      "storageKeys": ["dominancia_data"],
+      "type": "multi-section",
+      "sections": [
+        {
+          "id": "section_1",
+          "title": "¿Qué te energiza más al estudiar o trabajar?",
+          "type": "multi-chip",
+          "maxSelect": 3,
+          "options": [
+            "Trabajar solo", "Oportunidades para probar cosas nuevas", "Expresar mis ideas", "Planificar",
+            "Tener el control de la situación", "Trabajar comunicándome con otros", "Provocar cambios",
+            "Hacer que algo funcione", "Explicar y conversar", "Arriesgarse", "Crear o usar recursos visuales",
+            "Analizar datos", "Prestarle atención a los detalles", "Pensar escenarios futuros", "Aspectos técnicos",
+            "Producir y organizar", "Trabajar con personas", "Ser parte de un equipo", "Usar números, estadísticas",
+            "Realizar las tareas siempre en el plazo previsto"
+          ]
+        },
+        {
+          "id": "section_2",
+          "title": "Cuando aprendés, ¿qué te gusta más?",
+          "type": "multi-chip",
+          "maxSelect": 3,
+          "options": [
+            "Evaluar y testar teorías", "Recibir informaciones paso a paso", "Trabajar con hechos y datos",
+            "Tomar iniciativas", "Oír y compartir ideas", "Elaborar teorías", "Usar mi imaginación",
+            "Involucrarme emocionalmente", "Aplicar análisis y lógica", "Trabajar en grupo", "Un ambiente bien informal",
+            "Orientaciones claras", "Verificar mi comprensión", "Descubrir cosas nuevas", "Hacer experiencias prácticas",
+            "Criticar", "Pensar sobre las ideas", "Ver rápido el panorama general", "Confiar en las intuiciones",
+            "Adquirir habilidades por la práctica"
+          ]
+        },
+        {
+          "id": "section_3",
+          "title": "¿Cómo preferís aprender?",
+          "type": "multi-chip",
+          "maxSelect": 3,
+          "options": [
+            "Demostraciones", "Utilizando historias y música", "Debates guiados",
+            "Discusiones de casos orientados hacia los números y hechos",
+            "Actividades paso a paso", "Ejercicios que usan la intuición", "Clases formales",
+            "Métodos tradicionales comprobados", "Lectura de libros-textos", "Ejercicios de análisis",
+            "Experiencias", "Agenda flexible", "Discusiones de casos orientados hacia las personas",
+            "Actividades paso a paso con orden claro", "Trabajos con estructura clara"
+          ]
+        },
+        {
+          "id": "section_4",
+          "title": "¿Cuál es la pregunta que más te gusta hacer?",
+          "type": "single-chip",
+          "options": ["¿Qué?", "¿Cómo?", "¿Por qué?", "¿Quién?"]
+        },
+        {
+          "id": "section_5",
+          "title": "¿Qué te gusta más hacer?",
+          "type": "multi-chip",
+          "maxSelect": 2,
+          "options": [
+            "Descubrir", "Teorizar", "Cuantificar", "Resumir", "Agrupar", "Evaluar",
+            "Organizar", "Reflexionar", "Conceptuar", "Procesar", "Analizar", "Ordenar",
+            "Sentir", "Explorar", "Practicar", "Compartir"
+          ]
+        },
+        {
+          "id": "section_6",
+          "title": "¿Cómo definís tu comportamiento?",
+          "type": "single-chip",
+          "options": ["Me gusta Organizar", "Me gusta Compartir", "Me gusta Analizar", "Me gusta Descubrir"]
+        },
+        {
+          "id": "section_7",
+          "title": "Cuando tengo que resolver un problema, generalmente yo...",
+          "type": "single-chip",
+          "options": [
+            "Miro el panorama completo y confío en lo que me dice mi instinto para encontrar la solución.",
+            "Organizo los \"hechos\" tratándolos de forma realista y cronológica.",
+            "Siento los \"hechos\" y pienso en cómo nos afecta a todos, tratando de resolverlo compartiendo lo que sentimos.",
+            "Analizo los \"hechos\" tratándolos de forma lógica y racional."
+          ]
+        },
+        {
+          "id": "section_8",
+          "title": "Cuando tengo que resolver un problema, busco...",
+          "type": "single-chip",
+          "options": [
+            "Una visión interpersonal, emocional, \"humana\".",
+            "Una visión organizada, detallada, \"cronológica\".",
+            "Una visión analítica, lógica, racional, \"de resultados\".",
+            "Una visión intuitiva, conceptual, visual, de \"contexto general\"."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "riasec",
+      "order": 6,
+      "title": "RIASEC Holland",
+      "subtitle": "Tu perfil vocacional con el test de Holland.",
+      "color": { "accent": "#0EA5E9", "bg": "#E0F2FE", "glow": "rgba(14,165,233,.15)" },
+      "storageKeys": ["riasec_data"],
+      "type": "riasec-test",
+      "types": {
+        "R": { "label": "Realista", "color": "#C87828" },
+        "I": { "label": "Investigador", "color": "#2E78C8" },
+        "A": { "label": "Artístico", "color": "#A83080" },
+        "S": { "label": "Social", "color": "#248850" },
+        "E": { "label": "Emprendedor", "color": "#C02828" },
+        "C": { "label": "Convencional", "color": "#6048A8" }
+      },
+      "sections": [
+        {
+          "id": "personalidad",
+          "title": "Características de Personalidad",
+          "instruction": "Marcá las que sentís que te describen.",
+          "type": "multi-chip-by-type",
+          "items": {
+            "R": ["Dinámico", "Concreto", "Conservador", "Franco", "Independiente", "Persistente", "Práctico", "Bien coordinado", "Rígido", "Fuerte", "Ahorrador", "Tradicional", "Individualista"],
+            "I": ["Original", "Metódico", "Explorador", "Independiente", "Investigador", "Intelectual", "Lógico", "Observador", "Racional", "Curioso", "Reservado", "Preciso", "Investigativo"],
+            "A": ["Soñador", "Informal", "Emocional", "Impulsivo", "Imaginativo", "Original", "Espontáneo", "No conformista", "Expresivo", "Independiente", "Práctico", "Sensible", "Creativo"],
+            "S": ["Cálido", "Sensible", "Cooperativo", "Honesto", "Amigable", "Generoso", "Responsable", "Genuino", "Perceptivo", "Sociable", "Comprensivo", "Soñador", "Prudente"],
+            "E": ["Aventurero", "Dinámico", "Dominante", "Popular", "Seguro de sí", "Sociable", "Curioso", "Extrovertido", "Optimista", "Colaborador", "Persuasivo", "Decidido", "Competitivo"],
+            "C": ["Preciso", "Ordenado", "Cuidadoso", "Organizado", "Conformista", "Conservador", "Eficiente", "Prudente", "Detallista", "Responsable", "Práctico", "Predecible", "Callado"]
+          }
+        },
+        {
+          "id": "habilidades",
+          "title": "Habilidades",
+          "instruction": "Marcá las habilidades que reconocés en vos.",
+          "type": "multi-chip-by-type",
+          "items": {
+            "R": ["Mecánica", "Atlética", "Manual", "Precisión", "Practicidad", "Estabilidad", "Analítica", "Crítica", "Uso del cuerpo", "Espacial"],
+            "I": ["Analítica", "Abstracta", "Matemática", "Científica", "Verbal", "Resolutiva", "Metódica", "Observación", "Paciencia", "Investigación"],
+            "A": ["Creativa", "Expresiva", "Intuitiva", "Introspectiva", "Musical", "Diseño", "Espacial", "Imaginación", "Detalle", "Innovación"],
+            "S": ["Enseñanza", "Comprensión", "Escucha", "Ayuda al otro", "Comunicación", "Imaginación", "Responsabilidad", "Mediador", "Persuasión", "Astucia"],
+            "E": ["Persuasión", "Responsabilidad", "Liderazgo", "Comunicación", "Expresión oral", "Organización", "Objetividad", "Practicidad", "Tolerancia", "Ambición"],
+            "C": ["Cálculo", "Finanzas", "Prolijidad", "Planificación", "Método", "Orden", "Responsabilidad", "Practicidad", "Detalle", "Exactitud"]
+          }
+        },
+        {
+          "id": "intereses",
+          "title": "Intereses",
+          "instruction": "Marcá los que observás más en tu persona.",
+          "type": "multi-chip-by-type",
+          "items": {
+            "R": ["Cálculo", "Científico", "Manual", "Ser preciso", "Planificación"],
+            "I": ["Ordenar", "Numérico", "Análisis/síntesis", "Orden/precisión", "Investigación"],
+            "A": ["Estético", "Equilibrado", "Manual", "Visual", "Auditivo"],
+            "S": ["Precisión verbal", "Organización", "Comunicación", "Ayuda", "Justicia"],
+            "E": ["Organización", "Supervisión", "Colaboración", "Análisis/síntesis", "Estrategias"],
+            "C": ["Orden", "Supervisión", "Computación", "Detalle", "Cálculo"]
+          }
+        },
+        {
+          "id": "motivaciones",
+          "title": "Motivaciones",
+          "instruction": "Marcá las que registrás en tu vida.",
+          "type": "multi-chip-by-type",
+          "items": {
+            "R": ["Lo tradicional", "Vida al aire libre", "Trabajo manual", "Sentido común", "Naturaleza", "Deportes"],
+            "I": ["Conocimiento", "Resolución de problemas", "Independencia", "Teorías", "Ciencia", "Curiosidad"],
+            "A": ["Ayuda", "Arte", "Lograr armonía", "Observación", "Expresión", "La belleza"],
+            "S": ["Cooperación", "Trabajo en equipo", "Comunicación", "Protección", "Curar", "El desarrollo personal"],
+            "E": ["Desafíos", "Competencia", "Organización", "Poder/servicio", "El estatus", "Emprender"],
+            "C": ["Seguridad", "Precisión", "Eficiencia", "Estadísticas", "Métodos", "Pertenencia"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "termometro",
+      "order": 7,
+      "title": "Inteligencias Múltiples",
+      "subtitle": "¿En qué sos brillante sin saberlo?",
+      "color": { "accent": "#D97706", "bg": "#FEF3C7", "glow": "rgba(217,119,6,.15)" },
+      "storageKeys": ["termometro_data"],
+      "type": "likert-slider",
+      "scale": {
+        "min": 1,
+        "max": 5,
+        "step": 0.01,
+        "zones": [
+          { "range": [1.0, 1.8], "label": "Nunca", "color": "#62B8E8" },
+          { "range": [1.8, 2.6], "label": "Casi nunca", "color": "#80B8D8" },
+          { "range": [2.6, 3.4], "label": "A veces", "color": "#D4A830" },
+          { "range": [3.4, 4.2], "label": "Casi siempre", "color": "#E07030" },
+          { "range": [4.2, 5.0], "label": "Siempre", "color": "#D03820" }
+        ]
+      },
+      "intelligenceTypes": [
+        {
+          "id": "logico_matematica",
+          "label": "Lógico-Matemática",
+          "emoji": "🔬",
+          "questions": [
+            "A la hora de tomar una decisión importante, ¿te basás principalmente en los datos concretos y en lo que tiene más lógica, dejando de lado la intuición o las emociones?",
+            "Si tengo que dividir una cuenta entre amigos, puedo calcular números mentalmente con facilidad.",
+            "Me gustan los juegos o retos donde tenés que pensar en estrategia: ajedrez, Catan, puzzles de lógica, acertijos, escape rooms.",
+            "Cuando algo falla, naturalmente busco encontrar exactamente qué salió mal.",
+            "Las matemáticas y/o ciencias estaban entre mis materias favoritas en la escuela."
+          ]
+        },
+        {
+          "id": "linguistica",
+          "label": "Lingüística",
+          "emoji": "📖",
+          "questions": [
+            "Cuando escribo mensajes (chat, stories, mails) me importa cómo quedan redactados: elegiría otra palabra si la primera no suena bien.",
+            "Suelo ser el que explica o traduce algo que los demás no entendieron, porque me resulta fácil encontrar las palabras justas.",
+            "Disfruto leer o escuchar contenido que está bien escrito o narrado: un hilo de Twitter, un podcast, una novela, un ensayo.",
+            "Me pasa que al hablar o escribir uso expresiones que la gente me pide que explique porque no son tan conocidas.",
+            "Cuando tengo que convencer a alguien de algo, pienso en cómo voy a argumentarlo antes de hablar."
+          ]
+        },
+        {
+          "id": "espacial",
+          "label": "Espacial",
+          "emoji": "🎨",
+          "questions": [
+            "Me oriento bien en lugares nuevos, incluso en la primera visita, sin necesitar constantemente revisar el mapa.",
+            "Cuando tengo que armar, decorar o reorganizar algo (un cuarto, una presentación, un outfit), pienso visualmente: me imagino el resultado antes de hacerlo.",
+            "Disfruto el contenido visual: fotos, diseño, videos bien filmados, arte. Noto cuando algo está mal compuesto o mal editado.",
+            "Prefiero entender algo con un esquema, diagrama o imagen que solo con texto.",
+            "Cuando explico algo, naturalmente dibujo, gesticulo o señalo en el espacio para que la otra persona lo entienda."
+          ]
+        },
+        {
+          "id": "corporal_cinetica",
+          "label": "Corporal-Cinética",
+          "emoji": "🤸",
+          "questions": [
+            "Me resulta difícil quedarme quieto mucho tiempo: necesito moverme, cambiar de posición, hacer algo con las manos.",
+            "Aprendo mejor haciendo algo físicamente que leyendo o escuchando explicaciones: prefiero practicar antes que estudiar la teoría.",
+            "Se me da bien usar las manos: armar cosas, tocar instrumentos, cocinar, dibujar, hacer trabajos manuales, deportes de contacto.",
+            "Cuando estoy pensando algo importante, me ayuda caminar, hacer ejercicio o estar en movimiento.",
+            "Me resulta natural seguir ritmos o coordinar movimientos: sea en un deporte, bailando o en cualquier actividad que requiera sincronización."
+          ]
+        },
+        {
+          "id": "musical",
+          "label": "Musical",
+          "emoji": "🎵",
+          "questions": [
+            "Noto fácilmente cuando una canción está desafinada o tiene algo 'raro' en el ritmo o la melodía.",
+            "La música ocupa un lugar importante en mi vida cotidiana: casi siempre escucho algo mientras hago otras cosas.",
+            "Me aprendo las letras o melodías de canciones rápido, con pocas escuchas.",
+            "Cuando escucho música, naturalmente sigo el ritmo con el cuerpo (golpeando, moviendo la cabeza, tarareando).",
+            "Me imagino cómo sonaría algo si le cambiara la música de fondo, o me doy cuenta del impacto que tiene la música en una escena de serie o película."
+          ]
+        },
+        {
+          "id": "naturalista",
+          "label": "Naturalista",
+          "emoji": "🌿",
+          "questions": [
+            "Me llama la atención observar la naturaleza: plantas, animales, paisajes, patrones climáticos. No me aburre estar en contacto con el entorno natural.",
+            "Soy bueno para notar diferencias entre cosas similares: razas de perros, tipos de hojas, características de distintos lugares.",
+            "Me interesa entender cómo funcionan los ecosistemas, el clima o los procesos biológicos, más allá de lo que veo en la escuela.",
+            "Cuando puedo elegir, prefiero estar al aire libre o en contacto con la naturaleza antes que en espacios cerrados por períodos largos.",
+            "Cuando estoy en un lugar natural, noto detalles que otras personas a mi alrededor no suelen mencionar, como el tipo de plantas, el comportamiento de los animales o las condiciones del cielo."
+          ]
+        },
+        {
+          "id": "intrapersonal",
+          "label": "Intrapersonal",
+          "emoji": "🪞",
+          "questions": [
+            "Cuando me pasa algo importante, necesito procesar en soledad antes de hablar con alguien sobre el tema.",
+            "Tengo bastante claro qué cosas me importan de verdad, en qué soy bueno y en qué no, y eso no cambia mucho por lo que dicen los demás.",
+            "Suelo reflexionar sobre por qué actúo como actúo: analizo mis propias reacciones, emociones y decisiones.",
+            "Tengo metas personales sobre las que pienso seguido: lo que quiero lograr, en qué quiero mejorar, cómo quiero ser.",
+            "Me resulta fácil estar solo sin aburrirme: disfruto del tiempo conmigo mismo, con mis pensamientos o proyectos propios."
+          ]
+        },
+        {
+          "id": "interpersonal",
+          "label": "Interpersonal",
+          "emoji": "🫂",
+          "questions": [
+            "Mis amigos suelen contarme sus problemas y pedirme opinión: se sienten cómodos hablando conmigo de cosas importantes.",
+            "Me doy cuenta rápido cuando alguien está incómodo o algo está mal, incluso si no lo dice directamente.",
+            "Disfruto coordinar grupos, ya sea para estudiar, jugar, organizar algo o trabajar en proyectos: me energiza más que hacer las cosas solo.",
+            "Se me hace relativamente fácil llevarme bien con personas muy distintas entre sí: me adapto al estilo de cada uno.",
+            "Me resulta satisfactorio ayudar a alguien a entender algo o aprender algo nuevo: soy paciente explicando."
+          ]
+        }
+      ],
+      "cleansers": [
+        { "position": "after_10", "text": "La pizza con piña es un delito internacional.", "emoji": "🍕" },
+        { "position": "after_30", "text": "Madrugar un domingo para hacer deporte tiene su encanto.", "emoji": "⏰" }
+      ],
+      "checkpoint": {
+        "position": "after_20",
+        "emoji": "😅",
+        "title": "20 preguntas. A la mitad — muy bien.",
+        "subtitle": "Tomáte un segundo. Estás yendo muy bien."
+      }
+    },
+    {
+      "id": "charla1",
+      "order": 8,
+      "title": "Chatiemos · Parte 1",
+      "subtitle": "Preguntas de personalidad con opciones.",
+      "color": { "accent": "#4361EE", "bg": "#EEF2FF", "glow": "rgba(67,97,238,.15)" },
+      "storageKeys": ["orientacion_parte1_data"],
+      "type": "chatbot-statements",
+      "responseOptions": ["Me siento identificado/a", "A veces", "No me identifica"],
+      "statements": [
+        "Soy una persona tranquila y colaboradora.",
+        "Siempre he hecho lo que he querido y he aceptado las consecuencias.",
+        "Me gusta ser la persona que asume el control de las cosas.",
+        "Tengo una manera habitual de hacer las cosas, con lo que evito equivocarme.",
+        "Preferiría ser un seguidor más que un líder.",
+        "Con frecuencia me siento tenso en situaciones sociales.",
+        "A veces siento que algunas figuras de autoridad abusan del poder que tienen.",
+        "Algunas veces he tenido que ser bastante brusco con la gente.",
+        "No me importaría tener pocos amigos.",
+        "Soy tímido e inhibido en situaciones sociales.",
+        "Aunque esté en desacuerdo, por lo general dejo que la gente haga lo que quiera.",
+        "Puedo hacer comentarios desagradables si considero que las personas se los merecen.",
+        "Me gusta cumplir con lo establecido y hacer lo que se espera de mí.",
+        "Siempre trato de hacer lo que es correcto.",
+        "Dependo poco de la amistad de los demás.",
+        "Cuando hay un límite claro, trato de respetarlo.",
+        "Me gusta organizar todas las cosas hasta en sus mínimos detalles.",
+        "A menudo los demás logran irritarme.",
+        "Me costaba desobedecer las indicaciones de mis padres.",
+        "Siempre logro conseguir lo que quiero aunque tenga que presionar a los demás.",
+        "Me importa mucho cuidar mi reputación personal.",
+        "Ya no expreso lo que realmente siento.",
+        "A veces siento que lo que tengo para decir no les interesa a los demás.",
+        "Soy una persona dura, nada sentimental.",
+        "Me pone nervioso conocer y conversar con gente nueva.",
+        "Soy una persona colaboradora que cede ante los demás.",
+        "A veces actúo según el momento y las circunstancias.",
+        "Primero planifico y luego sigo activamente el plan trazado.",
+        "Me parece importante controlar las emociones.",
+        "Tengo muy pocos lazos afectivos fuertes con otras personas.",
+        "Me siento intranquilo con personas que no conozco muy bien.",
+        "A veces siento que las reglas pueden interpretarse de forma flexible.",
+        "Con frecuencia siento que los demás no tienen una buena opinión de mí.",
+        "Sistemáticamente ordeno mis papeles y materiales de trabajo.",
+        "Las situaciones nuevas me ponen más tenso que a la mayoría.",
+        "Siempre trato de evitar las discusiones, por más que esté convencido de tener razón.",
+        "Busco situaciones novedosas y excitantes para mí.",
+        "Siempre termino mi trabajo antes de descansar.",
+        "Espero que las cosas sigan su curso antes de decidir qué hacer.",
+        "Procuro ocuparme más de los demás que de mí mismo.",
+        "El solo hecho de estar con otras personas me hace sentir inspirado.",
+        "Suelo respetar las reglas, incluso cuando nadie me está controlando.",
+        "Uso mi cabeza y no mi corazón para tomar decisiones.",
+        "A veces me guío más por mi intuición que por la información disponible.",
+        "En el colegio me gustaban más las materias prácticas que las teóricas.",
+        "Planifico las cosas con anticipación y actúo enérgicamente para que mis planes se cumplan.",
+        "A veces siento que mis emociones influyen más que mi razón.",
+        "Siempre puedo ver el lado positivo de la vida.",
+        "A menudo espero que alguien solucione mis problemas.",
+        "Hago lo que quiero, sin pensar cómo va a afectar a los otros.",
+        "Reacciono rápido ante situaciones que podrían convertirse en un problema.",
+        "Sólo me siento una buena persona cuando ayudo a los demás.",
+        "Si algo sale mal, aunque no sea importante, se me arruina todo el día.",
+        "Me siento satisfecho dejando que las cosas ocurran.",
+        "Trato de ser más lógico que emocional.",
+        "Prefiero lo concreto antes que lo puramente imaginario.",
+        "Me resulta difícil conversar con alguien que acabo de conocer.",
+        "Me interesan más las posibilidades futuras que los hechos del pasado.",
+        "Me resulta fácil disfrutar de las cosas.",
+        "Vivo según mis propias necesidades y no basado en las de los demás.",
+        "Nunca espero que las cosas pasen, hago que sucedan como yo quiero.",
+        "Suelo evitar responder bruscamente cuando estoy molesto.",
+        "La necesidad de ayudar a otros guía mi vida.",
+        "A menudo me siento muy tenso, a la espera de que algo salga mal.",
+        "Nunca intenté copiarme en un examen.",
+        "Soy una persona difícil de conocer bien.",
+        "Es fácil para mí controlar mis estados de ánimo.",
+        "Soy algo pasivo y lento en temas relacionados con la organización de mi vida.",
+        "Mis amigos y familiares recurren a mí para encontrar afecto y apoyo.",
+        "Aunque todo esté bien, a veces pienso que podría pasar algo malo.",
+        "Planifico y organizo con cuidado mi trabajo antes de empezar a hacerlo.",
+        "Soy impersonal y objetivo al tratar de resolver un problema.",
+        "Soy una persona realista a la que no le gustan las especulaciones.",
+        "Primero me preocupo por mí y después de los demás.",
+        "Dedico mucho esfuerzo para que las cosas me salgan bien.",
+        "Suelo mantener la compostura, incluso en momentos difíciles.",
+        "Demuestro mucho afecto hacia mis amigos.",
+        "Me gusta conocer gente nueva y saber cosas sobre sus vidas.",
+        "Puedo dejar de lado lo emocional para concentrarme en el trabajo.",
+        "Necesito mucho tiempo para poder estar a solas con mis pensamientos.",
+        "Me atraen más las personas soñadoras que las muy realistas.",
+        "Tiendo a evitar discutir, incluso cuando estoy muy enojado.",
+        "Expreso lo que pienso de manera franca y abierta.",
+        "Me desagrada sentir que voy a depender demasiado de alguien en mi trabajo.",
+        "Trato de asegurar que las cosas salgan como yo quiero.",
+        "Disfruto más de las realidades concretas que de las fantasías.",
+        "Aprendo bien observando y conversando con otras personas.",
+        "No me satisface dejar que las cosas sucedan y simplemente contemplarlas.",
+        "Confío más en mis intuiciones que en lo que observo.",
+        "Me gusta tomar mis propias decisiones, evitando los consejos de los otros.",
+        "Me gusta ser popular y participar en muchas actividades sociales.",
+        "Decido cuáles son las cosas prioritarias y luego actúo firmemente para poder lograrlas."
+      ],
+      "icebreakers": [
+        { "text": "¿Café o mate?", "options": ["Café ☕", "Mate 🧉", "Ninguno"] },
+        { "text": "¿Prefiero las mañanas o las noches para hacer las cosas?", "options": ["Mañanas 🌅", "Noches 🌙", "Igual"] },
+        { "text": "¿Perro o gato?", "options": ["Perro 🐶", "Gato 🐱", "Ninguno"] },
+        { "text": "Pizza con piña: ¿exquisitez o crimen?", "options": ["Exquisitez total 🍕", "Crimen. Sin dudas."] }
+      ]
+    },
+    {
+      "id": "charla2",
+      "order": 9,
+      "title": "Chatiemos · Parte 2",
+      "subtitle": "Preguntas abiertas para desarrollar.",
+      "color": { "accent": "#7C3AED", "bg": "#F5F3FF", "glow": "rgba(124,58,237,.15)" },
+      "storageKeys": ["orientacion_data"],
+      "type": "chatbot-open",
+      "sections": [
+        {
+          "id": "completar_frases",
+          "title": "Completá las frases",
+          "type": "sentence-completion",
+          "minLength": 50,
+          "prompts": [
+            "Siempre me gustó…",
+            "En mi casa…",
+            "Para trabajar es importante…",
+            "Elegir…",
+            "A veces me da miedo…",
+            "Lo que más me atrae de un trabajo es…",
+            "En la vida quiero llegar a ser…",
+            "Ir a la universidad hoy…",
+            "Las personas que estudian…",
+            "Siento que los demás esperan que yo…",
+            "Cuando se me acerca una figura de autoridad, yo…",
+            "Una profesión me daría la posibilidad de…"
+          ]
+        },
+        {
+          "id": "preguntas_abiertas",
+          "title": "Preguntas abiertas",
+          "type": "open-text",
+          "minLength": 50,
+          "questions": [
+            "Imaginá que pasaron 10 años y sentís que estás bien con tu vida. ¿Cómo es un día de esa vida?",
+            "Si hoy pudieras elegir sin miedo ni presión externa, ¿hacia dónde irías?",
+            "¿Qué es lo que más te frena hoy para avanzar hacia lo que querés?",
+            "Seamos honestos: ¿qué tan difícil te resulta sentarte y ponerte a estudiar? ¿Cuántas horas seguidas podés hacerlo? Cuando decís que lo vas a hacer, ¿lo terminás haciendo o lo pateas para más adelante?",
+            "Modelos: ¿A qué personas te quisieras parecer? ¿Por qué?",
+            "Cuando eras chico/a, ¿qué querías ser de grande?"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "autobiografia",
+      "order": 10,
+      "title": "Autobiografía",
+      "subtitle": "Tu historia en tus palabras.",
+      "color": { "accent": "#E11D48", "bg": "#FFF1F2", "glow": "rgba(225,29,72,.15)" },
+      "storageKeys": ["autobiografia"],
+      "type": "guided-writing",
+      "sections": [
+        {
+          "id": "yo_soy",
+          "title": "Yo Soy",
+          "questions": [
+            {
+              "id": "descripcion_personal",
+              "text": "Contá cómo sos como persona. Podés arrancar con \"Yo soy…\" y usar adjetivos o frases cortas.",
+              "type": "textarea-guided",
+              "guidingQuestions": [
+                "¿Cuáles son los tres adjetivos con los que más te identificás?",
+                "¿Cómo te describirían las personas que te conocen bien?",
+                "¿Qué cualidades tuyas aparecen de forma natural, sin esfuerzo?",
+                "¿Cómo actuás bajo presión o cuando las cosas se complican?",
+                "¿Hay aspectos de tu personalidad que estás trabajando para mejorar?",
+                "¿Qué te diferencia de los demás?"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "conceptos",
+          "title": "Conceptos",
+          "questions": [
+            {
+              "id": "felicidad",
+              "text": "Felicidad: ¿Qué cosas te hacen feliz en el día a día, por más pequeñas que sean?",
+              "type": "textarea-guided",
+              "guidingQuestions": [
+                "¿Qué tipo de personas o situaciones te generan bienestar genuino?",
+                "¿Cuándo fue la última vez que te sentiste profundamente contento/a? ¿Qué estabas haciendo?",
+                "¿Hay cosas simples que otros no notan pero a vos te alegran el día?"
+              ]
+            },
+            {
+              "id": "infelicidad",
+              "text": "Infelicidad: ¿Qué cosas te hacen infeliz y quisieras evitar o minimizar?",
+              "type": "textarea-guided",
+              "guidingQuestions": [
+                "¿Qué situaciones o ambientes te drenan la energía?",
+                "¿Hay cosas que tenés que hacer y te generan malestar genuino?",
+                "¿Qué tipo de relaciones o dinámicas te afectan negativamente?",
+                "¿Qué es lo que más te frustra o te genera ansiedad?"
+              ]
+            },
+            {
+              "id": "exito",
+              "text": "Éxito: ¿Cómo definirías con tus palabras el \"éxito profesional\"?",
+              "type": "textarea-guided",
+              "guidingQuestions": [
+                "¿El éxito para vos es individual o también implica impactar a otros?",
+                "¿Incluye el dinero, el reconocimiento, la libertad, la trascendencia, o algo más?",
+                "¿Hay algún modelo de éxito que rechazás? ¿Por qué?"
+              ]
+            },
+            {
+              "id": "certeza",
+              "text": "Certeza: Si supieras con certeza que las próximas cinco cosas que hagas te saldrán exactamente como querés, ¿cuáles serían?",
+              "type": "textarea-guided",
+              "guidingQuestions": [
+                "¿Estas cinco cosas reflejan lo que realmente querés o lo que creés que deberías querer?",
+                "¿Hay alguna que venís postergando por miedo al fracaso?",
+                "¿Qué te dice esta lista sobre tus prioridades reales?",
+                "¿Incluiría algo relacionado con tu vocación o trabajo?"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "historia_de_vida",
+          "title": "Autobiografía",
+          "questions": [
+            {
+              "id": "origenes",
+              "text": "Orígenes — Mi familia, mi casa, mi barrio. ¿Qué cosas de ahí me marcaron?",
+              "type": "textarea-guided",
+              "guidingQuestions": [
+                "¿Qué valores o creencias heredaste de tu familia que todavía te acompañan?",
+                "¿Hay alguna persona de tu familia que te marcó positiva o negativamente?",
+                "¿Cómo influye el lugar donde creciste en quien sos hoy?",
+                "¿Qué de ese contexto querés conservar y qué preferirías dejar atrás?"
+              ]
+            },
+            {
+              "id": "pasado",
+              "text": "Pasado — Mi infancia, mis juegos, mis amigos y mi escuela. ¿Qué recuerdo de esa etapa?",
+              "type": "textarea-guided",
+              "guidingQuestions": [
+                "¿A qué jugabas de chico/a? ¿Qué te gustaba hacer en tu tiempo libre?",
+                "¿Quién eras antes de preocuparte por lo que pensaban los demás?",
+                "¿Qué aprendiste en esa etapa que todavía usás hoy?",
+                "¿Hay algo de esa época que añorás o que quisieras recuperar?"
+              ]
+            },
+            {
+              "id": "perfil",
+              "text": "Perfil — Mis intereses y habilidades. Lo que se me da bien, lo que me gusta hacer, mis hábitos y ambiciones.",
+              "type": "textarea-guided",
+              "guidingQuestions": [
+                "¿En qué actividades perdés la noción del tiempo?",
+                "¿Qué habilidades venís desarrollando sin darte cuenta?",
+                "¿Cuáles son tus ambiciones más genuinas, las que no le contás a cualquiera?"
+              ]
+            },
+            {
+              "id": "presente",
+              "text": "Presente — ¿Cómo es mi vida hoy? ¿Qué me alegra y qué me preocupa actualmente?",
+              "type": "textarea-guided",
+              "guidingQuestions": [
+                "¿Qué aspectos de tu vida actual te satisfacen más?",
+                "¿Qué te genera más incertidumbre o preocupación hoy?",
+                "¿Con quién compartís más tu vida? ¿Qué rol tienen esas personas?",
+                "¿Sentís que tu vida de hoy refleja quién realmente sos?"
+              ]
+            },
+            {
+              "id": "futuro",
+              "text": "Futuro — Mis sueños y proyectos. ¿Cómo me imagino en algunos años y qué me gustaría lograr?",
+              "type": "textarea-guided",
+              "guidingQuestions": [
+                "¿Qué proyecto o sueño querés comenzar cuanto antes?",
+                "¿Qué cosas querés que estén — y cuáles querés que NO estén — en tu vida futura?",
+                "¿Qué legado te gustaría dejar?"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "historia_vital",
+          "title": "Historia Vital (HVT)",
+          "questions": [
+            {
+              "id": "recuerdo_1",
+              "text": "Recuerdo de Satisfacción #1 — Recuperá de tu memoria un hecho que te haya producido mucha satisfacción y gratificación a nivel personal, donde hayas tenido un papel activo (no como espectador).",
+              "type": "textarea-guided",
+              "guidingQuestions": [
+                "¿Cuántos años tenías? ¿Qué contexto rodeaba ese momento?",
+                "¿Cuál fue tu papel específico? ¿Qué hiciste vos concretamente?",
+                "¿Qué habilidades o cualidades tuyas contribuyeron al resultado?",
+                "¿Por qué ese momento todavía te genera satisfacción al recordarlo?",
+                "¿Qué te dice sobre lo que valorás y disfrutás hacer?"
+              ]
+            },
+            {
+              "id": "recuerdo_2",
+              "text": "Recuerdo de Satisfacción #2 — Otro hecho inolvidable que te haya producido gratificación, donde hayas tenido protagonismo.",
+              "type": "textarea-guided",
+              "guidingQuestions": [
+                "¿Es un recuerdo de una etapa diferente al primero? ¿Qué diferencias notás entre ambos?",
+                "¿Qué competencias o talentos se pusieron en juego?",
+                "¿Cómo te sentiste durante y después de ese momento?",
+                "¿Qué dice ese recuerdo sobre el tipo de tareas y entornos donde más florecés?"
+              ]
+            },
+            {
+              "id": "reflexion",
+              "text": "Reflexión — ¿Qué patrones o talentos encontrás en común entre estos dos recuerdos?",
+              "type": "textarea-guided",
+              "guidingQuestions": [
+                "¿Qué tienen en común ambos momentos en términos de lo que hacías?",
+                "¿Aparecen las mismas habilidades o valores en los dos?",
+                "¿Qué tipo de entorno o dinámica los rodea?",
+                "¿Qué te dicen estos dos recuerdos sobre qué trabajo o actividad podría darte satisfacción genuina?"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "estilovida",
+      "order": 11,
+      "title": "Estilo de Vida",
+      "subtitle": "Cómo te imaginás tu vida laboral ideal.",
+      "color": { "accent": "#2563EB", "bg": "#EFF6FF", "glow": "rgba(37,99,235,.15)" },
+      "storageKeys": ["estilovida_data"],
+      "type": "mixed-form",
+      "sections": [
+        {
+          "id": "valores_relaciones",
+          "title": "Valores y Relaciones",
+          "questions": [
+            {
+              "id": "valores",
+              "text": "¿Qué valores querés que tu ocupación refleje?",
+              "type": "multi-chip",
+              "options": ["Servicio a otros", "Estabilidad y seguridad", "Justicia y ética", "Innovación", "Creatividad", "Prestigio y reconocimiento", "Impacto social"]
+            },
+            {
+              "id": "personas",
+              "text": "¿Con qué tipo de personas te gustaría rodearte?",
+              "type": "multi-chip",
+              "options": ["Jóvenes dinámicos", "Personas experimentadas", "Gente creativa", "Personas organizadas", "Públicos diversos"]
+            },
+            {
+              "id": "rol",
+              "text": "¿Qué rol te imaginás dentro de un equipo?",
+              "type": "multi-chip",
+              "options": ["Líder y coordinador", "Creativo · generador de ideas", "Organizador · planificador", "Ejecutor · resolutivo", "Facilitador · mediador"]
+            }
+          ]
+        },
+        {
+          "id": "ritmo_organizacion",
+          "title": "Ritmo y Organización",
+          "questions": [
+            {
+              "id": "interaccion",
+              "text": "Interacción",
+              "type": "single-radio",
+              "options": ["Mucho contacto social", "Interacciones puntuales", "Trabajo individual", "Trabajo en pequeños grupos"]
+            },
+            {
+              "id": "horarios",
+              "text": "Horarios",
+              "type": "single-radio",
+              "options": ["Horario fijo de oficina", "Flexibilidad parcial", "Horarios libres y autogestionados"]
+            },
+            {
+              "id": "rutina",
+              "text": "Rutina",
+              "type": "single-radio",
+              "options": ["Tareas variadas cada día", "Rutina estable y predecible", "Mezcla de ambas"]
+            },
+            {
+              "id": "exigencia",
+              "text": "Nivel de exigencia",
+              "type": "single-radio",
+              "options": ["Alta exigencia física", "Alta exigencia mental", "Punto medio de exigencia", "Baja exigencia, mayor tranquilidad"]
+            }
+          ]
+        },
+        {
+          "id": "lugar_entorno",
+          "title": "Lugar, Entorno y Equilibrio",
+          "questions": [
+            {
+              "id": "geografia",
+              "text": "Geografía",
+              "type": "single-radio",
+              "options": ["Ciudad grande", "Ciudad pequeña", "Campo o naturaleza", "Trabajo que implique viajar", "Trabajo remoto desde casa"]
+            },
+            {
+              "id": "espacio",
+              "text": "Espacio ideal",
+              "type": "single-radio",
+              "options": ["Oficina formal", "Espacio creativo y flexible", "Aire libre", "Taller o lugar práctico", "Casa propia"]
+            },
+            {
+              "id": "equilibrio",
+              "text": "Equilibrio vida / trabajo",
+              "type": "single-radio",
+              "options": ["Muy importante — el tiempo libre y la familia son prioridad", "Importante — puedo sacrificarlo a veces", "Poco importante — priorizo el trabajo"]
+            },
+            {
+              "id": "ingresos",
+              "text": "Ingresos",
+              "type": "single-radio",
+              "options": ["Estabilidad fija (sueldo seguro)", "Variables según logros y comisiones", "Crecimiento a largo plazo (inversiones)"]
+            },
+            {
+              "id": "impacto",
+              "text": "Impacto que querés tener",
+              "type": "single-radio",
+              "options": ["Familia y círculo cercano", "Comunidad", "País", "Global"]
+            },
+            {
+              "id": "dia",
+              "text": "Cómo querés que sea tu día típico",
+              "type": "single-radio",
+              "options": ["Tranquilo y organizado", "Dinámico y cambiante", "Creativo y motivador", "Intenso y desafiante"]
+            },
+            {
+              "id": "limites",
+              "text": "Límites — No aceptaría un trabajo que...",
+              "type": "multi-chip",
+              "options": ["Vaya contra mis valores", "Me aísle demasiado", "Implique exceso de horas", "Sea rutinario al extremo", "Fomente competencia desleal"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "profesionales",
+      "order": 12,
+      "title": "Hablemos con Profesionales",
+      "subtitle": "Charlas con profesionales de distintas áreas.",
+      "color": { "accent": "#9333EA", "bg": "#FAF5FF", "glow": "rgba(147,51,234,.15)" },
+      "storageKeys": ["profesionales_data"],
+      "type": "chatbot-professionals",
+      "professionals": [
+        {
+          "id": "negocios",
+          "name": "Lucía Ferreyra",
+          "role": "Emprendedora · Consultora de negocios",
+          "emoji": "💼",
+          "color": "#C87828",
+          "area": "Administración y Negocios",
+          "chips": [
+            ["Trabajar con números", "Liderar", "Supervisar", "Tareas de oficina"],
+            ["Iniciar proyecto propio", "Asumir riesgos", "Detectar oportunidades", "Convencer a otros"],
+            ["Manejar contabilidad", "Llevar cuentas", "Planificar ganancias", "Diseñar inversiones"]
+          ],
+          "closedQuestion": {
+            "text": "¿Alguna vez te imaginaste teniendo tu propio negocio o proyecto?",
+            "options": ["Sí, es algo que me llama mucho", "Lo pensé pero no sé por dónde empezar", "No es lo que me imagino haciendo"]
+          },
+          "openQuestion": "¿Hay algún aspecto del mundo de los negocios que siempre te generó curiosidad?"
+        },
+        {
+          "id": "sociales",
+          "name": "Mateo Vargas",
+          "role": "Sociólogo · Especialista en RRHH",
+          "emoji": "🤝",
+          "color": "#248850",
+          "area": "Sociales y RRHH",
+          "chips": [
+            ["Ayudar a otros", "Aconsejar", "Contención emocional", "Trabajo en equipo"],
+            ["Percibir necesidades", "Tareas solidarias", "Actividades con niños/ancianos", "Incentivar relaciones"],
+            ["Leer sobre problemas sociales", "Interés en conducta humana"]
+          ],
+          "closedQuestion": {
+            "text": "¿Qué es lo que más te moviliza cuando se trata de trabajar con personas?",
+            "options": ["Ayudar a resolver problemas concretos", "Generar conexión y vínculo genuino", "Entender por qué la gente hace lo que hace"]
+          },
+          "openQuestion": "¿Hay algún grupo social, problemática o comunidad que te quite el sueño?"
+        },
+        {
+          "id": "humanidades",
+          "name": "Valentina Ros",
+          "role": "Psicóloga · Educadora",
+          "emoji": "📚",
+          "color": "#7B3FA0",
+          "area": "Humanidades y Educación",
+          "chips": [
+            ["Enseñar/Entrenar", "Hablar en público", "Facilitar comunicación", "Planear recreación"],
+            ["Idiomas", "Escribir", "Leer", "Talleres literarios/culturales"],
+            ["Interés educativo", "Reflexión filosófica", "Retiros espirituales"]
+          ],
+          "closedQuestion": {
+            "text": "¿Qué rol te imaginás más naturalmente en el futuro?",
+            "options": ["Guiar o enseñar a otros", "Explorar ideas y generar contenido", "Acompañar procesos internos de las personas"]
+          },
+          "openQuestion": "¿Hay algún campo de las humanidades o la psicología que siempre te generó curiosidad?"
+        },
+        {
+          "id": "salud",
+          "name": "Diego Moreira",
+          "role": "Médico clínico",
+          "emoji": "🩺",
+          "color": "#2E78C8",
+          "area": "Salud",
+          "chips": [
+            ["Anatomía/Fisiología", "Investigación en salud", "Leer sobre medicina", "Nutrición"],
+            ["Ayudar enfermos", "Voluntariado hospitalario", "Prevención"],
+            ["Emergencias", "Primeros auxilios"]
+          ],
+          "closedQuestion": {
+            "text": "¿Qué aspecto del mundo de la salud te genera más vocación?",
+            "options": ["El contacto directo con pacientes", "La investigación y el conocimiento científico", "La prevención y la salud pública"]
+          },
+          "openQuestion": "¿Hay algo del mundo de la salud que siempre te llamó la atención, aunque todavía no lo hayas explorado mucho?"
+        },
+        {
+          "id": "juridicas",
+          "name": "Camila Bravo",
+          "role": "Abogada · Asesora en política pública",
+          "emoji": "⚖️",
+          "color": "#C02828",
+          "area": "Jurídicas y Política",
+          "chips": [
+            ["Defender causas justas", "Defender derechos", "Juzgar con objetividad", "Conciliar disputas"],
+            ["Política", "Relaciones internacionales", "Seguridad de los demás", "Defensa del territorio"],
+            ["Noticias delictivas", "Prevención del delito"]
+          ],
+          "closedQuestion": {
+            "text": "¿Desde qué lugar te imaginás haciendo una diferencia?",
+            "options": ["Desde la ley y los derechos", "Desde la política y las instituciones", "Desde la seguridad y la protección"]
+          },
+          "openQuestion": "¿Hay alguna causa, injusticia o problemática que especialmente te movilice?"
+        },
+        {
+          "id": "ecologia",
+          "name": "Tomás Alvarado",
+          "role": "Biólogo · Conservacionista",
+          "emoji": "🌿",
+          "color": "#3D7A52",
+          "area": "Ecología y Naturaleza",
+          "chips": [
+            ["Medio ambiente", "Biología/Ecología", "Vida marina", "Preservación de especies"],
+            ["Alimentación humana", "Actividad agrícola/ganadera", "Crianza de animales", "Reservas animales"],
+            ["Cocina", "Genética", "Geografía"]
+          ],
+          "closedQuestion": {
+            "text": "¿Qué es lo que más te conecta con el mundo natural?",
+            "options": ["La complejidad de los ecosistemas", "Los animales y su comportamiento", "El impacto humano y cómo reducirlo"]
+          },
+          "openQuestion": "¿Hay algún ecosistema, especie o problema ambiental que te apasione especialmente?"
+        },
+        {
+          "id": "exactas",
+          "name": "Sofía Méndez",
+          "role": "Ingeniera en Sistemas",
+          "emoji": "⚙️",
+          "color": "#5040B0",
+          "area": "Exactas e Ingeniería",
+          "chips": [
+            ["Relacionar teorías", "Lógica", "Cálculos complejos", "Fórmulas matemáticas/químicas"],
+            ["Informática", "Programar software", "Organizar objetos/datos", "Leer revistas científicas"],
+            ["Manipular herramientas", "Experimentos", "Reparaciones"]
+          ],
+          "closedQuestion": {
+            "text": "¿Cómo sos cuando te encontrás con un problema difícil?",
+            "options": ["Me meto de lleno hasta resolverlo", "Lo analizo primero, después actúo", "Prefiero colaborar con alguien más"]
+          },
+          "openQuestion": "¿Hay algún problema técnico, científico o tecnológico que te parezca especialmente fascinante?"
+        },
+        {
+          "id": "comunicacion",
+          "name": "Nicolás Paredes",
+          "role": "Periodista · Comunicador",
+          "emoji": "📡",
+          "color": "#D4680A",
+          "area": "Comunicación y Medios",
+          "chips": [
+            ["Relatar", "Periodismo", "Entrevistar", "Transmitir comunicación"],
+            ["Promocionar", "Indagar culturas/historia", "Crítica de espectáculos", "Organizar eventos"],
+            ["Planificar viajes/eventos", "Luces y sonido", "Operar sistemas electrónicos"]
+          ],
+          "closedQuestion": {
+            "text": "¿Qué forma de contar historias te llama más?",
+            "options": ["En texto — artículos, crónicas, reportajes", "En audio o video — podcast, radio, televisión", "En redes — contenido digital, social media"]
+          },
+          "openQuestion": "¿Hay algún medio, formato o historia que te haya impactado y que siempre recordás?"
+        },
+        {
+          "id": "arte",
+          "name": "Ana Suárez",
+          "role": "Diseñadora · Artista visual",
+          "emoji": "🎨",
+          "color": "#C83070",
+          "area": "Arte y Diseño",
+          "chips": [
+            ["Dibujar/Pintar", "Fotografía", "Diseño de objetos/imágenes", "Decorar"],
+            ["Teatro", "Danza", "Tocar instrumento", "Leer partituras"],
+            ["Historia del arte", "Manualidades/Escultura", "Confección de ropa", "Maquetas", "Diseño web"]
+          ],
+          "closedQuestion": {
+            "text": "¿Cómo definirías tu relación con el arte y la expresión?",
+            "options": ["Es una parte central de quién soy", "Me atrae pero no lo practiqué mucho", "Me gusta apreciarlo más que crearlo"]
+          },
+          "openQuestion": "¿Hay alguna forma artística que siempre quisiste explorar pero nunca te animaste o tuviste la oportunidad?"
+        }
+      ]
+    },
+    {
+      "id": "universidad",
+      "order": 13,
+      "title": "Universidad",
+      "subtitle": "Tus preferencias para elegir universidad.",
+      "color": { "accent": "#059669", "bg": "#ECFDF5", "glow": "rgba(5,150,105,.15)" },
+      "storageKeys": ["universidad_data"],
+      "type": "wizard",
+      "steps": [
+        {
+          "id": "costo",
+          "title": "Costo",
+          "stepLabel": "Paso 1 de 5",
+          "questions": [
+            {
+              "id": "costo",
+              "text": "En cuanto al contexto económico de tu familia, ¿qué tipo de cuota decidieron pagar para tus estudios?",
+              "type": "single-option",
+              "options": [
+                { "value": "sinCuota", "label": "Sin cuota, gratis", "sub": "No podemos ir a una universidad privada" },
+                { "value": "cuotaMedia", "label": "Cuota media", "sub": "Podemos pagar algunas privadas no muy caras, o ir a las caras si nos dan beca" },
+                { "value": "cuotaAlta", "label": "Cuota alta", "sub": "Tenemos la posibilidad de poder pagar casi cualquier universidad" }
+              ]
+            },
+            {
+              "id": "beca",
+              "text": "En caso de necesitar beca, ¿estás dispuesto/a a cumplir los requisitos académicos para mantenerla?",
+              "type": "toggle",
+              "hint": "Las becas suelen pedir mantener un promedio mínimo"
+            }
+          ]
+        },
+        {
+          "id": "ubicacion",
+          "title": "Ubicación y Viaje",
+          "stepLabel": "Paso 2 de 5",
+          "questions": [
+            { "id": "zona", "text": "¿Dónde vas a vivir mientras estudiás? (provincia, barrio)", "type": "text", "placeholder": "Ej: CABA, Palermo / Rosario / Mar del Plata…" },
+            { "id": "zonaUniv", "text": "¿Dónde aceptarías que esté ubicada la universidad?", "type": "text", "placeholder": "Ej: CABA, zona norte, cualquier lugar…" },
+            { "id": "viaje", "text": "¿Cuánto tiempo de viaje aceptás?", "type": "text", "placeholder": "Ej: hasta 1 hora, no me importa…" },
+            { "id": "distancia", "text": "¿Estás dispuesto/a a mudarte si fuera necesario?", "type": "text", "placeholder": "Ej: Sí / Tal vez / No" }
+          ]
+        },
+        {
+          "id": "requisitos",
+          "title": "Requisitos de Inscripción",
+          "stepLabel": "Paso 3 de 5",
+          "questions": [
+            {
+              "id": "examen_eliminatorio",
+              "text": "¿Estás dispuesto/a a rendir un examen eliminatorio?",
+              "type": "triple-option",
+              "options": [
+                { "value": "si", "emoji": "💪", "label": "Sí", "sub": "Me la banco" },
+                { "value": "depende", "emoji": "🤔", "label": "Depende", "sub": "De la carrera" },
+                { "value": "no", "emoji": "😬", "label": "No", "sub": "Prefiero ingreso directo" }
+              ]
+            },
+            {
+              "id": "tiempo_preparacion",
+              "text": "¿Tenés tiempo para prepararte antes de entrar?",
+              "type": "triple-option",
+              "options": [
+                { "value": "si", "emoji": "📚", "label": "Sí", "sub": "Puedo prepararme bien" },
+                { "value": "masomenos", "emoji": "😅", "label": "Más o menos", "sub": "Algo de tiempo tengo" },
+                { "value": "no", "emoji": "⏰", "label": "No", "sub": "El tiempo es limitado" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "perfil_institucional",
+          "title": "Perfil Institucional",
+          "stepLabel": "Paso 4 de 5",
+          "hint": "¿Qué priorizás en la institución? Elegí lo que más te importa en cada dimensión.",
+          "questions": [
+            {
+              "id": "prestigio",
+              "text": "Prestigio",
+              "type": "single-chip",
+              "options": ["Muy importante", "Algo importante", "No me importa"]
+            },
+            {
+              "id": "valores",
+              "text": "Valores e ideología",
+              "type": "single-chip",
+              "options": ["Afiliación religiosa", "Ambiente laico", "Me es indiferente"]
+            },
+            {
+              "id": "instalaciones",
+              "text": "Instalaciones (campus, laboratorios, tecnología)",
+              "type": "single-chip",
+              "options": ["Me importa mucho", "Algo me importa", "No es prioritario"]
+            }
+          ]
+        },
+        {
+          "id": "podio",
+          "title": "Armá tu Podio",
+          "stepLabel": "Paso 5 de 5",
+          "hint": "Ordená estos 5 factores del más al menos importante para vos.",
+          "questions": [
+            {
+              "id": "ranking",
+              "text": "Ordená del más al menos importante",
+              "type": "drag-rank",
+              "factors": [
+                { "id": "costo", "emoji": "💰", "label": "Costo" },
+                { "id": "ubicacion", "emoji": "📍", "label": "Ubicación" },
+                { "id": "ingreso", "emoji": "📝", "label": "Tiempo de ingreso" },
+                { "id": "prestigio", "emoji": "✨", "label": "Prestigio e instalaciones" },
+                { "id": "afiliacion", "emoji": "🏛️", "label": "Afiliación religiosa o ideológica" }
+              ],
+              "ranks": [
+                { "position": 1, "label": "Más importante" },
+                { "position": 2, "label": "Muy importante" },
+                { "position": 3, "label": "Importa" },
+                { "position": 4, "label": "Menos clave" },
+                { "position": 5, "label": "Menos importante" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

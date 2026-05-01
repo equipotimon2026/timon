@@ -469,3 +469,8 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Hide feedback button when assessment modal is open */
+body[data-modal-open="true"] [data-slot="section-feedback"] {
+  display: none !important;
+}

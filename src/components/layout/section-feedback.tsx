@@ -91,7 +91,7 @@ export function SectionFeedback({ userId, onSaveFeedback }: SectionFeedbackProps
   }
 
   return (
-    <>
+    <div data-slot="section-feedback">
       {/* Floating trigger button - fixed bottom right */}
       {!isOpen && (
         <button
@@ -225,6 +225,6 @@ export function SectionFeedback({ userId, onSaveFeedback }: SectionFeedbackProps
           </div>
         </>
       )}
-    </>
+    </div>
   )
 }

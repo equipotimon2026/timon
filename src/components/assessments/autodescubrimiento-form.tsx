@@ -1,351 +1,147 @@
 "use client"
 
-import type React from "react"
 import { useState, useEffect } from "react"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Textarea } from "@/components/ui/textarea"
-import { Progress } from "@/components/ui/progress"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Label } from "@/components/ui/label"
-import { autodescubrimientoData } from "@/lib/questionnaires/autodescubrimiento-questions"
+import { cn } from "@/lib/utils"
 
-type AutodescubrimientoResponse = {
-  intereses: Record<string, { talentos: string[]; noTalentos: string[] }>
-  autobiografia: Record<string, string>
-  estilosAprendizaje: Record<number, string>
-  preguntasAbiertas: Record<string, string>
-}
+/* V0 autobiografia.html — guided writing with hints panels */
 
-interface AutodescubrimientoFormProps {
-  userId: number
-  onComplete: () => void
+type Section = { id: string; title: string; questions: { id: string; label: string; hints: string[]; tall?: boolean }[] }
+
+const SECTIONS: Section[] = [
+  { id: "yo_soy", title: "Yo Soy", questions: [
+    { id: "descripcion", label: "Contá cómo sos como persona. Podés arrancar con \"Yo soy…\" y usar adjetivos o frases cortas.", tall: true, hints: [
+      "¿Cuáles son los tres adjetivos con los que más te identificás?",
+      "¿Cómo te describirían las personas que te conocen bien?",
+      "¿Qué cualidades tuyas aparecen de forma natural, sin esfuerzo?",
+      "¿Cómo actuás bajo presión o cuando las cosas se complican?",
+      "¿Hay aspectos de tu personalidad que estás trabajando para mejorar?",
+      "¿Qué te diferencia de los demás?",
+    ]},
+  ]},
+  { id: "conceptos", title: "Conceptos", questions: [
+    { id: "felicidad", label: "Felicidad: ¿Qué cosas te hacen feliz en el día a día, por más pequeñas que sean?", hints: ["¿Qué tipo de personas o situaciones te generan bienestar genuino?","¿Cuándo fue la última vez que te sentiste profundamente contento/a?","¿Hay cosas simples que otros no notan pero a vos te alegran el día?"] },
+    { id: "infelicidad", label: "Infelicidad: ¿Qué cosas te hacen infeliz y quisieras evitar o minimizar?", hints: ["¿Qué situaciones o ambientes te drenan la energía?","¿Hay cosas que tenés que hacer y te generan malestar genuino?","¿Qué tipo de relaciones o dinámicas te afectan negativamente?","¿Qué es lo que más te frustra o te genera ansiedad?"] },
+    { id: "exito", label: "Éxito: ¿Cómo definirías con tus palabras el \"éxito profesional\"?", hints: ["¿El éxito para vos es individual o también implica impactar a otros?","¿Incluye el dinero, el reconocimiento, la libertad, la trascendencia, o algo más?","¿Hay algún modelo de éxito que rechazás? ¿Por qué?"] },
+    { id: "certeza", label: "Si supieras que las próximas cinco cosas que hagas te saldrán como querés, ¿cuáles serían?", hints: ["¿Estas cinco cosas reflejan lo que realmente querés o lo que creés que deberías querer?","¿Hay alguna que venís postergando por miedo al fracaso?","¿Qué te dice esta lista sobre tus prioridades reales?"] },
+  ]},
+  { id: "historia", title: "Autobiografía", questions: [
+    { id: "origenes", label: "Orígenes — Mi familia, mi casa, mi barrio. ¿Qué cosas de ahí me marcaron?", hints: ["¿Qué valores heredaste de tu familia?","¿Hay alguna persona que te marcó positiva o negativamente?","¿Cómo influye el lugar donde creciste en quien sos hoy?"] },
+    { id: "pasado", label: "Pasado — Mi infancia, mis juegos, mis amigos y mi escuela.", hints: ["¿A qué jugabas de chico/a?","¿Quién eras antes de preocuparte por lo que pensaban los demás?","¿Qué aprendiste en esa etapa que todavía usás hoy?"] },
+    { id: "perfil", label: "Perfil — Mis intereses y habilidades. Lo que se me da bien.", hints: ["¿En qué actividades perdés la noción del tiempo?","¿Qué habilidades venís desarrollando sin darte cuenta?","¿Cuáles son tus ambiciones más genuinas?"] },
+    { id: "presente", label: "Presente — ¿Cómo es mi vida hoy?", hints: ["¿Qué aspectos de tu vida actual te satisfacen más?","¿Qué te genera más incertidumbre o preocupación hoy?","¿Sentís que tu vida de hoy refleja quién realmente sos?"] },
+    { id: "futuro", label: "Futuro — Mis sueños y proyectos.", hints: ["¿Qué proyecto o sueño querés comenzar cuanto antes?","¿Qué cosas querés que estén — y cuáles que NO estén — en tu vida futura?","¿Qué legado te gustaría dejar?"] },
+  ]},
+  { id: "hvt", title: "Historia Vital", questions: [
+    { id: "recuerdo1", label: "Recuerdo de Satisfacción #1 — Un hecho que te haya producido mucha satisfacción, donde hayas tenido un papel activo.", tall: true, hints: ["¿Cuántos años tenías? ¿Qué contexto rodeaba ese momento?","¿Cuál fue tu papel específico?","¿Qué habilidades tuyas contribuyeron al resultado?","¿Por qué ese momento todavía te genera satisfacción?"] },
+    { id: "recuerdo2", label: "Recuerdo de Satisfacción #2 — Otro hecho inolvidable donde hayas tenido protagonismo.", tall: true, hints: ["¿Es un recuerdo de una etapa diferente al primero?","¿Qué competencias o talentos se pusieron en juego?","¿Qué dice ese recuerdo sobre el tipo de tareas donde más florecés?"] },
+    { id: "reflexion", label: "Reflexión — ¿Qué patrones o talentos encontrás en común entre estos dos recuerdos?", hints: ["¿Qué tienen en común ambos momentos?","¿Aparecen las mismas habilidades o valores en los dos?","¿Qué te dicen sobre qué trabajo podría darte satisfacción genuina?"] },
+  ]},
+]
+
+interface Props {
+  userId: number; onComplete: () => void
   onSave: (sectionId: number, responses: any, meta: object) => Promise<void>
-  initialResponses?: any
-  onResponseChange?: (responses: any) => void
+  initialResponses?: any; onResponseChange?: (responses: any) => void
 }
 
-export function AutodescubrimientoForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: AutodescubrimientoFormProps) {
-  const [currentSection, setCurrentSection] = useState(0)
-  const [isSaving, setIsSaving] = useState(false)
-  const [responses, setResponses] = useState<AutodescubrimientoResponse>(initialResponses ?? {
-    intereses: {},
-    autobiografia: {},
-    estilosAprendizaje: {},
-    preguntasAbiertas: {},
-  })
+export function AutodescubrimientoForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: Props) {
+  const [sec, setSec] = useState(0)
+  const [answers, setAnswers] = useState<Record<string, string>>(initialResponses?.answers ?? {})
+  const [saving, setSaving] = useState(false)
+  const [done, setDone] = useState(false)
+  const [expandedHints, setExpandedHints] = useState<Record<string, boolean>>({})
 
-  useEffect(() => {
-    onResponseChange?.(responses);
-  }, [responses]);
+  useEffect(() => { onResponseChange?.({ answers }) }, [answers]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const sections = [
-    { id: "intereses", title: "Explorando mis Intereses" },
-    { id: "autobiografia", title: "Autobiografia" },
-    { id: "estilosAprendizaje", title: "Estilos de Aprendizaje" },
-  ]
-
-  const progress = ((currentSection + 1) / sections.length) * 100
+  const allQs = SECTIONS.flatMap((s) => s.questions)
+  const filled = allQs.filter((q) => (answers[q.id] ?? "").trim().length > 0).length
+  const progress = (filled / allQs.length) * 100
+  const curSection = SECTIONS[sec]
 
   const handleSave = async () => {
-    setIsSaving(true)
+    setSaving(true)
     try {
-      const formattedResponses: any[] = []
-      let questionNumber = 1
-
-      if (Object.keys(responses.intereses).length > 0) {
-        formattedResponses.push({ questionNumber, question: "Explorando mis Intereses", responseText: JSON.stringify(responses.intereses) })
-        questionNumber++
-      }
-
-      if (responses.autobiografia && Object.keys(responses.autobiografia).length > 0) {
-        const autobiografiaJson: Record<string, string> = {}
-        Object.entries(responses.autobiografia).forEach(([fieldId, response]) => {
-          const field = autodescubrimientoData.autobiografiaFields.find(f => f.id === fieldId)
-          if (field && response) autobiografiaJson[field.description] = response
-        })
-        if (Object.keys(autobiografiaJson).length > 0) {
-          formattedResponses.push({ questionNumber, question: "Autobiografia", responseText: JSON.stringify(autobiografiaJson) })
-          questionNumber++
-        }
-      }
-
-      if (responses.estilosAprendizaje && Object.keys(responses.estilosAprendizaje).length > 0) {
-        const estilosJson: Record<string, string> = {}
-        Object.entries(responses.estilosAprendizaje).forEach(([questionIndex, response]) => {
-          const question = autodescubrimientoData.estilosAprendizajePreguntas[parseInt(questionIndex)]
-          if (question && response) estilosJson[question.question] = response
-        })
-        if (Object.keys(estilosJson).length > 0) {
-          formattedResponses.push({ questionNumber, question: "Estilos de Aprendizaje", responseText: JSON.stringify(estilosJson) })
-          questionNumber++
-        }
-      }
-
-      if (responses.preguntasAbiertas && Object.keys(responses.preguntasAbiertas).length > 0) {
-        const preguntasJson: Record<string, string> = {}
-        Object.entries(responses.preguntasAbiertas).forEach(([questionId, response]) => {
-          const question = autodescubrimientoData.preguntasAbiertas.find(q => q.id === questionId)
-          if (question && response) preguntasJson[question.question] = response
-        })
-        if (Object.keys(preguntasJson).length > 0) {
-          formattedResponses.push({ questionNumber, question: "Preguntas de Reflexion", responseText: JSON.stringify(preguntasJson) })
-        }
-      }
-
-      await onSave(0, formattedResponses, { totalSections: sections.length, section: "autodescubrimiento" })
-      onComplete()
-    } catch (error) {
-      console.error("Error saving Autodescubrimiento responses:", error)
-    } finally {
-      setIsSaving(false)
-    }
+      const r = allQs.map((q, i) => ({ questionNumber: i + 1, question: q.label, responseText: answers[q.id] ?? "" }))
+      await onSave(0, r, { section: "autodescubrimiento" })
+      setDone(true); setTimeout(() => onComplete(), 1500)
+    } catch (e) { console.error(e) } finally { setSaving(false) }
   }
 
-  const isFormComplete = () => {
-    const hasIntereses = Object.keys(responses.intereses).some(key => {
-      const area = responses.intereses[key]
-      return area?.talentos?.length > 0 || area?.noTalentos?.length > 0
-    })
-    const hasAutobiografia = Object.values(responses.autobiografia || {}).some(text => text?.trim())
-    const hasEstilos = Object.keys(responses.estilosAprendizaje || {}).length > 0
-    return hasIntereses && hasAutobiografia && hasEstilos
-  }
-
-  return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <Card className="border-none bg-card p-6 shadow-sm">
-        <div className="space-y-4">
-          <div>
-            <h2 className="text-2xl font-semibold">Auto-descubrimiento y Estilos</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Explora tus intereses, estilo y talentos</p>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Seccion</span>
-              <span className="font-medium text-primary">{currentSection + 1} / {sections.length}</span>
-            </div>
-            <Progress value={progress} className="h-2" />
-          </div>
-        </div>
-      </Card>
-
-      {currentSection === 0 && <InteresesSection responses={responses} setResponses={setResponses} setCurrentSection={setCurrentSection} />}
-      {currentSection === 1 && <AutobiografiaSection responses={responses} setResponses={setResponses} setCurrentSection={setCurrentSection} />}
-      {currentSection === 2 && <EstilosAprendizajeSection responses={responses} setResponses={setResponses} setCurrentSection={setCurrentSection} handleSave={handleSave} isSaving={isSaving} isFormComplete={isFormComplete} />}
+  if (done) return (
+    <div style={{ background: "#F9F8F6", minHeight: "100%" }} className="flex flex-col items-center justify-center text-center px-6 py-16">
+      <span className="text-3xl mb-4">✦</span>
+      <h2 className="text-[26px] font-bold tracking-tight mb-2" style={{ color: "#1A1918" }}>Módulo completado</h2>
+      <p className="text-[15px]" style={{ color: "#7A7570" }}>Tu autobiografía quedó guardada.</p>
     </div>
   )
-}
-
-function InteresesSection({ responses, setResponses, setCurrentSection }: {
-  responses: AutodescubrimientoResponse
-  setResponses: React.Dispatch<React.SetStateAction<AutodescubrimientoResponse>>
-  setCurrentSection: React.Dispatch<React.SetStateAction<number>>
-}) {
-  const [currentArea, setCurrentArea] = useState(0)
-  const [phase, setPhase] = useState<"talentos" | "noTalentos">("talentos")
-  const areaKeys = Object.keys(autodescubrimientoData.areas)
-  const areaKey = areaKeys[currentArea]
-  const area = autodescubrimientoData.areas[areaKey as keyof typeof autodescubrimientoData.areas]
-
-  const handleTalentToggle = (talent: string) => {
-    setResponses((prev) => {
-      const currentTalents = prev.intereses[areaKey]?.talentos || []
-      const newTalents = currentTalents.includes(talent) ? currentTalents.filter((t) => t !== talent) : [...currentTalents, talent]
-      return { ...prev, intereses: { ...prev.intereses, [areaKey]: { talentos: newTalents, noTalentos: prev.intereses[areaKey]?.noTalentos || [] } } }
-    })
-  }
-
-  const handleNoTalentToggle = (talent: string) => {
-    setResponses((prev) => {
-      const currentNoTalents = prev.intereses[areaKey]?.noTalentos || []
-      const newNoTalents = currentNoTalents.includes(talent) ? currentNoTalents.filter((t) => t !== talent) : [...currentNoTalents, talent]
-      return { ...prev, intereses: { ...prev.intereses, [areaKey]: { talentos: prev.intereses[areaKey]?.talentos || [], noTalentos: newNoTalents } } }
-    })
-  }
-
-  const availableNoTalentos = area.talentos.filter((talent) => !(responses.intereses[areaKey]?.talentos || []).includes(talent))
-
-  const handleNextPhase = () => {
-    if (phase === "talentos") { setPhase("noTalentos") }
-    else {
-      if (currentArea < areaKeys.length - 1) { setCurrentArea((p) => p + 1); setPhase("talentos") }
-      else { setCurrentSection((p) => p + 1) }
-    }
-  }
-
-  const handlePrevPhase = () => {
-    if (phase === "noTalentos") { setPhase("talentos") }
-    else { if (currentArea > 0) { setCurrentArea((p) => p - 1); setPhase("noTalentos") } }
-  }
-
-  const isFirst = currentArea === 0 && phase === "talentos"
-  const isLast = currentArea === areaKeys.length - 1 && phase === "noTalentos"
-  const hasCurrentPhaseSelection = phase === "talentos" ? (responses.intereses[areaKey]?.talentos?.length || 0) > 0 : true
 
   return (
-    <div className="space-y-4">
-      <Card className="border-none bg-card p-6 shadow-sm">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">{area.title}</h3>
-            <span className={`rounded-full px-3 py-1 text-xs font-medium ${phase === "talentos" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"}`}>
-              {phase === "talentos" ? "Talentos" : "No Talentos"}
-            </span>
-          </div>
+    <div style={{ background: "#F9F8F6", minHeight: "100%" }} className="flex flex-col">
+      <div className="sticky top-0 z-10 border-b" style={{ background: "#F9F8F6", borderColor: "#EDE8E1" }}>
+        <div className="flex items-center justify-between px-5 py-3.5">
+          <span className="text-[15px] font-bold" style={{ color: "#1A1918" }}>Autobiografía</span>
+          <span className="text-xs font-medium" style={{ color: "#B2ADA6" }}>{sec + 1} / {SECTIONS.length}</span>
+        </div>
+        <div className="h-0.5" style={{ background: "#EDE8E1" }}>
+          <div className="h-full transition-all duration-300" style={{ width: `${progress}%`, background: "#1A1918" }} />
+        </div>
+      </div>
 
-          {phase === "talentos" ? (
-            <div>
-              <p className="mb-4 text-sm text-muted-foreground">Selecciona los talentos que reconoces en vos para esta area:</p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {area.talentos.map((talent) => (
-                  <div key={talent} className={`flex items-center space-x-2 rounded-lg border p-3 transition-colors ${responses.intereses[areaKey]?.talentos?.includes(talent) ? "border-green-500 bg-green-50 dark:bg-green-900/20" : "hover:bg-secondary/50"}`}>
-                    <Checkbox id={`talent-${areaKey}-${talent}`} checked={responses.intereses[areaKey]?.talentos?.includes(talent) || false} onCheckedChange={() => handleTalentToggle(talent)} />
-                    <label htmlFor={`talent-${areaKey}-${talent}`} className="flex-1 cursor-pointer text-sm leading-none">{talent}</label>
-                  </div>
-                ))}
+      {/* Section tabs */}
+      <div className="flex gap-2 overflow-x-auto px-4 pt-4 pb-2">
+        {SECTIONS.map((s, i) => (
+          <button key={s.id} onClick={() => setSec(i)}
+            className={cn("px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap border transition-colors",
+              sec === i ? "bg-[#1A1918] text-white border-[#1A1918]" : "bg-white border-[#EDE8E1] text-[#7A7570]")}>
+            {s.title}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 px-4 pt-4 pb-24 max-w-[1000px] mx-auto w-full lg:px-12 space-y-5">
+        <h2 className="text-lg font-bold" style={{ color: "#1A1918" }}>{curSection.title}</h2>
+
+        {curSection.questions.map((q) => (
+          <div key={q.id} className="bg-white rounded-[18px] p-5" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.05), 0 0 0 1px rgba(0,0,0,.04)" }}>
+            <label className="block text-sm font-semibold mb-2" style={{ color: "#1A1918", lineHeight: "1.35" }}>{q.label}</label>
+
+            {/* Hints panel */}
+            <button onClick={() => setExpandedHints((h) => ({ ...h, [q.id]: !h[q.id] }))}
+              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider mb-3 cursor-pointer"
+              style={{ color: "#B2ADA6" }}>
+              {expandedHints[q.id] ? "▼" : "▶"} Para desarrollar mejor tu respuesta
+            </button>
+            {expandedHints[q.id] && (
+              <div className="rounded-[10px] px-4 py-3 mb-3 text-xs leading-relaxed space-y-1" style={{ background: "#F5F2EC", color: "#7A7570" }}>
+                {q.hints.map((h, i) => <p key={i}>→ {h}</p>)}
               </div>
-            </div>
-          ) : (
-            <div>
-              <p className="mb-4 text-sm text-muted-foreground">De los restantes, selecciona aquellos en los que NO te destacas o no te interesan:</p>
-              {availableNoTalentos.length > 0 ? (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {availableNoTalentos.map((talent) => (
-                    <div key={talent} className={`flex items-center space-x-2 rounded-lg border p-3 transition-colors ${responses.intereses[areaKey]?.noTalentos?.includes(talent) ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20" : "hover:bg-secondary/50"}`}>
-                      <Checkbox id={`notalent-${areaKey}-${talent}`} checked={responses.intereses[areaKey]?.noTalentos?.includes(talent) || false} onCheckedChange={() => handleNoTalentToggle(talent)} />
-                      <label htmlFor={`notalent-${areaKey}-${talent}`} className="flex-1 cursor-pointer text-sm leading-none">{talent}</label>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-center text-sm text-muted-foreground py-8">Seleccionaste todos los talentos de esta area. No hay opciones para marcar como "No Talento".</p>
-              )}
-            </div>
-          )}
-        </div>
-      </Card>
+            )}
 
-      <Card className="border-none bg-card p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <Button variant="ghost" disabled={isFirst} onClick={handlePrevPhase}>Anterior</Button>
-          <span className="text-sm text-muted-foreground">Area {currentArea + 1} de {areaKeys.length} - {phase === "talentos" ? "Paso 1/2" : "Paso 2/2"}</span>
-          <Button variant="ghost" disabled={!hasCurrentPhaseSelection} onClick={handleNextPhase}>{isLast ? "Continuar" : "Siguiente"}</Button>
-        </div>
-      </Card>
-    </div>
-  )
-}
-
-function AutobiografiaSection({ responses, setResponses, setCurrentSection }: {
-  responses: AutodescubrimientoResponse
-  setResponses: React.Dispatch<React.SetStateAction<AutodescubrimientoResponse>>
-  setCurrentSection: React.Dispatch<React.SetStateAction<number>>
-}) {
-  const handleFieldChange = (fieldId: string, value: string) => {
-    setResponses((prev) => ({ ...prev, autobiografia: { ...prev.autobiografia, [fieldId]: value } }))
-  }
-
-  return (
-    <div className="space-y-4">
-      <Card className="border-none bg-card p-6 shadow-sm">
-        <div className="space-y-2">
-          <h3 className="text-lg font-semibold">Autobiografia</h3>
-          <p className="text-sm text-muted-foreground">Escribi tu historia de vida de forma simple y sincera. La idea no es escribir "perfecto", sino pensar en quien sos, de donde venis y hacia donde te gustaria ir.</p>
-        </div>
-      </Card>
-
-      {autodescubrimientoData.autobiografiaFields.map((field) => (
-        <Card key={field.id} className="border-none bg-card p-6 shadow-sm">
-          <div className="space-y-3">
-            <div>
-              <Label className="text-base font-semibold">{field.label}</Label>
-              <p className="mt-1 text-sm text-muted-foreground">{field.description}</p>
-            </div>
-            <Textarea value={responses.autobiografia?.[field.id] || ""} onChange={(e) => handleFieldChange(field.id, e.target.value)} placeholder="Escribi tu respuesta aqui..." className="min-h-[100px]" />
+            <textarea value={answers[q.id] ?? ""} onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
+              rows={q.tall ? 6 : 4} placeholder="Escribí tu respuesta..."
+              className="w-full px-3.5 py-3 rounded-xl border text-sm resize-y outline-none transition-colors"
+              style={{ background: "#F9F8F6", borderColor: "#EDE8E1", color: "#1A1918", lineHeight: "1.6", minHeight: q.tall ? "180px" : "96px", fontFamily: "inherit" }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = "#1A1918" }} onBlur={(e) => { e.currentTarget.style.borderColor = "#EDE8E1" }} />
           </div>
-        </Card>
-      ))}
+        ))}
+      </div>
 
-      <Card className="border-none bg-card p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <Button variant="ghost" onClick={() => setCurrentSection(0)}>Anterior</Button>
-          <span className="text-sm text-muted-foreground">Autobiografia</span>
-          <Button variant="ghost" onClick={() => setCurrentSection(2)}>Siguiente</Button>
-        </div>
-      </Card>
-    </div>
-  )
-}
-
-function EstilosAprendizajeSection({ responses, setResponses, setCurrentSection, handleSave, isSaving, isFormComplete }: {
-  responses: AutodescubrimientoResponse
-  setResponses: React.Dispatch<React.SetStateAction<AutodescubrimientoResponse>>
-  setCurrentSection: React.Dispatch<React.SetStateAction<number>>
-  handleSave: () => Promise<void>
-  isSaving: boolean
-  isFormComplete: () => boolean
-}) {
-  const handleResponse = (questionIndex: number, value: string) => {
-    setResponses((prev) => ({ ...prev, estilosAprendizaje: { ...prev.estilosAprendizaje, [questionIndex]: value } }))
-  }
-
-  const handleOpenResponse = (questionId: string, value: string) => {
-    setResponses((prev) => ({ ...prev, preguntasAbiertas: { ...prev.preguntasAbiertas, [questionId]: value } }))
-  }
-
-  return (
-    <div className="space-y-4">
-      <Card className="border-none bg-card p-6 shadow-sm">
-        <div className="space-y-2">
-          <h3 className="text-lg font-semibold">Estilos de Aprendizaje</h3>
-          <p className="text-sm text-muted-foreground">Elegi una opcion por pregunta</p>
-        </div>
-      </Card>
-
-      {autodescubrimientoData.estilosAprendizajePreguntas.map((item, index) => (
-        <Card key={index} className="border-none bg-card p-6 shadow-sm">
-          <div className="space-y-3">
-            <p className="font-medium">{item.question}</p>
-            <RadioGroup value={responses.estilosAprendizaje[index]} onValueChange={(value) => handleResponse(index, value)}>
-              {item.options.map((option, optIndex) => (
-                <div key={option} className="flex items-center space-x-2">
-                  <RadioGroupItem value={option} id={`q${index}-${option}`} />
-                  <Label htmlFor={`q${index}-${option}`}>{optIndex + 1}. {option}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
-        </Card>
-      ))}
-
-      <Card className="border-none bg-card p-6 shadow-sm">
-        <div className="space-y-2">
-          <h3 className="text-lg font-semibold">Preguntas de Reflexion</h3>
-          <p className="text-sm text-muted-foreground">Responde con tus propias palabras</p>
-        </div>
-      </Card>
-
-      {autodescubrimientoData.preguntasAbiertas.map((item) => (
-        <Card key={item.id} className="border-none bg-card p-6 shadow-sm">
-          <div className="space-y-3">
-            <div>
-              <Label className="text-base font-semibold">{item.label}</Label>
-              <p className="mt-1 text-sm text-muted-foreground">{item.question}</p>
-            </div>
-            <Textarea value={responses.preguntasAbiertas?.[item.id] || ""} onChange={(e) => handleOpenResponse(item.id, e.target.value)} placeholder="Escribi tu respuesta aqui..." className="min-h-[100px]" />
-          </div>
-        </Card>
-      ))}
-
-      <Card className="border-none bg-card p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <Button variant="ghost" onClick={() => setCurrentSection(1)}>Anterior</Button>
-          <span className="text-sm text-muted-foreground">Estilos de Aprendizaje</span>
-          <Button onClick={handleSave} disabled={!isFormComplete() || isSaving} className="min-w-[100px]">{isSaving ? "Guardando..." : "Guardar"}</Button>
-        </div>
-      </Card>
+      <div className="sticky bottom-0 z-10 px-4 pb-7 pt-3 flex items-center justify-between lg:px-12" style={{ background: "linear-gradient(transparent, #F9F8F6 40%)" }}>
+        <button onClick={() => setSec((s) => s - 1)} disabled={sec === 0}
+          className="px-5 py-3 rounded-[14px] border text-sm font-semibold transition-opacity disabled:opacity-0"
+          style={{ borderColor: "#EDE8E1", color: "#7A7570" }}>← Anterior</button>
+        {sec < SECTIONS.length - 1 ? (
+          <button onClick={() => setSec((s) => s + 1)} className="px-8 py-3.5 rounded-[14px] text-[15px] font-bold text-white hover:opacity-[0.88]" style={{ background: "#1A1918" }}>
+            Siguiente →
+          </button>
+        ) : (
+          <button onClick={handleSave} disabled={saving || filled < 5}
+            className={cn("px-8 py-3.5 rounded-[14px] text-[15px] font-bold text-white", filled >= 5 ? "hover:opacity-[0.88]" : "opacity-35 pointer-events-none")}
+            style={{ background: "#1A1918" }}>
+            {saving ? "Guardando..." : "Finalizar →"}
+          </button>
+        )}
+      </div>
     </div>
   )
 }

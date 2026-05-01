@@ -1,320 +1,127 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Progress } from "@/components/ui/progress"
-import { herrmannQuestions } from "@/lib/questionnaires/herrmann-questions"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Label } from "@/components/ui/label"
+import { cn } from "@/lib/utils"
 
-type QuestionType =
-  | "motivacion"
-  | "aprendizaje"
-  | "aprendizajeModo"
-  | "tipoPregunta"
-  | "meGusta"
-  | "comprarChoice"
-  | "comprarCoche"
-  | "comprarCelular"
-  | "comportamiento"
-  | "estiloPalabras"
-  | "desprecio"
-  | "resolucionProblema"
-  | "visionProblema"
-  | "frasesAproximadas"
+type StepDef = { title: string; hint?: string; mode: "multi" | "single" | "exact"; min?: number; max?: number; options: string[] }
 
-type HerrmannResponse = {
-  motivacion: string[]
-  aprendizaje: string[]
-  aprendizajeModo: string[]
-  tipoPregunta: string
-  meGusta: string[]
-  comprarChoice: string
-  comprarCoche: string[]
-  comprarCelular: string[]
-  comportamiento: string
-  estiloPalabras: string[]
-  desprecio: string[]
-  resolucionProblema: string
-  visionProblema: string
-  frasesAproximadas: string[]
-}
-
-const questionSteps: { key: QuestionType; title: string; limit?: number }[] = [
-  { key: "motivacion", title: "Marque los 5 sentidos o situaciones que lo hacen sentirse mas motivado en el trabajo", limit: 5 },
-  { key: "aprendizaje", title: "Cuando aprendo, me gusta... (marque 5 alternativas)", limit: 5 },
-  { key: "aprendizajeModo", title: "Prefiero aprender a traves de... (marque 5 alternativas)", limit: 5 },
-  { key: "tipoPregunta", title: "Cual es el tipo de pregunta que mas le gusta hacer?", limit: 1 },
-  { key: "meGusta", title: "Senale lo que mas le gusta hacer (marque 4)", limit: 4 },
-  { key: "comprarChoice", title: "Con que situacion preferis responder?", limit: 1 },
-  { key: "comprarCoche", title: "Al comprar un coche usted... (marque 5 frases)", limit: 5 },
-  { key: "comprarCelular", title: "Al comprar un celular vos... (marque 5 frases)", limit: 5 },
-  { key: "comportamiento", title: "Como define su comportamiento?", limit: 1 },
-  { key: "estiloPalabras", title: "Palabras que definen mi estilo (marque 4)", limit: 4 },
-  { key: "desprecio", title: "Frases de tono despreciativo que mas ha escuchado (marque 5)", limit: 5 },
-  { key: "resolucionProblema", title: "Cuando tengo que resolver un problema, generalmente yo...", limit: 1 },
-  { key: "visionProblema", title: "Cuando tengo que resolver un problema, busco...", limit: 1 },
-  { key: "frasesAproximadas", title: "Cuales son las frases que mas se aproximan a lo que usted dice? (marque 3)", limit: 3 },
+const STEPS: StepDef[] = [
+  { title: "¿Qué te energiza más al estudiar o trabajar?", hint: "Elegí hasta 3", mode: "multi", min: 1, max: 3, options: ["Trabajar solo","Oportunidades para probar cosas nuevas","Expresar mis ideas","Planificar","Tener el control de la situación","Trabajar comunicándome con otros","Provocar cambios","Hacer que algo funcione","Explicar y conversar","Arriesgarse","Crear o usar recursos visuales","Analizar datos","Prestarle atención a los detalles","Pensar escenarios futuros","Aspectos técnicos","Producir y organizar","Trabajar con personas","Ser parte de un equipo","Usar números, estadísticas","Realizar las tareas siempre en el plazo previsto"] },
+  { title: "Cuando aprendés, ¿qué te gusta más?", hint: "Elegí hasta 3", mode: "multi", min: 1, max: 3, options: ["Evaluar y testar teorías","Recibir informaciones paso a paso","Trabajar con hechos y datos","Tomar iniciativas","Oír y compartir ideas","Elaborar teorías","Usar mi imaginación","Involucrarme emocionalmente","Aplicar análisis y lógica","Trabajar en grupo","Un ambiente bien informal","Orientaciones claras","Verificar mi comprensión","Descubrir cosas nuevas","Hacer experiencias prácticas","Criticar","Pensar sobre las ideas","Ver rápido el panorama general","Confiar en las intuiciones","Adquirir habilidades por la práctica"] },
+  { title: "¿Cómo preferís aprender?", hint: "Elegí hasta 3", mode: "multi", min: 1, max: 3, options: ["Demostraciones","Utilizando historias y música","Debates guiados","Discusiones de casos orientados hacia los números y hechos","Actividades paso a paso","Ejercicios que usan la intuición","Clases formales","Métodos tradicionales comprobados","Lectura de libros-textos","Ejercicios de análisis","Experiencias","Agenda flexible","Discusiones de casos orientados hacia las personas","Actividades paso a paso con orden claro","Trabajos con estructura clara"] },
+  { title: "¿Cuál es la pregunta que más te gusta hacer?", mode: "single", options: ["¿Qué?","¿Cómo?","¿Por qué?","¿Quién?"] },
+  { title: "¿Qué te gusta más hacer?", hint: "Elegí exactamente 2", mode: "exact", min: 2, max: 2, options: ["Descubrir","Teorizar","Cuantificar","Resumir","Agrupar","Evaluar","Organizar","Reflexionar","Conceptuar","Procesar","Analizar","Ordenar","Sentir","Explorar","Practicar","Compartir"] },
+  { title: "¿Cómo definís tu comportamiento?", mode: "single", options: ["Me gusta Organizar","Me gusta Compartir","Me gusta Analizar","Me gusta Descubrir"] },
+  { title: "Cuando tengo que resolver un problema, generalmente yo...", mode: "single", options: ["Miro el panorama completo y confío en lo que me dice mi instinto para encontrar la solución.","Organizo los \"hechos\" tratándolos de forma realista y cronológica.","Siento los \"hechos\" y pienso en cómo nos afecta a todos, tratando de resolverlo compartiendo lo que sentimos.","Analizo los \"hechos\" tratándolos de forma lógica y racional."] },
+  { title: "Cuando tengo que resolver un problema, busco...", mode: "single", options: ["Una visión interpersonal, emocional, \"humana\".","Una visión organizada, detallada, \"cronológica\".","Una visión analítica, lógica, racional, \"de resultados\".","Una visión intuitiva, conceptual, visual, de \"contexto general\"."] },
 ]
 
-const comprarChoiceOptions = ["Comprar un coche", "Comprar un celular"]
-
-const resolucionOptions = [
-  'Miro el panorama completo y confio en lo que me dice mi instinto para encontrar la solucion',
-  'Organizo los "hechos" tratando los detalles de forma realista y cronologica.',
-  'Siento los "hechos" y pienso en como nos afecta a todos y trato de resolverlo compartiendo lo que sentimos',
-  'Analizo los "hechos" tratandolos de forma logica y racional.',
-]
-
-const visionOptions = [
-  'Una vision interpersonal, emocional "humana".',
-  'Una vision organizada, detallada, "cronologica".',
-  'Una vision analitica, logica, racional, "de resultados".',
-  'Una vision intuitiva, conceptual, visual, de "contexto general".',
-]
-
-const frasesAproximadasOptions = [
-  "Siempre hacemos las cosas de esta forma",
-  "Vayamos al punto clave del problema",
-  "Veamos los valores humanos",
-  "Vamos a analizar",
-  "Vamos a ver el cuadro general",
-  "Vamos a ver el desarrollo del equipo",
-  "Vamos a conocer el resultado",
-  "Este es el gran suceso conceptual",
-  "Vamos a mantener la ley y el orden",
-  "Vamos a innovar y crear sinergia",
-  "Vamos a participar y motivar",
-  "Es mas seguro de esta forma",
-]
-
-interface HerrmannFormProps {
-  userId: number
-  onComplete: () => void
+interface Props {
+  userId: number; onComplete: () => void
   onSave: (sectionId: number, responses: any, meta: object) => Promise<void>
-  initialResponses?: any
-  onResponseChange?: (responses: any) => void
+  initialResponses?: any; onResponseChange?: (responses: any) => void
 }
 
-export function HerrmannForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: HerrmannFormProps) {
-  const [currentStep, setCurrentStep] = useState(0)
-  const [isSaving, setIsSaving] = useState(false)
-  const [responses, setResponses] = useState<HerrmannResponse>(initialResponses ?? {
-    motivacion: [],
-    aprendizaje: [],
-    aprendizajeModo: [],
-    tipoPregunta: "",
-    meGusta: [],
-    comprarChoice: "",
-    comprarCoche: [],
-    comprarCelular: [],
-    comportamiento: "",
-    estiloPalabras: [],
-    desprecio: [],
-    resolucionProblema: "",
-    visionProblema: "",
-    frasesAproximadas: [],
-  })
+export function HerrmannForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: Props) {
+  const [step, setStep] = useState(0)
+  const [responses, setResponses] = useState<Record<number, string[]>>(initialResponses ?? {})
+  const [saving, setSaving] = useState(false)
+  const [done, setDone] = useState(false)
 
-  useEffect(() => {
-    onResponseChange?.(responses);
-  }, [responses]);
+  useEffect(() => { onResponseChange?.(responses) }, [responses]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getActiveSteps = () => {
-    const choice = responses.comprarChoice
-    return questionSteps.filter((step) => {
-      if (step.key === "comprarCoche") return choice === "Comprar un coche"
-      if (step.key === "comprarCelular") return choice === "Comprar un celular"
-      return true
-    })
+  const cur = STEPS[step]
+  const sel = responses[step] ?? []
+  const progress = ((step + 1) / STEPS.length) * 100
+  const atMax = cur.max ? sel.length >= cur.max : false
+
+  const isReady = () => {
+    if (cur.mode === "single") return sel.length === 1
+    if (cur.mode === "exact") return sel.length === (cur.min ?? 1)
+    return sel.length >= (cur.min ?? 1)
   }
 
-  const activeSteps = getActiveSteps()
-  const currentQuestion = activeSteps[currentStep]
-  const totalQuestions = 13
-  const progress = ((currentStep + 1) / totalQuestions) * 100
-
-  const toggleItem = (item: string) => {
-    const key = currentQuestion.key
-    const limit = currentQuestion.limit || 1
-
-    if (limit === 1) {
-      setResponses((prev) => ({ ...prev, [key]: item }))
-    } else {
-      setResponses((prev) => {
-        const current = prev[key] as string[]
-        const newArray = current.includes(item) ? current.filter((i) => i !== item) : [...current, item]
-        if (newArray.length > limit) return prev
-        return { ...prev, [key]: newArray }
-      })
-    }
+  const toggle = (opt: string) => {
+    if (cur.mode === "single") { setResponses((r) => ({ ...r, [step]: [opt] })); return }
+    if (sel.includes(opt)) setResponses((r) => ({ ...r, [step]: sel.filter((x) => x !== opt) }))
+    else if (!atMax) setResponses((r) => ({ ...r, [step]: [...sel, opt] }))
   }
 
-  const canProceed = () => {
-    const key = currentQuestion.key
-    const limit = currentQuestion.limit || 1
-    const response = responses[key]
-    if (limit === 1) return response !== ""
-    return Array.isArray(response) && response.length === limit
-  }
-
-  const getOptions = () => {
-    const key = currentQuestion.key
-    if (key === "comprarChoice") return comprarChoiceOptions
-    if (key === "resolucionProblema") return resolucionOptions
-    if (key === "visionProblema") return visionOptions
-    if (key === "frasesAproximadas") return frasesAproximadasOptions
-    return herrmannQuestions[key as keyof typeof herrmannQuestions] as string[]
-  }
-
-  const currentResponse = responses[currentQuestion.key]
-  const selectedCount = Array.isArray(currentResponse) ? currentResponse.length : currentResponse ? 1 : 0
-  const limit = currentQuestion.limit || 1
+  const next = () => { if (step < STEPS.length - 1) setStep(step + 1); else handleSave() }
 
   const handleSave = async () => {
-    setIsSaving(true)
+    setSaving(true)
     try {
-      const filteredSteps = activeSteps.filter(step => step.key !== "comprarChoice")
-      const filteredResponses: Partial<HerrmannResponse> = {}
-      filteredSteps.forEach(step => {
-        (filteredResponses as any)[step.key] = responses[step.key]
-      })
-
-      await onSave(0, filteredResponses, {
-        totalSteps: activeSteps.length,
-        section: "herrmann"
-      })
-
-      onComplete()
-    } catch (error) {
-      console.error("Error saving Herrmann responses:", error)
-    } finally {
-      setIsSaving(false)
-    }
+      const r = STEPS.map((s, i) => ({
+        questionNumber: i + 1, question: s.title,
+        ...(s.mode === "single" ? { responseText: (responses[i] ?? [])[0] ?? "" } : { responseArray: responses[i] ?? [] }),
+      }))
+      await onSave(0, r, { section: "dominancia" })
+      setDone(true); setTimeout(() => onComplete(), 2000)
+    } catch (e) { console.error(e) } finally { setSaving(false) }
   }
 
-  const isFormComplete = () => {
-    return activeSteps.every(step => {
-      const response = responses[step.key]
-      if (step.limit === 1) return response !== ""
-      return Array.isArray(response) && response.length === (step.limit || 1)
-    })
-  }
+  if (done) return (
+    <div style={{ background: "#F9F8F6", minHeight: "100%" }} className="flex flex-col items-center justify-center text-center px-6 py-16">
+      <span className="text-3xl mb-4">✦</span>
+      <h2 className="text-[26px] font-bold tracking-tight mb-2" style={{ color: "#1A1918" }}>Módulo completado</h2>
+      <p className="text-[15px]" style={{ color: "#7A7570" }}>Registramos tus respuestas.</p>
+    </div>
+  )
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      {/* Header */}
-      <Card className="p-6">
-        <div className="space-y-4">
-          <div>
-            <h2 className="text-2xl font-bold">III. Dominancia Cerebral (NED HERRMANN)</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Modelo de cuadrantes cerebrales de Herrmann (Creatividad y estilos de pensamiento).
-            </p>
-          </div>
-
-          <div className="rounded-lg border bg-muted/50 p-4">
-            <p className="text-sm font-medium">Consigna:</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Responda con total sinceridad, eligiendo la opcion con la que mas se identifica (no la "socialmente correcta").
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Progreso</span>
-              <span className="font-semibold text-primary">
-                Pregunta {currentStep + 1} de {totalQuestions}
-              </span>
-            </div>
-            <Progress value={progress} className="h-2" />
-          </div>
+    <div style={{ background: "#F9F8F6", minHeight: "100%" }} className="flex flex-col">
+      <div className="sticky top-0 z-10 border-b" style={{ background: "#F9F8F6", borderColor: "#EDE8E1" }}>
+        <div className="flex items-center justify-between px-5 py-3.5">
+          <span className="text-[15px] font-bold" style={{ color: "#1A1918" }}>Dominancia</span>
+          <span className="text-xs font-medium" style={{ color: "#B2ADA6" }}>{step + 1} / {STEPS.length}</span>
         </div>
-      </Card>
+        <div className="h-0.5" style={{ background: "#EDE8E1" }}>
+          <div className="h-full transition-all duration-300" style={{ width: `${progress}%`, background: "#1A1918", transitionTimingFunction: "cubic-bezier(.4,0,.2,1)" }} />
+        </div>
+      </div>
 
-      {/* Current Question */}
-      <Card className="p-6">
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-xl font-bold">{currentQuestion.title}</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Seleccionadas: {selectedCount} de {limit}
-            </p>
+      <div className="flex-1 px-4 pt-8 pb-24 max-w-[1100px] mx-auto w-full lg:px-12">
+        <div className="bg-white rounded-[18px] p-6 lg:p-10" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.05), 0 0 0 1px rgba(0,0,0,.04)" }}>
+          <div className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "#B2ADA6" }}>Sección {step + 1} de {STEPS.length}</div>
+          <h2 className="text-lg font-bold leading-snug mb-1" style={{ color: "#1A1918" }}>{cur.title}</h2>
+          {cur.hint && <p className="text-xs mb-5" style={{ color: "#7A7570" }}>{cur.hint}</p>}
+          {!cur.hint && <div className="mb-5" />}
+
+          <div className="flex flex-wrap gap-[9px]">
+            {cur.options.map((opt) => {
+              const on = sel.includes(opt)
+              const dis = !on && atMax && cur.mode !== "single"
+              return (
+                <button key={opt} onClick={() => !dis && toggle(opt)}
+                  className={cn("px-4 py-[9px] rounded-full border text-[13px] font-medium transition-all",
+                    dis && "opacity-[0.38] cursor-default", !dis && "active:scale-[0.95] cursor-pointer")}
+                  style={{ background: on ? "#1A1918" : "white", color: on ? "white" : "#1A1918", borderColor: on ? "#1A1918" : "#EDE8E1" }}>
+                  {opt}
+                </button>
+              )
+            })}
           </div>
 
-          {limit === 1 &&
-          ["tipoPregunta", "comprarChoice", "comportamiento", "resolucionProblema", "visionProblema"].includes(currentQuestion.key) ? (
-            <RadioGroup value={typeof currentResponse === 'string' ? currentResponse : ''} onValueChange={toggleItem}>
-              <div className="space-y-3">
-                {getOptions().map((option) => (
-                  <div key={option} className="flex items-start gap-3">
-                    <RadioGroupItem value={option} id={option} />
-                    <Label htmlFor={option} className="cursor-pointer text-sm leading-relaxed">
-                      {option}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </RadioGroup>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {getOptions().map((option) => (
-                <label
-                  key={option}
-                  className={`flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-all ${
-                    Array.isArray(currentResponse) && currentResponse.includes(option)
-                      ? "border-primary bg-primary/5"
-                      : "hover:border-primary/50"
-                  }`}
-                >
-                  <Checkbox
-                    checked={Array.isArray(currentResponse) && currentResponse.includes(option)}
-                    onCheckedChange={() => toggleItem(option)}
-                    className="mt-0.5"
-                    disabled={
-                      Array.isArray(currentResponse) &&
-                      !currentResponse.includes(option) &&
-                      currentResponse.length >= limit
-                    }
-                  />
-                  <span className="text-sm leading-relaxed">{option}</span>
-                </label>
-              ))}
+          {cur.mode !== "single" && (
+            <div className="mt-4 text-xs" style={{ color: "#B2ADA6" }}>
+              {sel.length} seleccionado{sel.length !== 1 ? "s" : ""}{cur.max && ` de ${cur.max} máximo`}
             </div>
           )}
         </div>
-      </Card>
+      </div>
 
-      {/* Navigation */}
-      <Card className="p-6">
-        <div className="flex items-center justify-between">
-          <Button variant="outline" disabled={currentStep === 0} onClick={() => setCurrentStep((p) => p - 1)}>
-            Anterior
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            {currentStep + 1} / {totalQuestions}
-          </span>
-          {currentStep === activeSteps.length - 1 ? (
-            <Button
-              onClick={handleSave}
-              disabled={!isFormComplete() || isSaving}
-              className="min-w-[100px]"
-            >
-              {isSaving ? "Guardando..." : "Guardar"}
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              disabled={!canProceed()}
-              onClick={() => setCurrentStep((p) => p + 1)}
-            >
-              Siguiente
-            </Button>
-          )}
-        </div>
-      </Card>
+      <div className="sticky bottom-0 z-10 px-4 pb-7 pt-3 flex items-center justify-between lg:px-12" style={{ background: "linear-gradient(transparent, #F9F8F6 40%)" }}>
+        <button onClick={() => setStep((s) => s - 1)} disabled={step === 0}
+          className="px-5 py-3 rounded-[14px] border text-sm font-semibold transition-opacity disabled:opacity-0"
+          style={{ borderColor: "#EDE8E1", color: "#7A7570" }}>← Anterior</button>
+        <button onClick={next} disabled={!isReady() || saving}
+          className={cn("px-8 py-3.5 rounded-[14px] text-[15px] font-bold text-white transition-all",
+            isReady() ? "opacity-100 hover:opacity-[0.84] active:opacity-[0.76]" : "opacity-35 pointer-events-none")}
+          style={{ background: "#1A1918" }}>
+          {saving ? "Guardando..." : step === STEPS.length - 1 ? "Finalizar →" : "Continuar →"}
+        </button>
+      </div>
     </div>
   )
 }

@@ -30,6 +30,10 @@ export function getCalculatorForSection(sectionId: number): QuestionnaireCalcula
     case SECTION_IDS.LIFESTYLE:
     case SECTION_IDS.FUTURO:
     case SECTION_IDS.FAMILIA:
+    case SECTION_IDS.VIBECHECK:
+    case SECTION_IDS.VOSCOLEGIO:
+    case SECTION_IDS.PADRES:
+    case SECTION_IDS.PROFESIONALES:
       return textBased;
     case SECTION_IDS.BRAVITO:
     case SECTION_IDS.UNIVERSIDAD:
