@@ -35,11 +35,11 @@ export function MIPSForm({ userId, onComplete, onSave, initialResponses, onRespo
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [inputMode, setInputMode] = useState<"statement" | "icebreaker" | "none" | "end">("none")
   const [icebreakerOpts, setIcebreakerOpts] = useState<string[]>([])
-  const [started, setStarted] = useState(false)
   const [saving, setSaving] = useState(false)
   const msgRef = useRef<HTMLDivElement>(null)
   const processingRef = useRef(false)
   const icebreakerIdxRef = useRef<number>(0)
+  const startedRef = useRef(false)
 
   useEffect(() => { onResponseChange?.({ answers }) }, [answers]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -74,13 +74,12 @@ export function MIPSForm({ userId, onComplete, onSave, initialResponses, onRespo
   }, [addMsg]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!started) {
-      setStarted(true)
-      addMsg({ type: "bot", text: "Vamos a leer unas frases. Para cada una, elegí qué tan identificado/a te sentís." })
-      addMsg({ type: "divider", text: "— Parte 1: Personalidad —" })
-      setTimeout(() => showStatement(0), 1200)
-    }
-  }, [started]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (startedRef.current) return
+    startedRef.current = true
+    addMsg({ type: "bot", text: "Vamos a leer unas frases. Para cada una, elegí qué tan identificado/a te sentís." })
+    addMsg({ type: "divider", text: "— Parte 1: Personalidad —" })
+    setTimeout(() => showStatement(0), 1200)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAnswer = (ans: string) => {
     setAnswers((a) => ({ ...a, [qIdx]: ans }))

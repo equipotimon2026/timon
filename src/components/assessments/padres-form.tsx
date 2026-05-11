@@ -72,12 +72,12 @@ export function PadresForm({ userId, onComplete, onSave, initialResponses, onRes
   const [responses, setResponses] = useState<{ q: string; a: string }[]>(initialResponses?.responses ?? [])
   const [answeredCount, setAnsweredCount] = useState(0)
   const [flowIdx, setFlowIdx] = useState(0)
-  const [started, setStarted] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
   const messagesRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const processingRef = useRef(false)
+  const startedRef = useRef(false)
   const responsesRef = useRef(responses)
   responsesRef.current = responses
 
@@ -166,11 +166,10 @@ export function PadresForm({ userId, onComplete, onSave, initialResponses, onRes
 
   // Start flow
   useEffect(() => {
-    if (!started) {
-      setStarted(true)
-      processStep(0)
-    }
-  }, [started]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (startedRef.current) return
+    startedRef.current = true
+    processStep(0)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleOptionSelect = (opt: string) => {
     addMsg({ type: "user", text: opt })

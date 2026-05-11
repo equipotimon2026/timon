@@ -20,8 +20,6 @@ const ABIERTAS = [
   "Cuando eras chico/a, ¿qué querías ser de grande?",
 ]
 
-const ACK = ["Gracias por compartir eso.","Muy valioso.","Qué bueno saberlo.","Interesante.","Eso dice mucho.","Bueno saberlo."]
-const rnd = <T,>(a: T[]): T => a[Math.floor(Math.random() * a.length)]
 
 type Msg = { type: "bot" | "user" | "typing" | "divider"; text: string }
 
@@ -37,12 +35,12 @@ export function ProyectivasForm({ userId, onComplete, onSave, initialResponses, 
   const [inputMode, setInputMode] = useState<"text" | "none" | "end">("none")
   const [qIdx, setQIdx] = useState(0)
   const [textVal, setTextVal] = useState("")
-  const [started, setStarted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [phase, setPhase] = useState<"frases" | "abiertas">("frases")
   const msgRef = useRef<HTMLDivElement>(null)
   const textRef = useRef<HTMLTextAreaElement>(null)
   const processingRef = useRef(false)
+  const startedRef = useRef(false)
 
   const total = FRASES.length + ABIERTAS.length
   useEffect(() => { onResponseChange?.({ answers, phase }) }, [answers]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -82,13 +80,12 @@ export function ProyectivasForm({ userId, onComplete, onSave, initialResponses, 
   }, [addMsg]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!started) {
-      setStarted(true)
-      addMsg({ type: "bot", text: "Ahora vamos a completar algunas frases. Escribí lo primero que se te venga a la mente." })
-      addMsg({ type: "divider", text: "— Completá las frases —" })
-      setTimeout(() => showNext(0), 1000)
-    }
-  }, [started]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (startedRef.current) return
+    startedRef.current = true
+    addMsg({ type: "bot", text: "Ahora vamos a completar algunas frases. Escribí lo primero que se te venga a la mente." })
+    addMsg({ type: "divider", text: "— Completá las frases —" })
+    setTimeout(() => showNext(0), 1000)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = () => {
     if (!textVal.trim()) return
@@ -96,16 +93,11 @@ export function ProyectivasForm({ userId, onComplete, onSave, initialResponses, 
     addMsg({ type: "user", text: textVal.trim() })
     setInputMode("none"); setTextVal("")
 
-    const ack = rnd(ACK)
-    addMsg({ type: "typing", text: "" })
+    // FEAT-04: sin autorespuesta canned, pasar directo a la siguiente pregunta
     setTimeout(() => {
-      setMsgs((p) => p.filter((m) => m.type !== "typing"))
-      addMsg({ type: "bot", text: ack })
-      setTimeout(() => {
-        if (phase === "frases") showNext(qIdx + 1)
-        else showOpenQuestion(qIdx - FRASES.length + 1)
-      }, 400)
-    }, 500)
+      if (phase === "frases") showNext(qIdx + 1)
+      else showOpenQuestion(qIdx - FRASES.length + 1)
+    }, 400)
   }
 
   const handleSave = async () => {
