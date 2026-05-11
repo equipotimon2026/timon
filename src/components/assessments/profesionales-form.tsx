@@ -468,7 +468,7 @@ export function ProfesionalesForm({ userId, onComplete, onSave, initialResponses
                   <textarea value={textVal} onChange={(e) => { setTextVal(e.target.value); e.currentTarget.style.height = "auto"; e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 108) + "px" }}
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (textVal.trim()) handleTextSubmit() } }}
                     placeholder={placeholder} rows={1}
-                    className="flex-1 px-4 py-2.5 rounded-3xl border text-[14.5px] outline-none resize-none transition-colors"
+                    className="flex-1 px-4 py-2.5 rounded-3xl border text-base outline-none resize-none transition-colors"
                     style={{ background: "white", borderColor: "#E8E3DC", color: "#2D2D2D", lineHeight: "1.5", minHeight: "44px", maxHeight: "108px", fontFamily: "inherit" }}
                     onFocus={(e) => { e.currentTarget.style.borderColor = "#AAA49D" }}
                     onBlur={(e) => { e.currentTarget.style.borderColor = "#E8E3DC" }} />

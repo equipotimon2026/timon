@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 type ResponseItem = {
@@ -42,8 +43,12 @@ export async function saveQuestionnaireResponse(input: SaveQuestionnaireInput) {
     throw new Error('Section ID is required');
   }
 
-  // Upsert individual responses
-  const responseRows = input.responses.map((r) => ({
+  // Deduplicate responses by question_number (keep last)
+  const dedupedMap = new Map<number, ResponseItem>();
+  for (const r of input.responses) {
+    dedupedMap.set(r.questionNumber, r);
+  }
+  const responseRows = Array.from(dedupedMap.values()).map((r) => ({
     user_id: userId,
     section_id: input.sectionId,
     question_number: r.questionNumber,
@@ -54,31 +59,63 @@ export async function saveQuestionnaireResponse(input: SaveQuestionnaireInput) {
     response_array: r.responseArray ?? null,
   }));
 
-  const { error: responsesError } = await supabase
+  // Delete existing rows for this user+section, then insert fresh.
+  // Avoids ON CONFLICT issues if the UNIQUE constraint or PostgREST onConflict
+  // mapping is not consistent across environments.
+  const { error: delResponsesError } = await supabase
     .from('responses')
-    .upsert(responseRows, {
-      onConflict: 'user_id,section_id,question_number',
-    });
+    .delete()
+    .eq('user_id', userId)
+    .eq('section_id', input.sectionId);
+  if (delResponsesError) throw delResponsesError;
 
-  if (responsesError) throw responsesError;
+  if (responseRows.length > 0) {
+    const { error: responsesError } = await supabase
+      .from('responses')
+      .insert(responseRows);
+    if (responsesError) throw responsesError;
+  }
 
-  // Upsert section result
-  const { data: sectionResult, error: sectionError } = await supabase
+  // Upsert section result (try update first, fall back to insert)
+  const sectionPayload = {
+    user_id: userId,
+    section_id: input.sectionId,
+    score_data: input.scoreData,
+    meta: input.meta ?? null,
+    completed_at: new Date().toISOString(),
+  };
+
+  const { data: existing } = await supabase
     .from('section_results')
-    .upsert(
-      {
-        user_id: userId,
-        section_id: input.sectionId,
-        score_data: input.scoreData,
-        meta: input.meta ?? null,
-        completed_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id,section_id' }
-    )
-    .select()
-    .single();
+    .select('id')
+    .eq('user_id', userId)
+    .eq('section_id', input.sectionId)
+    .maybeSingle();
 
-  if (sectionError) throw sectionError;
+  let sectionResult;
+  if (existing) {
+    const { data, error } = await supabase
+      .from('section_results')
+      .update(sectionPayload)
+      .eq('id', existing.id)
+      .select()
+      .single();
+    if (error) throw error;
+    sectionResult = data;
+  } else {
+    const { data, error } = await supabase
+      .from('section_results')
+      .insert(sectionPayload)
+      .select()
+      .single();
+    if (error) throw error;
+    sectionResult = data;
+  }
+
+  // Invalidate home page cache so completed sections refresh
+  revalidatePath('/');
+  revalidatePath('/es');
+  revalidatePath('/en');
 
   return {
     success: true,

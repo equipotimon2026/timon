@@ -27,8 +27,10 @@ export async function POST(req: NextRequest) {
     }
   );
 
+  // Derive locale from origin or default to 'es'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || origin;
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${origin}/auth/callback?next=/reset-password`,
+    redirectTo: `${siteUrl}/es/auth/callback?next=/es/reset-password`,
   });
 
   if (error) {

@@ -124,8 +124,8 @@ export function VoscolegioForm({ userId, onComplete, onSave, initialResponses, o
               }}
             />
             <div className="flex justify-between text-[11px]" style={{ color: "#B2ADA6" }}>
-              <span>1 · Me chupa un huevo</span>
-              <span>10 · Me quiero ir del país</span>
+              <span>1 · Poco</span>
+              <span>10 · Mucho</span>
             </div>
           </div>
         </div>
@@ -183,12 +183,12 @@ export function VoscolegioForm({ userId, onComplete, onSave, initialResponses, o
             </div>
 
             {/* Table */}
-            <div className="rounded-[14px] border overflow-hidden" style={{ borderColor: "#EDE8E1" }}>
+            <div className="rounded-[14px] border overflow-x-auto" style={{ borderColor: "#EDE8E1" }}>
               {/* Header */}
-              <div className="grid gap-1 px-3.5 py-2.5" style={{ gridTemplateColumns: "1fr repeat(3, auto)", background: "#FDF0EA" }}>
+              <div className="grid gap-1 px-3.5 py-2.5 min-w-[480px]" style={{ gridTemplateColumns: "1fr 90px 90px 90px", background: "#FDF0EA" }}>
                 <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#E8956D" }}>Materia</span>
                 {OPTS.map((o) => (
-                  <span key={o.val} className="text-[10px] font-bold uppercase tracking-wider text-center min-w-[70px] sm:min-w-[80px]" style={{ color: "#E8956D" }}>
+                  <span key={o.val} className="text-[10px] font-bold uppercase tracking-wider text-center" style={{ color: "#E8956D" }}>
                     {o.label}
                   </span>
                 ))}
@@ -198,12 +198,12 @@ export function VoscolegioForm({ userId, onComplete, onSave, initialResponses, o
               {MATERIAS.map((m, idx) => (
                 <div
                   key={m}
-                  className="grid gap-1 px-3.5 py-2.5 items-center border-t hover:bg-[#FAFAF8] transition-colors"
-                  style={{ gridTemplateColumns: "1fr repeat(3, auto)", borderColor: "#EDE8E1" }}
+                  className="grid gap-1 px-3.5 py-2.5 items-center border-t hover:bg-[#FAFAF8] transition-colors min-w-[480px]"
+                  style={{ gridTemplateColumns: "1fr 90px 90px 90px", borderColor: "#EDE8E1" }}
                 >
                   <span className="text-[13.5px] font-medium leading-snug" style={{ color: "#1A1918" }}>{m}</span>
                   {OPTS.map((o) => (
-                    <div key={o.val} className="flex items-center justify-center min-w-[70px] sm:min-w-[80px]">
+                    <div key={o.val} className="flex items-center justify-center">
                       <label className="cursor-pointer">
                         <input
                           type="radio"

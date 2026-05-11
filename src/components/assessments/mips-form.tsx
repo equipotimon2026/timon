@@ -39,6 +39,7 @@ export function MIPSForm({ userId, onComplete, onSave, initialResponses, onRespo
   const [saving, setSaving] = useState(false)
   const msgRef = useRef<HTMLDivElement>(null)
   const processingRef = useRef(false)
+  const icebreakerIdxRef = useRef<number>(0)
 
   useEffect(() => { onResponseChange?.({ answers }) }, [answers]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -52,6 +53,7 @@ export function MIPSForm({ userId, onComplete, onSave, initialResponses, onRespo
     // Check icebreaker
     const ib = ICEBREAKERS.find((i) => i.after === idx)
     if (ib) {
+      icebreakerIdxRef.current = idx
       addMsg({ type: "typing", text: "" })
       setTimeout(() => {
         setMsgs((p) => p.filter((m) => m.type !== "typing"))
@@ -102,17 +104,18 @@ export function MIPSForm({ userId, onComplete, onSave, initialResponses, onRespo
   const handleIcebreaker = (ans: string) => {
     addMsg({ type: "user", text: ans })
     setInputMode("none")
-    // Show custom icebreaker ack
-    const ib = ICEBREAKERS.find((i) => i.after === qIdx)
+    // Show custom icebreaker ack then advance past the icebreaker idx
+    const ib = ICEBREAKERS.find((i) => i.after === icebreakerIdxRef.current)
+    const nextIdx = icebreakerIdxRef.current + 1
     if (ib?.ack) {
       addMsg({ type: "typing", text: "" })
       setTimeout(() => {
         setMsgs((p) => p.filter((m) => m.type !== "typing"))
         addMsg({ type: "bot", text: ib.ack })
-        setTimeout(() => showStatement(qIdx), 400)
+        setTimeout(() => showStatement(nextIdx), 400)
       }, 500)
     } else {
-      setTimeout(() => showStatement(qIdx), 400)
+      setTimeout(() => showStatement(nextIdx), 400)
     }
   }
 

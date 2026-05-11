@@ -3,14 +3,22 @@
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 
-/* V0 universidad.html — 5-step wizard */
+/* FEAT-06: Dropdowns for location, viaje, mudarse
+   FEAT-07: Replace beca/cursada with ingreso/trabajo questions
+   FEAT-08: Add presencialidad in Perfil Institucional */
 
 type State = {
-  costo: string; beca: boolean
-  zona: string; zonaUniv: string; viaje: string; distancia: string
-  examen: string; preparacion: string
+  costo: string
+  // FEAT-06: dropdowns
+  zona: string; zonaOtra: string
+  viaje: string; mudarse: string
+  // FEAT-07: new questions
+  ingresoCBC: string; trabajar: string; trabajarCuanto: string
+  // Existing step 3
   prestigio: string; valores: string; instalaciones: string
-  podio: Record<string, number> // factorId → position (1-5)
+  // FEAT-08: presencialidad
+  presencialidad: string
+  podio: Record<string, number>
 }
 
 const COSTO_OPTS = [
@@ -19,23 +27,28 @@ const COSTO_OPTS = [
   { val: "cuotaAlta", label: "Cuota alta", sub: "Tenemos la posibilidad de poder pagar casi cualquier universidad" },
 ]
 
-const YESNO = [
-  [
-    { val: "si", emoji: "💪", label: "Sí", sub: "Me la banco" },
-    { val: "depende", emoji: "🤔", label: "Depende", sub: "De la carrera" },
-    { val: "no", emoji: "😬", label: "No", sub: "Prefiero ingreso directo" },
-  ],
-  [
-    { val: "si", emoji: "📚", label: "Sí", sub: "Puedo prepararme bien" },
-    { val: "masomenos", emoji: "😅", label: "Más o menos", sub: "Algo de tiempo tengo" },
-    { val: "no", emoji: "⏰", label: "No", sub: "El tiempo es limitado" },
-  ],
+// FEAT-06: Location dropdown options
+const ZONA_OPTS = ["CABA", "La Plata", "Zona Norte", "Gran Buenos Aires SUR", "Gran Buenos Aires OESTE", "Provincia"]
+const VIAJE_OPTS = ["Menos de 30 min", "30 min a 1 hora", "Más de 1 hora"]
+const MUDARSE_OPTS = ["Sí", "No"]
+
+// FEAT-07: Ingreso/trabajo options
+const INGRESO_OPTS = [
+  { val: "si", emoji: "💪", label: "Sí", sub: "Me lo banco" },
+  { val: "no", emoji: "😬", label: "No", sub: "Prefiero ingreso directo" },
 ]
+const TRABAJAR_OPTS = [
+  { val: "si", emoji: "💼", label: "Sí", sub: "" },
+  { val: "no", emoji: "📚", label: "No", sub: "Seguramente no, sobre el final puede que sí" },
+]
+const CUANTO_OPTS = ["Part-time", "Full-time"]
 
 const CHIP_GROUPS = [
-  { id: "prestigio", label: "Prestigio", opts: ["Muy importante","Algo importante","No me importa"] },
-  { id: "valores", label: "Valores e ideología", opts: ["Afiliación religiosa","Ambiente laico","Me es indiferente"] },
-  { id: "instalaciones", label: "Instalaciones (campus, laboratorios, tecnología)", opts: ["Me importa mucho","Algo me importa","No es prioritario"] },
+  { id: "prestigio", label: "Prestigio", opts: ["Muy importante", "Algo importante", "No me importa"] },
+  { id: "valores", label: "Valores e ideología", opts: ["Afiliación religiosa", "Ambiente laico", "Me es indiferente"] },
+  { id: "instalaciones", label: "Instalaciones (campus, laboratorios, tecnología)", opts: ["Me importa mucho", "Algo me importa", "No es prioritario"] },
+  // FEAT-08: Presencialidad
+  { id: "presencialidad", label: "Modalidad de cursada", opts: ["Presencial", "Híbrido", "Virtual"] },
 ]
 
 const PODIO_FACTORS = [
@@ -47,8 +60,8 @@ const PODIO_FACTORS = [
 ]
 
 const RANKS = [
-  { pos: 1, label: "Más importante" },{ pos: 2, label: "Muy importante" },{ pos: 3, label: "Importa" },
-  { pos: 4, label: "Menos clave" },{ pos: 5, label: "Menos importante" },
+  { pos: 1, label: "Más importante" }, { pos: 2, label: "Muy importante" }, { pos: 3, label: "Importa" },
+  { pos: 4, label: "Menos clave" }, { pos: 5, label: "Menos importante" },
 ]
 
 interface Props {
@@ -60,8 +73,11 @@ interface Props {
 export function UniversidadForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: Props) {
   const [step, setStep] = useState(0)
   const [state, setState] = useState<State>(initialResponses ?? {
-    costo: "", beca: false, zona: "", zonaUniv: "", viaje: "", distancia: "",
-    examen: "", preparacion: "", prestigio: "", valores: "", instalaciones: "", podio: {},
+    costo: "",
+    zona: "", zonaOtra: "", viaje: "", mudarse: "",
+    ingresoCBC: "", trabajar: "", trabajarCuanto: "",
+    prestigio: "", valores: "", instalaciones: "", presencialidad: "",
+    podio: {},
   })
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
@@ -73,28 +89,30 @@ export function UniversidadForm({ userId, onComplete, onSave, initialResponses, 
 
   const stepReady = (i: number) => {
     if (i === 0) return state.costo !== ""
-    if (i === 1) return state.zona.trim().length > 0
-    if (i === 2) return state.examen !== "" && state.preparacion !== ""
-    if (i === 3) return state.prestigio !== "" && state.valores !== "" && state.instalaciones !== ""
+    if (i === 1) return state.zona !== "" && state.viaje !== "" && state.mudarse !== ""
+    if (i === 2) return state.ingresoCBC !== "" && state.trabajar !== ""
+    if (i === 3) return state.prestigio !== "" && state.valores !== "" && state.instalaciones !== "" && state.presencialidad !== ""
     if (i === 4) return Object.keys(state.podio).length === 5
     return false
   }
+
+  const zonaLabel = state.zona === "Provincia" && state.zonaOtra.trim() ? `Provincia (${state.zonaOtra.trim()})` : state.zona
 
   const handleSave = async () => {
     setSaving(true)
     try {
       await onSave(0, [
         { questionNumber: 1, question: "Costo", responseText: state.costo },
-        { questionNumber: 2, question: "Beca", responseText: state.beca ? "Sí" : "No" },
-        { questionNumber: 3, question: "Zona de vivienda", responseText: state.zona },
-        { questionNumber: 4, question: "Zona universidad", responseText: state.zonaUniv },
-        { questionNumber: 5, question: "Tiempo de viaje", responseText: state.viaje },
-        { questionNumber: 6, question: "Dispuesto a mudarse", responseText: state.distancia },
-        { questionNumber: 7, question: "Examen eliminatorio", responseText: state.examen },
-        { questionNumber: 8, question: "Tiempo de preparación", responseText: state.preparacion },
-        { questionNumber: 9, question: "Prestigio", responseText: state.prestigio },
-        { questionNumber: 10, question: "Valores e ideología", responseText: state.valores },
-        { questionNumber: 11, question: "Instalaciones", responseText: state.instalaciones },
+        { questionNumber: 2, question: "Ubicación (zona de vivienda)", responseText: zonaLabel },
+        { questionNumber: 3, question: "Tiempo de viaje aceptado", responseText: state.viaje },
+        { questionNumber: 4, question: "Dispuesto/a a mudarse", responseText: state.mudarse },
+        { questionNumber: 5, question: "¿Dispuesto/a a realizar 1 o 2 semestres de ingreso/CBC?", responseText: state.ingresoCBC },
+        { questionNumber: 6, question: "¿Tenés que trabajar mientras estudiás?", responseText: state.trabajar },
+        ...(state.trabajar === "si" ? [{ questionNumber: 7, question: "¿Cuánto trabajarías?", responseText: state.trabajarCuanto }] : []),
+        { questionNumber: 8, question: "Prestigio", responseText: state.prestigio },
+        { questionNumber: 9, question: "Valores e ideología", responseText: state.valores },
+        { questionNumber: 10, question: "Instalaciones", responseText: state.instalaciones },
+        { questionNumber: 11, question: "Modalidad de cursada", responseText: state.presencialidad },
         { questionNumber: 12, question: "Podio de prioridades", responseText: JSON.stringify(state.podio) },
       ], { section: "universidad" })
       setDone(true); setTimeout(() => onComplete(), 1500)
@@ -105,9 +123,7 @@ export function UniversidadForm({ userId, onComplete, onSave, initialResponses, 
     if (!selectedFactor) return
     setState((s) => {
       const next = { ...s.podio }
-      // Remove factor from current position
       Object.keys(next).forEach((k) => { if (next[k] === pos) delete next[k] })
-      // Remove this factor from any position
       delete next[selectedFactor]
       next[selectedFactor] = pos
       return { ...s, podio: next }
@@ -123,6 +139,18 @@ export function UniversidadForm({ userId, onComplete, onSave, initialResponses, 
     </div>
   )
 
+  const SelectBtn = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
+    <button onClick={onClick}
+      className="w-full flex items-center gap-3 px-[18px] py-4 rounded-[14px] border-2 text-left transition-all"
+      style={{ borderColor: active ? "#1A1918" : "#EDE8E1", background: active ? "#F5F3F0" : "white" }}>
+      <div className="w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0"
+        style={{ borderColor: active ? "#1A1918" : "#EDE8E1" }}>
+        {active && <div className="w-2 h-2 rounded-full bg-[#1A1918]" />}
+      </div>
+      <span className="text-sm font-semibold" style={{ color: "#1A1918" }}>{children}</span>
+    </button>
+  )
+
   return (
     <div style={{ background: "#F9F8F6", minHeight: "100%" }} className="flex flex-col">
       <div className="sticky top-0 z-10 border-b" style={{ background: "#F9F8F6", borderColor: "#EDE8E1" }}>
@@ -130,7 +158,6 @@ export function UniversidadForm({ userId, onComplete, onSave, initialResponses, 
           <span className="text-[15px] font-bold" style={{ color: "#1A1918" }}>Universidad</span>
           <span className="text-xs" style={{ color: "#B2ADA6" }}>Paso {step + 1} de 5</span>
         </div>
-        {/* Progress dots */}
         <div className="flex gap-1.5 px-5 pb-3">
           {Array.from({ length: 5 }, (_, i) => (
             <div key={i} className="flex-1 h-[3px] rounded-full transition-colors" style={{ background: i <= step ? "#1A1918" : "#EDE8E1" }} />
@@ -161,68 +188,122 @@ export function UniversidadForm({ userId, onComplete, onSave, initialResponses, 
                 </button>
               ))}
             </div>
-            <div className="flex items-center justify-between mt-4 px-1">
-              <span className="text-sm" style={{ color: "#7A7570" }}>¿Dispuesto/a a cumplir requisitos de beca?</span>
-              <button onClick={() => set("beca", !state.beca)}
-                className="w-[44px] h-[26px] rounded-full transition-colors relative" style={{ background: state.beca ? "#1A1918" : "#EDE8E1" }}>
-                <div className="w-[22px] h-[22px] rounded-full bg-white absolute top-[2px] transition-all" style={{ left: state.beca ? "20px" : "2px" }} />
-              </button>
+          </div>
+        )}
+
+        {/* Step 1: Ubicación — FEAT-06: dropdowns */}
+        {step === 1 && (
+          <div className="space-y-5">
+            <div className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: "#B2ADA6" }}>Paso 2 de 5</div>
+            <h2 className="text-[26px] font-bold" style={{ color: "#1A1918" }}>Ubicación y Viaje</h2>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold" style={{ color: "#1A1918" }}>¿En qué zona vivís?</label>
+              <div className="space-y-2">
+                {ZONA_OPTS.map((o) => (
+                  <SelectBtn key={o} active={state.zona === o} onClick={() => set("zona", o)}>{o}</SelectBtn>
+                ))}
+              </div>
+              {state.zona === "Provincia" && (
+                <input type="text" value={state.zonaOtra} onChange={(e) => set("zonaOtra", e.target.value)}
+                  placeholder="Indicá la provincia..." autoFocus
+                  className="w-full px-4 py-3 rounded-xl border text-base md:text-sm outline-none transition-colors mt-2"
+                  style={{ borderColor: "#EDE8E1", color: "#1A1918", fontFamily: "inherit" }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "#1A1918" }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "#EDE8E1" }} />
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold" style={{ color: "#1A1918" }}>Tiempo de viaje que aceptás</label>
+              <div className="space-y-2">
+                {VIAJE_OPTS.map((o) => (
+                  <SelectBtn key={o} active={state.viaje === o} onClick={() => set("viaje", o)}>{o}</SelectBtn>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold" style={{ color: "#1A1918" }}>¿Dispuesto/a a mudarte si fuera necesario?</label>
+              <div className="flex gap-3">
+                {MUDARSE_OPTS.map((o) => (
+                  <SelectBtn key={o} active={state.mudarse === o} onClick={() => set("mudarse", o)}>{o}</SelectBtn>
+                ))}
+              </div>
             </div>
           </div>
         )}
 
-        {/* Step 1: Ubicación */}
-        {step === 1 && (
-          <div className="space-y-4">
-            <div className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: "#B2ADA6" }}>Paso 2 de 5</div>
-            <h2 className="text-[26px] font-bold" style={{ color: "#1A1918" }}>Ubicación y Viaje</h2>
-            {[
-              { key: "zona" as const, label: "¿Dónde vas a vivir mientras estudiás?", ph: "Ej: CABA, Palermo / Rosario..." },
-              { key: "zonaUniv" as const, label: "¿Dónde aceptarías que esté la universidad?", ph: "Ej: CABA, zona norte, cualquier lugar..." },
-              { key: "viaje" as const, label: "¿Cuánto tiempo de viaje aceptás?", ph: "Ej: hasta 1 hora, no me importa..." },
-              { key: "distancia" as const, label: "¿Dispuesto/a a mudarte si fuera necesario?", ph: "Ej: Sí / Tal vez / No" },
-            ].map((f) => (
-              <div key={f.key} className="space-y-1">
-                <label className="text-sm font-semibold" style={{ color: "#1A1918" }}>{f.label}</label>
-                <input type="text" value={state[f.key]} onChange={(e) => set(f.key, e.target.value)} placeholder={f.ph}
-                  className="w-full px-4 py-3.5 rounded-xl border text-sm outline-none transition-colors"
-                  style={{ borderColor: "#EDE8E1", color: "#1A1918", fontFamily: "inherit" }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = "#1A1918" }} onBlur={(e) => { e.currentTarget.style.borderColor = "#EDE8E1" }} />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Step 2: Requisitos */}
+        {/* Step 2: Requisitos — FEAT-07 */}
         {step === 2 && (
           <div className="space-y-6">
             <div className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: "#B2ADA6" }}>Paso 3 de 5</div>
-            <h2 className="text-[26px] font-bold" style={{ color: "#1A1918" }}>Requisitos de Inscripción</h2>
-            {YESNO.map((group, gi) => (
-              <div key={gi} className="space-y-2">
-                <p className="text-sm font-semibold" style={{ color: "#1A1918" }}>
-                  {gi === 0 ? "¿Dispuesto/a a rendir un examen eliminatorio?" : "¿Tenés tiempo para prepararte antes de entrar?"}
-                </p>
-                <div className="grid grid-cols-3 gap-3">
-                  {group.map((o) => {
-                    const selected = gi === 0 ? state.examen === o.val : state.preparacion === o.val
-                    return (
-                      <button key={o.val} onClick={() => set(gi === 0 ? "examen" : "preparacion", o.val)}
-                        className={cn("flex flex-col items-center py-5 px-3 rounded-[14px] border-2 transition-all hover:-translate-y-0.5",
-                          selected ? "border-[#1A1918] bg-[#F5F3F0]" : "border-[#EDE8E1] bg-white")}>
-                        <span className="text-[30px] mb-2">{o.emoji}</span>
-                        <span className="text-lg font-bold" style={{ color: "#1A1918" }}>{o.label}</span>
-                        <span className="text-[11.5px]" style={{ color: "#7A7570" }}>{o.sub}</span>
-                      </button>
-                    )
-                  })}
+            <h2 className="text-[26px] font-bold" style={{ color: "#1A1918" }}>Cursada y Trabajo</h2>
+
+            {/* Q1: CBC/ingreso */}
+            <div className="space-y-2">
+              <p className="text-sm font-semibold" style={{ color: "#1A1918" }}>
+                ¿Estás dispuesto/a a realizar 1 o 2 semestres de curso de ingreso / CBC?
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {INGRESO_OPTS.map((o) => {
+                  const selected = state.ingresoCBC === o.val
+                  return (
+                    <button key={o.val} onClick={() => set("ingresoCBC", o.val)}
+                      className={cn("flex flex-col items-center py-5 px-3 rounded-[14px] border-2 transition-all hover:-translate-y-0.5",
+                        selected ? "border-[#1A1918] bg-[#F5F3F0]" : "border-[#EDE8E1] bg-white")}>
+                      <span className="text-[30px] mb-2">{o.emoji}</span>
+                      <span className="text-lg font-bold" style={{ color: "#1A1918" }}>{o.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Q2: Trabajar */}
+            <div className="space-y-2">
+              <p className="text-sm font-semibold" style={{ color: "#1A1918" }}>
+                ¿Tenés que trabajar mientras estudiás?
+              </p>
+              <p className="text-xs" style={{ color: "#9A9590" }}>
+                Seguramente no, sobre el final puede que sí, si de entrada.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {TRABAJAR_OPTS.map((o) => {
+                  const selected = state.trabajar === o.val
+                  return (
+                    <button key={o.val} onClick={() => set("trabajar", o.val)}
+                      className={cn("flex flex-col items-center py-5 px-3 rounded-[14px] border-2 transition-all hover:-translate-y-0.5",
+                        selected ? "border-[#1A1918] bg-[#F5F3F0]" : "border-[#EDE8E1] bg-white")}>
+                      <span className="text-[30px] mb-2">{o.emoji}</span>
+                      <span className="text-lg font-bold" style={{ color: "#1A1918" }}>{o.label}</span>
+                      {o.sub && <span className="text-[11.5px] text-center" style={{ color: "#7A7570" }}>{o.sub}</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Conditional Q3: Cuánto */}
+            {state.trabajar === "si" && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold" style={{ color: "#1A1918" }}>¿Cuánto?</p>
+                <div className="flex gap-3">
+                  {CUANTO_OPTS.map((o) => (
+                    <button key={o} onClick={() => set("trabajarCuanto", o)}
+                      className={cn("flex-1 py-3.5 rounded-[14px] border-2 text-sm font-semibold transition-all",
+                        state.trabajarCuanto === o ? "border-[#1A1918] bg-[#F5F3F0]" : "border-[#EDE8E1] bg-white")}
+                      style={{ color: "#1A1918" }}>
+                      {o}
+                    </button>
+                  ))}
                 </div>
               </div>
-            ))}
+            )}
           </div>
         )}
 
-        {/* Step 3: Perfil Institucional */}
+        {/* Step 3: Perfil Institucional — FEAT-08: presencialidad added */}
         {step === 3 && (
           <div className="space-y-5">
             <div className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: "#B2ADA6" }}>Paso 4 de 5</div>
@@ -255,7 +336,6 @@ export function UniversidadForm({ userId, onComplete, onSave, initialResponses, 
             <h2 className="text-[26px] font-bold" style={{ color: "#1A1918" }}>Armá tu Podio</h2>
             <p className="text-sm" style={{ color: "#7A7570" }}>Tocá un factor, luego tocá la posición donde querés colocarlo.</p>
 
-            {/* Source factors */}
             <div className="flex flex-wrap gap-2">
               {PODIO_FACTORS.filter((f) => !(f.id in state.podio)).map((f) => (
                 <button key={f.id} onClick={() => setSelectedFactor(f.id)}
@@ -266,7 +346,6 @@ export function UniversidadForm({ userId, onComplete, onSave, initialResponses, 
               ))}
             </div>
 
-            {/* Rank zones */}
             <div className="grid grid-cols-2 gap-3">
               {RANKS.map((rank) => {
                 const placed = PODIO_FACTORS.find((f) => state.podio[f.id] === rank.pos)

@@ -145,11 +145,11 @@ export function RIASECForm({ userId, onComplete, onSave, initialResponses, onRes
           {sorted.map((t) => (
             <div key={t} className="flex items-center gap-3">
               <div className="w-2 h-2 rounded-full" style={{ background: TYPE_INFO[t].color }} />
-              <span className="text-sm w-28" style={{ color: "rgba(255,255,255,0.85)" }}>{TYPE_INFO[t].name}</span>
+              <span className="text-sm w-28" style={{ color: "#1A1918" }}>{TYPE_INFO[t].name}</span>
               <div className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: "rgba(0,0,0,0.1)" }}>
                 <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(scores[t] / MAX_SCORE) * 100}%`, background: TYPE_INFO[t].color }} />
               </div>
-              <span className="text-xs font-semibold w-6 text-right">{scores[t]}</span>
+              <span className="text-xs font-semibold w-6 text-right" style={{ color: "#1A1918" }}>{scores[t]}</span>
             </div>
           ))}
         </div>

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 
 const APOYO_OPTS = ["Sí", "Más o menos", "No"]
 const ENTORNO_OPTS = ["Me escuchan y acompañan", "Me orientan bastante", "Me presionan", "Casi no se habla del tema"]
+const FAMILIAR_OPTS = ["Mamá", "Papá", "Otro"]
 
 type State = { q1: string; q2: string; q3: string; q4: string; q5: string; apoyo: string; entorno: string }
 
@@ -15,6 +16,17 @@ interface Props {
 }
 
 export function ArbolGenealogForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: Props) {
+  // Restore familiar from initialResponses if present
+  const savedFamiliar = initialResponses && typeof initialResponses === "object" && "familiar" in initialResponses
+    ? (initialResponses as any).familiar as string
+    : null
+  const savedFamiliarOtro = initialResponses && typeof initialResponses === "object" && "familiarOtro" in initialResponses
+    ? (initialResponses as any).familiarOtro as string
+    : ""
+
+  const [showFamiliarModal, setShowFamiliarModal] = useState(!savedFamiliar)
+  const [familiar, setFamiliar] = useState<string>(savedFamiliar ?? "")
+  const [familiarOtro, setFamiliarOtro] = useState<string>(savedFamiliarOtro)
   const [s, setS] = useState<State>(() => {
     const d = { q1: "", q2: "", q3: "", q4: "", q5: "", apoyo: "", entorno: "" }
     if (initialResponses && typeof initialResponses === "object" && "q1" in initialResponses) return { ...d, ...initialResponses }
@@ -23,17 +35,22 @@ export function ArbolGenealogForm({ userId, onComplete, onSave, initialResponses
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
 
-  useEffect(() => { onResponseChange?.(s) }, [s]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    onResponseChange?.({ ...s, familiar, familiarOtro })
+  }, [s, familiar, familiarOtro]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const filled = [s.q1, s.q2, s.q3, s.q4, s.q5].filter((v) => (v ?? "").trim().length > 0).length + (s.apoyo ? 1 : 0) + (s.entorno ? 1 : 0)
   const progress = (filled / 7) * 100
   const ready = filled >= 5
   const set = (k: keyof State, v: string) => setS((p) => ({ ...p, [k]: v }))
 
+  const familiarLabel = familiar === "Otro" && familiarOtro.trim() ? familiarOtro.trim() : familiar
+
   const handleSave = async () => {
     if (!ready) return; setSaving(true)
     try {
       await onSave(0, [
+        { questionNumber: 0, question: "¿Qué familiar sos?", responseText: familiarLabel },
         { questionNumber: 1, question: "¿A qué se dedican las personas adultas más influyentes?", responseText: s.q1 },
         { questionNumber: 2, question: "¿Alguien cuyo recorrido laboral admires?", responseText: s.q2 },
         { questionNumber: 3, question: "¿Recorrido que no quisieras repetir?", responseText: s.q3 },
@@ -41,7 +58,7 @@ export function ArbolGenealogForm({ userId, onComplete, onSave, initialResponses
         { questionNumber: 5, question: "¿Expectativas sobre qué estudiar?", responseText: s.q5 },
         { questionNumber: 6, question: "¿Te sentís apoyado/a para elegir?", responseText: s.apoyo },
         { questionNumber: 7, question: "Cuando hablás de tu futuro, ¿qué pasa?", responseText: s.entorno },
-      ], { section: "familia" })
+      ], { section: "familia", familiar: familiarLabel })
       setDone(true); setTimeout(() => onComplete(), 1200)
     } catch (e) { console.error(e) } finally { setSaving(false) }
   }
@@ -64,6 +81,45 @@ export function ArbolGenealogForm({ userId, onComplete, onSave, initialResponses
 
   return (
     <div style={{ background: "#F9F8F6", minHeight: "100%" }} className="flex flex-col">
+      {/* ── Familiar modal ── */}
+      {showFamiliarModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.45)" }}>
+          <div className="bg-white rounded-[22px] p-7 w-full max-w-[360px] shadow-xl">
+            <h2 className="text-[20px] font-bold mb-1.5" style={{ color: "#1A1918" }}>¿Qué familiar sos?</h2>
+            <p className="text-sm mb-5" style={{ color: "#7A7570" }}>Antes de empezar, contanos quién está respondiendo.</p>
+            <div className="flex flex-col gap-2.5 mb-4">
+              {FAMILIAR_OPTS.map((opt) => (
+                <button key={opt} onClick={() => setFamiliar(opt)}
+                  className="w-full px-4 py-3 rounded-[12px] border-2 text-sm font-semibold text-left transition-all"
+                  style={{ borderColor: familiar === opt ? "#1A1918" : "#EDE8E1", background: familiar === opt ? "#F5F3F0" : "white", color: "#1A1918" }}>
+                  {opt}
+                </button>
+              ))}
+            </div>
+            {familiar === "Otro" && (
+              <input
+                type="text"
+                value={familiarOtro}
+                onChange={(e) => setFamiliarOtro(e.target.value)}
+                placeholder="Ej: Abuelo/a, Tío/a..."
+                className="w-full px-3.5 py-3 rounded-xl border text-base outline-none mb-4"
+                style={{ borderColor: "#EDE8E1", color: "#1A1918", fontFamily: "inherit" }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = "#1A1918" }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "#EDE8E1" }}
+              />
+            )}
+            <button
+              onClick={() => { if (familiar) setShowFamiliarModal(false) }}
+              disabled={!familiar || (familiar === "Otro" && !familiarOtro.trim())}
+              className={cn("w-full py-3.5 rounded-[14px] text-[15px] font-bold text-white transition-all",
+                (familiar && (familiar !== "Otro" || familiarOtro.trim())) ? "opacity-100 cursor-pointer hover:opacity-[0.88]" : "opacity-35 pointer-events-none")}
+              style={{ background: "#1A1918" }}>
+              Continuar
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="sticky top-0 z-10 border-b" style={{ background: "#F9F8F6", borderColor: "#EDE8E1" }}>
         <div className="flex items-center justify-between px-5 py-3.5">
           <span className="text-[15px] font-bold" style={{ color: "#1A1918" }}>Tu entorno familiar</span>
@@ -84,7 +140,7 @@ export function ArbolGenealogForm({ userId, onComplete, onSave, initialResponses
           <div key={q.key} className="bg-white rounded-[18px] p-5" style={{ boxShadow: "0 1px 4px rgba(0,0,0,.05), 0 0 0 1px rgba(0,0,0,.04)" }}>
             <label className="block text-sm font-semibold mb-2" style={{ color: "#1A1918", lineHeight: "1.35" }}>{q.label}</label>
             <textarea value={s[q.key]} onChange={(e) => set(q.key, e.target.value)} rows={3} placeholder="Escribí tu respuesta..."
-              className="w-full px-3.5 py-3 rounded-xl border text-sm resize-y outline-none transition-colors"
+              className="w-full px-3.5 py-3 rounded-xl border text-base md:text-sm resize-y outline-none transition-colors"
               style={{ background: "#F9F8F6", borderColor: "#EDE8E1", color: "#1A1918", lineHeight: "1.6", minHeight: "80px", fontFamily: "inherit" }}
               onFocus={(e) => { e.currentTarget.style.borderColor = "#1A1918" }} onBlur={(e) => { e.currentTarget.style.borderColor = "#EDE8E1" }} />
           </div>

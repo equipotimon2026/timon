@@ -332,7 +332,7 @@ export function VibecheckForm({ userId, onComplete, onSave, initialResponses, on
             <textarea
               value={state.followUpAnswer}
               onChange={(e) => setState((s) => ({ ...s, followUpAnswer: e.target.value }))}
-              placeholder="Escribí tu respuesta acá\u2026"
+              placeholder="Escribí tu respuesta acá..."
               rows={4}
               className="w-full min-h-[130px] rounded-2xl border border-[#EDE8E0] px-4 py-4 text-[15px] leading-relaxed resize-y outline-none transition-colors"
               style={{
