@@ -202,31 +202,30 @@ export function VoscolegioForm({ userId, onComplete, onSave, initialResponses, o
                   style={{ gridTemplateColumns: "1fr 90px 90px 90px", borderColor: "#EDE8E1" }}
                 >
                   <span className="text-[13.5px] font-medium leading-snug" style={{ color: "#1A1918" }}>{m}</span>
-                  {OPTS.map((o) => (
-                    <div key={o.val} className="flex items-center justify-center">
-                      <label className="cursor-pointer">
-                        <input
-                          type="radio"
-                          name={`mat-${idx}`}
-                          className="sr-only peer"
-                          checked={state.materias[m] === o.val}
-                          onChange={() => setState((s) => ({ ...s, materias: { ...s.materias, [m]: o.val } }))}
-                        />
-                        <div
+                  {OPTS.map((o) => {
+                    const on = state.materias[m] === o.val
+                    return (
+                      <div key={o.val} className="flex items-center justify-center">
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={on}
+                          aria-label={`${m}: ${o.label}`}
+                          onClick={() => setState((s) => ({ ...s, materias: { ...s.materias, [m]: o.val } }))}
                           className={cn(
-                            "w-[22px] h-[22px] rounded-full border flex items-center justify-center text-xs transition-all",
-                            state.materias[m] === o.val ? "text-white" : ""
+                            "w-[22px] h-[22px] rounded-full border flex items-center justify-center text-xs transition-all cursor-pointer",
+                            on ? "text-white" : ""
                           )}
                           style={{
-                            borderColor: state.materias[m] === o.val ? o.color : "#EDE8E1",
-                            background: state.materias[m] === o.val ? o.color : "transparent",
+                            borderColor: on ? o.color : "#EDE8E1",
+                            background: on ? o.color : "transparent",
                           }}
                         >
-                          {state.materias[m] === o.val && "●"}
-                        </div>
-                      </label>
-                    </div>
-                  ))}
+                          {on && "●"}
+                        </button>
+                      </div>
+                    )
+                  })}
                 </div>
               ))}
             </div>
