@@ -69,7 +69,7 @@ function initSelections(): Selections {
 }
 
 export function RIASECForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: Props) {
-  const [sec, setSec] = useState(0)
+  const [sec, setSec] = useState<number>(typeof initialResponses?.sec === "number" ? initialResponses.sec : 0)
   const [selections, setSelections] = useState<Selections>(() => {
     if (initialResponses?.selections) {
       const s: Selections = {}
@@ -77,12 +77,18 @@ export function RIASECForm({ userId, onComplete, onSave, initialResponses, onRes
         s[Number(si)] = {} as Record<RType, Set<string>>
         Object.entries(types).forEach(([t, items]: [string, any]) => { s[Number(si)][t as RType] = new Set(items) })
       })
+      // Ensure all sections present
+      SECTIONS.forEach((_, i) => {
+        if (!s[i]) { s[i] = {} as Record<RType, Set<string>>; TYPES.forEach((t) => { s[i][t] = new Set() }) }
+        else { TYPES.forEach((t) => { if (!s[i][t]) s[i][t] = new Set() }) }
+      })
       return s
     }
     return initSelections()
   })
   const [saving, setSaving] = useState(false)
   const [showResults, setShowResults] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // Serialize for draft
   useEffect(() => {
@@ -91,8 +97,8 @@ export function RIASECForm({ userId, onComplete, onSave, initialResponses, onRes
       serialized[Number(si)] = {} as Record<RType, string[]>
       Object.entries(types).forEach(([t, set]) => { serialized[Number(si)][t as RType] = [...(set as Set<string>)] })
     })
-    onResponseChange?.({ selections: serialized })
-  }, [selections]) // eslint-disable-line react-hooks/exhaustive-deps
+    onResponseChange?.({ selections: serialized, sec })
+  }, [selections, sec]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = useCallback((type: RType, word: string) => {
     setSelections((prev) => {
@@ -125,8 +131,10 @@ export function RIASECForm({ userId, onComplete, onSave, initialResponses, onRes
       const code = sorted.slice(0, 3).join("")
       await onSave(0, r, { section: "riasec", scores, riasecCode: code })
       setShowResults(true)
-      setTimeout(() => onComplete(), 3000)
-    } catch (e) { console.error(e) } finally { setSaving(false) }
+    } catch (e) {
+      console.error(e)
+      setSaveError("No pudimos guardar tu perfil. Reintentá en unos segundos.")
+    } finally { setSaving(false) }
   }
 
   // Results screen
@@ -141,7 +149,7 @@ export function RIASECForm({ userId, onComplete, onSave, initialResponses, onRes
             <span key={t} className="text-5xl font-black" style={{ color: TYPE_INFO[t].color }}>{t}</span>
           ))}
         </div>
-        <div className="w-full max-w-md space-y-4">
+        <div className="w-full max-w-md space-y-4 mb-10">
           {sorted.map((t) => (
             <div key={t} className="flex items-center gap-3">
               <div className="w-2 h-2 rounded-full" style={{ background: TYPE_INFO[t].color }} />
@@ -153,6 +161,9 @@ export function RIASECForm({ userId, onComplete, onSave, initialResponses, onRes
             </div>
           ))}
         </div>
+        <button onClick={() => onComplete()} className="px-8 py-3.5 rounded-full text-[15px] font-bold text-white hover:opacity-[0.85] transition-opacity" style={{ background: "#1A1918" }}>
+          Volver al inicio →
+        </button>
       </div>
     )
   }
@@ -225,6 +236,11 @@ export function RIASECForm({ userId, onComplete, onSave, initialResponses, onRes
 
         {/* Desktop footer */}
         <div className="hidden md:block shrink-0 px-5 py-4 border-t" style={{ borderColor: "#EDE8E1" }}>
+          {saveError && (
+            <div className="mb-3 px-4 py-3 rounded-[12px] text-sm" style={{ background: "#FEE2E2", color: "#991B1B", border: "1px solid #FCA5A5" }}>
+              {saveError}
+            </div>
+          )}
           {sec < SECTIONS.length - 1 ? (
             <button onClick={() => setSec((s) => s + 1)}
               className="w-full py-3 rounded-[14px] text-[15px] font-bold text-white hover:opacity-[0.88]"
@@ -279,6 +295,12 @@ export function RIASECForm({ userId, onComplete, onSave, initialResponses, onRes
               </div>
             ))}
           </div>
+
+          {saveError && (
+            <div className="mb-3 px-4 py-2.5 rounded-[10px] text-sm" style={{ background: "#FEE2E2", color: "#991B1B" }}>
+              {saveError}
+            </div>
+          )}
 
           {sec < SECTIONS.length - 1 ? (
             <button onClick={() => setSec((s) => s + 1)}

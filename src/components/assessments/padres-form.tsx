@@ -18,6 +18,8 @@ type FlowStep = {
   conditional?: boolean
 }
 
+const FAMILIAR_OPTS = ["Mamá", "Papá", "Otro"]
+
 const buildFlow = (nombre: string): FlowStep[] => [
   { text: `Hola. Este espacio es para que vos — como padre, madre, familiar o tutor de ${nombre} — puedas compartir tu perspectiva. Son preguntas simples y no hay respuestas correctas. Tu mirada nos ayuda mucho a entender mejor el entorno de ${nombre}. Todo lo que respondas es confidencial.`, inputType: "none", delay: 1600 },
   { text: "¿Arrancamos?", inputType: "options", options: ["Sí, empecemos", "Listo/a"], ackText: "Perfecto. Gracias por tu tiempo.", delay: 1000 },
@@ -57,22 +59,39 @@ interface PadresFormProps {
 }
 
 type Message = { type: "bot" | "user" | "divider" | "typing"; text: string }
+type StoredResponse = { q: string; a: string }
 
 export function PadresForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: PadresFormProps) {
   const nombre = "el/la estudiante"
   const flow = buildFlow(nombre)
   const totalAnswerable = flow.filter((s) => s.inputType === "text" && !s.conditional).length
 
-  const [messages, setMessages] = useState<Message[]>([])
+  // Familiar selection (moved from arbol-genealogico)
+  const savedFamiliar = typeof initialResponses?.familiar === "string" ? initialResponses.familiar : ""
+  const savedFamiliarOtro = typeof initialResponses?.familiarOtro === "string" ? initialResponses.familiarOtro : ""
+  const [familiar, setFamiliar] = useState<string>(savedFamiliar)
+  const [familiarOtro, setFamiliarOtro] = useState<string>(savedFamiliarOtro)
+  const [showFamiliarModal, setShowFamiliarModal] = useState<boolean>(!savedFamiliar)
+
+  const familiarLabel = familiar === "Otro" && familiarOtro.trim() ? familiarOtro.trim() : familiar
+
+  // Chat state
+  const initialMessages: Message[] = []
+  const savedResponses: StoredResponse[] = Array.isArray(initialResponses?.responses) ? initialResponses.responses : []
+  const savedFlowIdx: number = typeof initialResponses?.flowIdx === "number" ? initialResponses.flowIdx : 0
+  const savedAnsweredCount: number = typeof initialResponses?.answeredCount === "number" ? initialResponses.answeredCount : 0
+
+  const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [inputMode, setInputMode] = useState<"none" | "options" | "text" | "end">("none")
   const [currentOptions, setCurrentOptions] = useState<string[]>([])
   const [currentPlaceholder, setCurrentPlaceholder] = useState("")
   const [currentMinChars, setCurrentMinChars] = useState(0)
   const [textValue, setTextValue] = useState("")
-  const [responses, setResponses] = useState<{ q: string; a: string }[]>(initialResponses?.responses ?? [])
-  const [answeredCount, setAnsweredCount] = useState(0)
-  const [flowIdx, setFlowIdx] = useState(0)
+  const [responses, setResponses] = useState<StoredResponse[]>(savedResponses)
+  const [answeredCount, setAnsweredCount] = useState(savedAnsweredCount)
+  const [flowIdx, setFlowIdx] = useState(savedFlowIdx)
   const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const messagesRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -80,8 +99,21 @@ export function PadresForm({ userId, onComplete, onSave, initialResponses, onRes
   const startedRef = useRef(false)
   const responsesRef = useRef(responses)
   responsesRef.current = responses
+  const flowIdxRef = useRef(flowIdx)
+  flowIdxRef.current = flowIdx
+  const answeredCountRef = useRef(answeredCount)
+  answeredCountRef.current = answeredCount
 
-  useEffect(() => { onResponseChange?.({ responses }) }, [responses]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Persist draft
+  useEffect(() => {
+    onResponseChange?.({
+      responses,
+      flowIdx,
+      answeredCount,
+      familiar,
+      familiarOtro,
+    })
+  }, [responses, flowIdx, answeredCount, familiar, familiarOtro]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const scrollBottom = useCallback(() => {
     setTimeout(() => {
@@ -112,27 +144,33 @@ export function PadresForm({ userId, onComplete, onSave, initialResponses, onRes
     }
 
     if (step.inputType === "end") {
-      // Save using ref to get latest responses (avoids stale closure)
       setIsSaving(true)
+      setSaveError(null)
       try {
         const latestResponses = responsesRef.current
-        const formattedResponses = latestResponses.map((r, i) => ({
-          questionNumber: i + 1, question: r.q, responseText: r.a,
-        }))
-        await onSave(0, formattedResponses, { section: "padres" })
-      } catch (e) { console.error("Error saving Padres:", e) }
-      setIsSaving(false)
+        const formattedResponses: any[] = [
+          { questionNumber: 0, question: "¿Qué familiar sos?", responseText: familiarLabel },
+          ...latestResponses.map((r, i) => ({
+            questionNumber: i + 1, question: r.q, responseText: r.a,
+          })),
+        ]
+        await onSave(0, formattedResponses, { section: "padres", familiar: familiarLabel })
 
-      // Show typing → final message
-      addMsg({ type: "typing", text: "" })
-      setTimeout(() => {
-        setMessages((prev) => prev.filter((m) => m.type !== "typing"))
-        addMsg({ type: "bot", text: step.text })
-        setInputMode("end")
+        addMsg({ type: "typing", text: "" })
+        setTimeout(() => {
+          setMessages((prev) => prev.filter((m) => m.type !== "typing"))
+          addMsg({ type: "bot", text: step.text })
+          setInputMode("end")
+          processingRef.current = false
+          setTimeout(() => onComplete(), 1500)
+        }, step.delay)
+      } catch (e) {
+        console.error("Error saving Padres:", e)
+        setSaveError("No pudimos guardar tus respuestas. Reintentá en unos segundos.")
         processingRef.current = false
-        // Mark complete after showing final message
-        setTimeout(() => onComplete(), 1500)
-      }, step.delay)
+      } finally {
+        setIsSaving(false)
+      }
       return
     }
 
@@ -140,7 +178,6 @@ export function PadresForm({ userId, onComplete, onSave, initialResponses, onRes
     addMsg({ type: "typing", text: "" })
 
     setTimeout(() => {
-      // Remove typing, add bot message
       setMessages((prev) => prev.filter((m) => m.type !== "typing"))
       addMsg({ type: "bot", text: step.text })
 
@@ -162,14 +199,29 @@ export function PadresForm({ userId, onComplete, onSave, initialResponses, onRes
         setTimeout(() => textareaRef.current?.focus(), 100)
       }
     }, step.delay)
-  }, [flow, responses, addMsg, onSave]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [flow, addMsg, onSave, familiarLabel]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Start flow
+  // Start flow (after familiar selected)
   useEffect(() => {
     if (startedRef.current) return
+    if (showFamiliarModal) return
+    if (!familiar) return
     startedRef.current = true
-    processStep(0)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Replay saved responses if any
+    if (savedResponses.length > 0) {
+      const replay: Message[] = []
+      for (const r of savedResponses) {
+        replay.push({ type: "bot", text: r.q })
+        replay.push({ type: "user", text: r.a })
+      }
+      replay.push({ type: "divider", text: "— Continuamos donde dejaste —" })
+      setMessages(replay)
+      setTimeout(() => processStep(savedFlowIdx), 400)
+    } else {
+      processStep(0)
+    }
+  }, [showFamiliarModal, familiar]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleOptionSelect = (opt: string) => {
     addMsg({ type: "user", text: opt })
@@ -178,10 +230,8 @@ export function PadresForm({ userId, onComplete, onSave, initialResponses, onRes
     const step = flow[flowIdx]
     setResponses((prev) => [...prev, { q: step.text, a: opt }])
 
-    // Branching
     if (step.nextStep && step.nextStep[opt] !== undefined) {
       const nextIdx = step.nextStep[opt]
-      // Show ack
       if (step.ackText) {
         addMsg({ type: "typing", text: "" })
         setTimeout(() => {
@@ -193,7 +243,6 @@ export function PadresForm({ userId, onComplete, onSave, initialResponses, onRes
         setTimeout(() => processStep(nextIdx), 400)
       }
     } else {
-      // No branching
       if (step.ackText) {
         addMsg({ type: "typing", text: "" })
         setTimeout(() => {
@@ -217,7 +266,6 @@ export function PadresForm({ userId, onComplete, onSave, initialResponses, onRes
     setAnsweredCount((c) => c + 1)
     setTextValue("")
 
-    // Random ack
     const ack = rnd(ACK_POOL)
     addMsg({ type: "typing", text: "" })
     setTimeout(() => {
@@ -227,11 +275,56 @@ export function PadresForm({ userId, onComplete, onSave, initialResponses, onRes
     }, 650)
   }
 
+  const handleFamiliarContinue = () => {
+    if (!familiar) return
+    if (familiar === "Otro" && !familiarOtro.trim()) return
+    setShowFamiliarModal(false)
+  }
+
   const charCount = textValue.trim().length
   const canSend = charCount >= currentMinChars
 
   return (
     <div style={{ background: "#F9F8F6", minHeight: "100%" }} className="flex flex-col h-full">
+      {/* Familiar selection modal */}
+      {showFamiliarModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.45)" }}>
+          <div className="bg-white rounded-[22px] p-7 w-full max-w-[360px] shadow-xl">
+            <h2 className="text-[20px] font-bold mb-1.5" style={{ color: "#1A1918" }}>¿Qué familiar sos?</h2>
+            <p className="text-sm mb-5" style={{ color: "#7A7570" }}>Antes de empezar, contanos quién está respondiendo.</p>
+            <div className="flex flex-col gap-2.5 mb-4">
+              {FAMILIAR_OPTS.map((opt) => (
+                <button key={opt} onClick={() => setFamiliar(opt)}
+                  className="w-full px-4 py-3 rounded-[12px] border-2 text-sm font-semibold text-left transition-all"
+                  style={{ borderColor: familiar === opt ? "#1A1918" : "#EDE8E1", background: familiar === opt ? "#F5F3F0" : "white", color: "#1A1918" }}>
+                  {opt}
+                </button>
+              ))}
+            </div>
+            {familiar === "Otro" && (
+              <input
+                type="text"
+                value={familiarOtro}
+                onChange={(e) => setFamiliarOtro(e.target.value)}
+                placeholder="Ej: Abuelo/a, Tío/a..."
+                className="w-full px-3.5 py-3 rounded-xl border text-base outline-none mb-4"
+                style={{ borderColor: "#EDE8E1", color: "#1A1918", fontFamily: "inherit" }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = "#1A1918" }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "#EDE8E1" }}
+              />
+            )}
+            <button
+              onClick={handleFamiliarContinue}
+              disabled={!familiar || (familiar === "Otro" && !familiarOtro.trim())}
+              className={cn("w-full py-3.5 rounded-[14px] text-[15px] font-bold text-white transition-all",
+                (familiar && (familiar !== "Otro" || familiarOtro.trim())) ? "opacity-100 cursor-pointer hover:opacity-[0.88]" : "opacity-35 pointer-events-none")}
+              style={{ background: "#1A1918" }}>
+              Continuar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="shrink-0 flex gap-3 px-5 py-4 border-b" style={{ background: "#F9F8F6", borderColor: "#E8E3DC" }}>
         <div className="w-[38px] h-[38px] rounded-full flex items-center justify-center text-base shrink-0" style={{ background: "#D97706" }}>
@@ -241,7 +334,7 @@ export function PadresForm({ userId, onComplete, onSave, initialResponses, onRes
           <h1 className="text-[15px] font-semibold" style={{ letterSpacing: "-0.2px", color: "#2D2D2D" }}>Perspectiva Familiar</h1>
           <p className="text-xs mt-0.5" style={{ color: "#9A9590" }}>
             <span className="inline-block w-[7px] h-[7px] rounded-full mr-1" style={{ background: "#6BCB77" }} />
-            Para padres, tutores o familiares
+            {familiarLabel ? `Respondiendo: ${familiarLabel}` : "Para padres, tutores o familiares"}
           </p>
         </div>
       </div>
@@ -311,6 +404,12 @@ export function PadresForm({ userId, onComplete, onSave, initialResponses, onRes
         })}
       </div>
 
+      {saveError && (
+        <div className="shrink-0 mx-4 mb-2 px-4 py-3 rounded-[12px] text-sm" style={{ background: "#FEE2E2", color: "#991B1B", border: "1px solid #FCA5A5" }}>
+          {saveError}
+        </div>
+      )}
+
       {/* Input area */}
       <div className="shrink-0 px-4 py-3.5 border-t flex items-center" style={{ background: "#F9F8F6", borderColor: "#E8E3DC", minHeight: "74px" }}>
         {inputMode === "options" && (
@@ -338,7 +437,6 @@ export function PadresForm({ userId, onComplete, onSave, initialResponses, onRes
                 value={textValue}
                 onChange={(e) => {
                   setTextValue(e.target.value)
-                  // Auto-height
                   e.currentTarget.style.height = "auto"
                   e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 112) + "px"
                 }}

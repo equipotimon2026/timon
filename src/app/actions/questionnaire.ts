@@ -60,8 +60,8 @@ export async function saveQuestionnaireResponse(input: SaveQuestionnaireInput) {
   }));
 
   // Delete existing rows for this user+section, then insert fresh.
-  // Avoids ON CONFLICT issues if the UNIQUE constraint or PostgREST onConflict
-  // mapping is not consistent across environments.
+  // Requires DELETE RLS policy (migration 006). Verifies rows actually removed
+  // before insert to avoid silent failures masking 23505 on re-save.
   const { error: delResponsesError } = await supabase
     .from('responses')
     .delete()
@@ -70,13 +70,15 @@ export async function saveQuestionnaireResponse(input: SaveQuestionnaireInput) {
   if (delResponsesError) throw delResponsesError;
 
   if (responseRows.length > 0) {
+    // Use upsert as defense in depth: if delete didn't fully clear (e.g. RLS
+    // issue), upsert with onConflict still resolves conflicts atomically.
     const { error: responsesError } = await supabase
       .from('responses')
-      .insert(responseRows);
+      .upsert(responseRows, { onConflict: 'user_id,section_id,question_number' });
     if (responsesError) throw responsesError;
   }
 
-  // Upsert section result (try update first, fall back to insert)
+  // Upsert section result atomically
   const sectionPayload = {
     user_id: userId,
     section_id: input.sectionId,
@@ -85,32 +87,12 @@ export async function saveQuestionnaireResponse(input: SaveQuestionnaireInput) {
     completed_at: new Date().toISOString(),
   };
 
-  const { data: existing } = await supabase
+  const { data: sectionResult, error: srError } = await supabase
     .from('section_results')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('section_id', input.sectionId)
-    .maybeSingle();
-
-  let sectionResult;
-  if (existing) {
-    const { data, error } = await supabase
-      .from('section_results')
-      .update(sectionPayload)
-      .eq('id', existing.id)
-      .select()
-      .single();
-    if (error) throw error;
-    sectionResult = data;
-  } else {
-    const { data, error } = await supabase
-      .from('section_results')
-      .insert(sectionPayload)
-      .select()
-      .single();
-    if (error) throw error;
-    sectionResult = data;
-  }
+    .upsert(sectionPayload, { onConflict: 'user_id,section_id' })
+    .select()
+    .single();
+  if (srError) throw srError;
 
   // Invalidate home page cache so completed sections refresh
   revalidatePath('/');

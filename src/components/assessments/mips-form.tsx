@@ -36,6 +36,7 @@ export function MIPSForm({ userId, onComplete, onSave, initialResponses, onRespo
   const [inputMode, setInputMode] = useState<"statement" | "icebreaker" | "none" | "end">("none")
   const [icebreakerOpts, setIcebreakerOpts] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const msgRef = useRef<HTMLDivElement>(null)
   const processingRef = useRef(false)
   const icebreakerIdxRef = useRef<number>(0)
@@ -76,9 +77,36 @@ export function MIPSForm({ userId, onComplete, onSave, initialResponses, onRespo
   useEffect(() => {
     if (startedRef.current) return
     startedRef.current = true
-    addMsg({ type: "bot", text: "Vamos a leer unas frases. Para cada una, elegí qué tan identificado/a te sentís." })
-    addMsg({ type: "divider", text: "— Parte 1: Personalidad —" })
-    setTimeout(() => showStatement(0), 1200)
+
+    const intro: Msg[] = [
+      { type: "bot", text: "Vamos a leer unas frases. Para cada una, elegí qué tan identificado/a te sentís." },
+      { type: "divider", text: "— Parte 1: Personalidad —" },
+    ]
+
+    const savedAnswers = initialResponses?.answers ?? {}
+    const answeredKeys = Object.keys(savedAnswers)
+      .map(Number)
+      .filter((k) => savedAnswers[k])
+      .sort((a, b) => a - b)
+
+    if (answeredKeys.length === 0) {
+      setMsgs(intro)
+      setTimeout(() => showStatement(0), 1200)
+      return
+    }
+
+    const replay: Msg[] = []
+    let lastKey = -1
+    for (const k of answeredKeys) {
+      if (k < STATEMENTS.length) {
+        replay.push({ type: "bot", text: STATEMENTS[k] })
+        replay.push({ type: "user", text: savedAnswers[k] })
+        lastKey = k
+      }
+    }
+    replay.push({ type: "divider", text: "— Continuamos donde dejaste —" })
+    setMsgs([...intro, ...replay])
+    setTimeout(() => showStatement(lastKey + 1), 600)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAnswer = (ans: string) => {
@@ -120,13 +148,17 @@ export function MIPSForm({ userId, onComplete, onSave, initialResponses, onRespo
 
   const handleSave = async () => {
     setSaving(true)
+    setSaveError(null)
     try {
       const r = STATEMENTS.map((s, i) => ({ questionNumber: i + 1, question: s, responseText: answers[i] ?? "" }))
       await onSave(0, r, { section: "mips" })
       setInputMode("end")
       addMsg({ type: "bot", text: "¡Terminamos la primera parte! Tus respuestas quedaron guardadas. 🎉" })
       setTimeout(() => onComplete(), 1500)
-    } catch (e) { console.error(e) } finally { setSaving(false) }
+    } catch (e) {
+      console.error(e)
+      setSaveError("No pudimos guardar tus respuestas. Reintentá en unos segundos.")
+    } finally { setSaving(false) }
   }
 
   return (
@@ -168,6 +200,12 @@ export function MIPSForm({ userId, onComplete, onSave, initialResponses, onRespo
           )
         })}
       </div>
+
+      {saveError && (
+        <div className="shrink-0 mx-4 mb-2 px-4 py-3 rounded-[12px] text-sm" style={{ background: "#FEE2E2", color: "#991B1B", border: "1px solid #FCA5A5" }}>
+          {saveError}
+        </div>
+      )}
 
       <div className="shrink-0 px-4 py-3.5 border-t" style={{ borderColor: "#E8E3DC", minHeight: "74px" }}>
         {inputMode === "statement" && (

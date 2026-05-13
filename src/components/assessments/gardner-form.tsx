@@ -102,18 +102,19 @@ interface Props {
 }
 
 export function GardnerForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: Props) {
-  const [idx, setIdx] = useState(0)
+  const [idx, setIdx] = useState<number>(typeof initialResponses?.idx === "number" ? initialResponses.idx : 0)
   const [answers, setAnswers] = useState<Record<string, number>>(initialResponses?.answers ?? {})
   const [sliderVal, setSliderVal] = useState(3)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
-  const [bgPhase, setBgPhase] = useState(0)
+  const [bgPhase, setBgPhase] = useState<number>(typeof initialResponses?.bgPhase === "number" ? initialResponses.bgPhase : 0)
   const [toast, setToast] = useState<{ text: string; visible: boolean }>({ text: "", visible: false })
   const lastAnswerTime = useRef(Date.now())
   const streak = useRef(0)
   const sliderRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { onResponseChange?.({ answers }) }, [answers]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { onResponseChange?.({ answers, idx, bgPhase }) }, [answers, idx, bgPhase]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const item = FLOW[idx]
   const vocNum = FLOW.slice(0, idx + 1).filter((f) => f.type === "question").length
@@ -164,6 +165,7 @@ export function GardnerForm({ userId, onComplete, onSave, initialResponses, onRe
 
   const handleSave = async () => {
     setSaving(true)
+    setSaveError(null)
     try {
       const r: any[] = []
       let n = 1
@@ -180,7 +182,10 @@ export function GardnerForm({ userId, onComplete, onSave, initialResponses, onRe
       })
       await onSave(0, r, { section: "gardner", scores })
       setDone(true); setTimeout(() => onComplete(), 2500)
-    } catch (e) { console.error(e) } finally { setSaving(false) }
+    } catch (e) {
+      console.error(e)
+      setSaveError("No pudimos guardar tus respuestas. Reintentá en unos segundos.")
+    } finally { setSaving(false) }
   }
 
   if (done) return (
@@ -279,6 +284,12 @@ export function GardnerForm({ userId, onComplete, onSave, initialResponses, onRe
       >
         {toast.text}
       </div>
+
+      {saveError && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 px-4 py-3 rounded-[12px] text-sm max-w-[90%]" style={{ background: "#FEE2E2", color: "#991B1B", border: "1px solid #FCA5A5" }}>
+          {saveError}
+        </div>
+      )}
 
       {/* Custom slider thumb CSS */}
       <style jsx>{`
