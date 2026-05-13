@@ -88,10 +88,10 @@ const TOTAL_VOC = 40
 const THUMB_W = 30
 
 function getZone(val: number) {
-  if (val < 1.8) return { text: "Nunca", color: "#62B8E8" }
-  if (val < 2.6) return { text: "Casi nunca", color: "#80B8D8" }
-  if (val < 3.4) return { text: "A veces", color: "#D4A830" }
-  if (val < 4.2) return { text: "Casi siempre", color: "#E07030" }
+  if (val <= 1) return { text: "Nunca", color: "#62B8E8" }
+  if (val === 2) return { text: "Casi nunca", color: "#80B8D8" }
+  if (val === 3) return { text: "A veces", color: "#D4A830" }
+  if (val === 4) return { text: "Casi siempre", color: "#E07030" }
   return { text: "Siempre", color: "#D03820" }
 }
 
@@ -171,13 +171,13 @@ export function GardnerForm({ userId, onComplete, onSave, initialResponses, onRe
       let n = 1
       INTEL.forEach((intel, ii) => {
         intel.questions.forEach((q, qi) => {
-          r.push({ questionNumber: n++, question: q, responseInteger: Math.round((answers[`${ii}_${qi}`] ?? 3) * 100) / 100 })
+          r.push({ questionNumber: n++, question: q, responseInteger: Math.round(answers[`${ii}_${qi}`] ?? 3) })
         })
       })
       const scores: Record<string, number> = {}
       INTEL.forEach((intel, ii) => {
         let total = 0
-        intel.questions.forEach((_, qi) => { total += answers[`${ii}_${qi}`] ?? 3 })
+        intel.questions.forEach((_, qi) => { total += Math.round(answers[`${ii}_${qi}`] ?? 3) })
         scores[intel.name] = Math.round((total / intel.questions.length) * 100) / 100
       })
       await onSave(0, r, { section: "gardner", scores })
@@ -212,7 +212,7 @@ export function GardnerForm({ userId, onComplete, onSave, initialResponses, onRe
       </div>
       <input
         ref={sliderRef}
-        type="range" min={1} max={5} step={0.01} value={sliderVal}
+        type="range" min={1} max={5} step={1} value={sliderVal}
         onChange={(e) => setSliderVal(Number(e.target.value))}
         className="termometro-slider w-full h-2.5 rounded-full appearance-none cursor-pointer"
         style={{ background: "linear-gradient(to right, #7BC8F0, #A8D8E8, #F5D060, #F08848, #E04838)" }}

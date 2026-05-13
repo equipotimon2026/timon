@@ -54,7 +54,10 @@ export async function saveQuestionnaireResponse(input: SaveQuestionnaireInput) {
     question_number: r.questionNumber,
     question: r.question ?? null,
     response_boolean: r.responseBoolean ?? null,
-    response_integer: r.responseInteger ?? null,
+    response_integer:
+      typeof r.responseInteger === 'number' && Number.isFinite(r.responseInteger)
+        ? Math.round(r.responseInteger)
+        : null,
     response_text: r.responseText ?? null,
     response_array: r.responseArray ?? null,
   }));
