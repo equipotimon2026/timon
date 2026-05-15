@@ -17,6 +17,11 @@ interface AssessmentSummaryProps {
 export function AssessmentSummary({ onResultsReceived, assessmentId, assessmentStatus, completedSectionIds = [] }: AssessmentSummaryProps) {
   const completedSet = new Set(completedSectionIds);
   const hasExistingAssessment = !!assessmentStatus && assessmentStatus !== 'failed';
+  const requiredSectionIds = JOURNEY_STEPS_CONFIG
+    .filter((s) => s.sectionId !== null)
+    .map((s) => s.sectionId as number);
+  const missingSections = requiredSectionIds.filter((id) => !completedSet.has(id));
+  const allSectionsComplete = missingSections.length === 0;
   const [state, setState] = useState<'idle' | 'loading' | 'polling' | 'error'>(
     assessmentId ? 'polling' : 'idle'
   );
@@ -186,10 +191,15 @@ export function AssessmentSummary({ onResultsReceived, assessmentId, assessmentS
       )}
 
       <div className="mt-8 text-center">
+        {!allSectionsComplete && !hasExistingAssessment && (
+          <p className="mb-3 text-sm text-muted-foreground">
+            Faltan {missingSections.length} {missingSections.length === 1 ? 'sección' : 'secciones'} por completar para generar tu perfil.
+          </p>
+        )}
         <Button
           size="lg"
           onClick={handleSubmit}
-          disabled={hasExistingAssessment}
+          disabled={hasExistingAssessment || !allSectionsComplete}
           className="bg-gradient-to-r from-primary to-accent px-8 py-6 text-base font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] disabled:from-muted disabled:to-muted disabled:text-muted-foreground disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
         >
           <Sparkles className="mr-2 h-5 w-5" />
@@ -197,7 +207,9 @@ export function AssessmentSummary({ onResultsReceived, assessmentId, assessmentS
             ? assessmentStatus === 'processing'
               ? 'Procesando...'
               : 'Perfil ya generado'
-            : 'Generar mi perfil vocacional'}
+            : !allSectionsComplete
+              ? 'Completá todas las secciones'
+              : 'Generar mi perfil vocacional'}
         </Button>
       </div>
     </div>

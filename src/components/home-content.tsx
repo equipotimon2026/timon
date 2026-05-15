@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
 import { useAssessmentStore } from '@/stores/assessment-store';
 import { QuestionnaireFlow } from '@/components/questionnaire/questionnaire-flow';
-import { JourneyPath, buildJourneySteps, calcCompletionPercent } from '@/components/journey-path';
+import { JourneyPath, buildJourneySteps, calcCompletionPercent, JOURNEY_STEPS_CONFIG } from '@/components/journey-path';
 import { AssessmentModal } from '@/components/journey-path/assessment-modal';
 import { ProgressSteps } from '@/components/wizard/progress-steps';
 import { AssessmentSummary } from '@/components/wizard/assessment-summary';
@@ -14,7 +14,9 @@ import { useRouter } from '@/i18n/routing';
 import { updateProfile, updatePersona } from '@/app/actions/user';
 import type { UserPersona } from '@/types/questionnaire';
 
-const TOTAL_ASSESSMENTS = 10;
+const REQUIRED_SECTION_IDS = JOURNEY_STEPS_CONFIG
+  .filter((s) => s.sectionId !== null)
+  .map((s) => s.sectionId as number);
 
 interface Assessment {
   assessment_id: string;
@@ -73,15 +75,9 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
   const currentProfile = profile || initialProfile;
   const isOnboardingComplete = currentProfile?.onboarding_completed;
 
-  const allTestsCompleted = completedSections.length >= TOTAL_ASSESSMENTS;
+  const completedSet = new Set(completedSections);
+  const allTestsCompleted = REQUIRED_SECTION_IDS.every((id) => completedSet.has(id));
   const hasResults = analyzeResults !== null;
-
-  // Auto-advance to step 1 (summary) when all tests are completed
-  useEffect(() => {
-    if (allTestsCompleted && activeStep === 0 && !latestAssessment) {
-      setActiveStep(1);
-    }
-  }, [allTestsCompleted]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleResultsReceived = useCallback((data: unknown) => {
     setAnalyzeResults(data);
