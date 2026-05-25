@@ -1,4 +1,4 @@
-export type StepStatus = "done" | "current" | "active" | "locked"
+export type StepStatus = "done" | "current" | "active" | "locked" | "outdated"
 
 export interface JourneyStepData {
   id: string

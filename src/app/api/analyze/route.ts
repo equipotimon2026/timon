@@ -92,8 +92,9 @@ export async function POST(req: NextRequest) {
 
   // Build payload using shared helper
   let payload;
+  let sectionVersions: Record<string, number> = {};
   try {
-    payload = await buildAzurePayload(adminSupabase, profile.id);
+    ({ payload, sectionVersions } = await buildAzurePayload(adminSupabase, profile.id));
   } catch (err) {
     return NextResponse.json(
       { error: 'Failed to build payload', details: String(err) },
@@ -146,6 +147,7 @@ export async function POST(req: NextRequest) {
         user_id: profile.id,
         assessment_id: submitResult.assessment_id,
         status: 'processing',
+        section_versions: sectionVersions,
       });
 
     if (insertError) {
@@ -244,20 +246,63 @@ export async function GET(req: NextRequest) {
     const adminSupabase = createAdminClient();
 
     if (pollResult.status === 'completed') {
-      // Save results to assessments table
-      const { error: saveError } = await adminSupabase
-        .from('assessments')
-        .update({
-          status: 'completed',
-          results: pollResult.results,
-          completed_at: new Date().toISOString(),
-        })
-        .eq('assessment_id', assessmentId);
+      // Atomic-ish activation: deactivate previous active, then activate this one.
+      // Two sequential UPDATEs are used client-side (no multi-statement tx via Supabase client).
+      // The unique constraint on (user_id, is_active=true) in mig 008 guards against a duplicate
+      // active row if the second UPDATE succeeds but the first didn't (e.g. no prior active row).
+      // The small window between the two UPDATEs is acceptable: worst case is 0 active rows
+      // momentarily, not 2. Polling callers will retry and get the correct state.
 
-      if (saveError) {
-        console.error('[analyze] ← Failed to save results to assessments table:', saveError.message);
+      // 1. Find the assessment row id for this assessment_id
+      const { data: thisRow } = await adminSupabase
+        .from('assessments')
+        .select('id, user_id')
+        .eq('assessment_id', assessmentId)
+        .maybeSingle();
+
+      if (thisRow) {
+        // 2. Deactivate any currently active assessment for this user (excluding this one)
+        const { error: deactivateError } = await adminSupabase
+          .from('assessments')
+          .update({ is_active: false })
+          .eq('user_id', thisRow.user_id)
+          .eq('is_active', true)
+          .neq('id', thisRow.id);
+
+        if (deactivateError) {
+          console.error('[analyze] ← Failed to deactivate old assessment:', deactivateError.message);
+        }
+
+        // 3. Mark this assessment as completed and active
+        const { error: activateError } = await adminSupabase
+          .from('assessments')
+          .update({
+            status: 'completed',
+            results: pollResult.results,
+            completed_at: new Date().toISOString(),
+            is_active: true,
+          })
+          .eq('id', thisRow.id);
+
+        if (activateError) {
+          console.error('[analyze] ← Failed to activate assessment:', activateError.message);
+        } else {
+          console.log('[analyze] ← Assessment %s activated (is_active=true)', assessmentId);
+        }
       } else {
-        console.log('[analyze] ← Results saved to assessments table for assessment %s', assessmentId);
+        // Fallback: row not found (shouldn't happen), update by assessment_id without activation
+        const { error: saveError } = await adminSupabase
+          .from('assessments')
+          .update({
+            status: 'completed',
+            results: pollResult.results,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('assessment_id', assessmentId);
+
+        if (saveError) {
+          console.error('[analyze] ← Failed to save results (fallback):', saveError.message);
+        }
       }
 
       return NextResponse.json({ status: 'completed', results: pollResult.results });
