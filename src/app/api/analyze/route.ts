@@ -1,48 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { SECTION_IDS } from '@/lib/constants';
+import { buildAzurePayload } from '@/lib/admin/build-azure-payload';
 
 export const maxDuration = 60;
 
 const AZURE_BASE_URL =
   'https://timon-agents-ckfqd5evcdcqgsg9.eastus2-01.azurewebsites.net';
 const AZURE_ASSESSMENTS_URL = `${AZURE_BASE_URL}/api/assessments`;
-
-const SECTION_NAMES: Record<number, { key: string; name: string }> = {
-  [SECTION_IDS.MILLON]: { key: 'MILLON', name: 'MIPS/Millon' },
-  [SECTION_IDS.RIASEC]: { key: 'RIASEC', name: 'Holland RIASEC' },
-  [SECTION_IDS.HERRMANN]: { key: 'HERRMANN', name: 'Herrmann' },
-  [SECTION_IDS.GARDNER]: { key: 'GARDNER', name: 'Inteligencias Múltiples' },
-  [SECTION_IDS.PROYECTIVA]: { key: 'PROYECTIVA', name: 'Técnicas Proyectivas' },
-  [SECTION_IDS.AUTODESC]: { key: 'AUTODESC', name: 'Autodescubrimiento' },
-  [SECTION_IDS.LIFESTYLE]: { key: 'LIFESTYLE', name: 'Estilo de Vida' },
-  [SECTION_IDS.FUTURO]: { key: 'FUTURO', name: 'Visión Futuro' },
-  [SECTION_IDS.FAMILIA]: { key: 'FAMILIA', name: 'Árbol Genealógico' },
-  [SECTION_IDS.UNIVERSIDAD]: { key: 'UNIVERSIDAD', name: 'Universidad' },
-  [SECTION_IDS.VIBECHECK]: { key: 'VIBECHECK', name: 'Identificación de Perfil' },
-  [SECTION_IDS.VOSCOLEGIO]: { key: 'VOSCOLEGIO', name: 'Vos y el Colegio' },
-  [SECTION_IDS.PADRES]: { key: 'PADRES', name: 'Perspectiva Familiar' },
-  [SECTION_IDS.PROFESIONALES]: { key: 'PROFESIONALES', name: 'Hablemos con Profesionales' },
-};
-
-function getResponseType(row: {
-  response_boolean: boolean | null;
-  response_integer: number | null;
-  response_text: string | null;
-  response_array: unknown | null;
-}): { answer: unknown; response_type: string } {
-  if (row.response_boolean !== null) {
-    return { answer: row.response_boolean, response_type: 'boolean' };
-  }
-  if (row.response_integer !== null) {
-    return { answer: row.response_integer, response_type: 'integer' };
-  }
-  if (row.response_array !== null) {
-    return { answer: row.response_array, response_type: 'array' };
-  }
-  return { answer: row.response_text ?? '', response_type: 'text' };
-}
 
 export async function POST(req: NextRequest) {
   const azureKey = process.env.AZURE_FUNCTIONS_KEY;
@@ -125,74 +90,18 @@ export async function POST(req: NextRequest) {
     // status === 'failed' or anything else → proceed to create new
   }
 
-  // Fetch all responses grouped by section
-  const { data: responses, error: responsesError } = await supabase
-    .from('responses')
-    .select(
-      'section_id, question_number, question, response_boolean, response_integer, response_text, response_array'
-    )
-    .eq('user_id', profile.id)
-    .order('question_number', { ascending: true });
-
-  if (responsesError) {
+  // Build payload using shared helper
+  let payload;
+  try {
+    payload = await buildAzurePayload(adminSupabase, profile.id);
+  } catch (err) {
     return NextResponse.json(
-      { error: 'Failed to fetch responses' },
+      { error: 'Failed to build payload', details: String(err) },
       { status: 500 }
     );
   }
 
-  // Fetch questions to get options and metadata
-  const { data: questions } = await adminSupabase
-    .from('questions')
-    .select('section_id, question_number, options, metadata');
-
-  // Build a lookup map: `${section_id}_${question_number}` -> question data
-  const questionsMap = new Map<string, { options?: unknown; metadata?: unknown }>();
-  for (const q of (questions ?? [])) {
-    questionsMap.set(`${q.section_id}_${q.question_number}`, q);
-  }
-
-  // Group responses by section_id
-  const grouped: Record<number, typeof responses> = {};
-  for (const row of responses) {
-    if (!grouped[row.section_id]) grouped[row.section_id] = [];
-    grouped[row.section_id].push(row);
-  }
-
-  // Build the payload matching test_user_input.json format
-  const responsesPayload: Record<string, { name: string; responses: unknown[] }> = {};
-
-  for (const [sectionId, meta] of Object.entries(SECTION_NAMES)) {
-    const sectionRows = grouped[Number(sectionId)] ?? [];
-    responsesPayload[meta.key] = {
-      name: meta.name,
-      responses: sectionRows.map((row) => {
-        const { answer, response_type } = getResponseType(row);
-        const questionData = questionsMap.get(`${Number(sectionId)}_${row.question_number}`);
-        return {
-          question_number: row.question_number,
-          question_text: row.question ?? '',
-          answer,
-          response_type,
-          ...(questionData?.options ? { options: questionData.options } : {}),
-          ...(questionData?.metadata ? { metadata: questionData.metadata } : {}),
-        };
-      }),
-    };
-  }
-
-  const payload = {
-    personal_data: {
-      first_name: profile.first_name ?? '',
-      last_name: profile.last_name ?? '',
-      age: profile.age ?? 0,
-      school: profile.school ?? '',
-      school_year: profile.school_year ?? '',
-      email: profile.email ?? '',
-      phone_number: profile.phone_number ?? '',
-    },
-    responses: responsesPayload,
-  };
+  const responsesPayload = payload.responses;
 
   // Submit to Azure async pipeline
   try {
