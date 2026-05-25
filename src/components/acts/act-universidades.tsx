@@ -126,8 +126,23 @@ function ChapterFiltros({
   onSelectUniversity: (university: University) => void
   onNavigateToFuturo: () => void
 }) {
+  const uniqueCareers = useMemo(
+    () => [...new Set(universities.map(u => u.careerOffered))],
+    [universities]
+  )
+  const uniqueLocations = useMemo(
+    () => [...new Set(universities.map(u => u.location.zone))],
+    [universities]
+  )
+
+  const defaultCareer = useMemo(() => {
+    const sortedTop = [...careers].sort((a, b) => b.matchPercentage - a.matchPercentage)
+    const match = sortedTop.find(c => uniqueCareers.includes(c.name))
+    return match?.name || uniqueCareers[0] || ""
+  }, [careers, uniqueCareers])
+
   const [filters, setFilters] = useState({
-    career: "",
+    career: defaultCareer,
     type: "",
     modality: "",
     religious: "",
@@ -146,9 +161,6 @@ function ChapterFiltros({
     }).sort((a, b) => b.matchPercentage - a.matchPercentage)
   }, [universities, filters])
 
-  const uniqueCareers = [...new Set(universities.map(u => u.careerOffered))]
-  const uniqueLocations = [...new Set(universities.map(u => u.location.zone))]
-
   return (
     <section className="px-6 md:px-12 lg:px-16 py-12 lg:py-16">
       <div className="max-w-3xl mx-auto">
@@ -163,7 +175,7 @@ function ChapterFiltros({
           <h3 className="font-medium text-foreground mb-4">Filtros</h3>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Career filter */}
+            {/* Career filter — single select, always one chosen */}
             <div>
               <label className="text-sm text-muted-foreground mb-2 block">Carrera</label>
               <select
@@ -171,24 +183,23 @@ function ChapterFiltros({
                 onChange={(e) => setFilters(f => ({ ...f, career: e.target.value }))}
                 className="w-full px-4 py-2.5 rounded-xl bg-background border border-border/50 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
-                <option value="">Todas</option>
                 {uniqueCareers.map(name => (
                   <option key={name} value={name}>{name}</option>
                 ))}
               </select>
             </div>
 
-            {/* Type filter */}
+            {/* Cuota filter (Pública/Privada → cuota o no) */}
             <div>
-              <label className="text-sm text-muted-foreground mb-2 block">Tipo</label>
+              <label className="text-sm text-muted-foreground mb-2 block">Cuota</label>
               <select
                 value={filters.type}
                 onChange={(e) => setFilters(f => ({ ...f, type: e.target.value }))}
                 className="w-full px-4 py-2.5 rounded-xl bg-background border border-border/50 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="">Todas</option>
-                <option value="Pública">Pública</option>
-                <option value="Privada">Privada</option>
+                <option value="Pública">Sin cuota (pública)</option>
+                <option value="Privada">Con cuota (privada)</option>
               </select>
             </div>
 
@@ -237,10 +248,10 @@ function ChapterFiltros({
             </div>
           </div>
 
-          {/* Clear filters */}
-          {Object.values(filters).some(v => v !== "") && (
+          {/* Clear filters (career stays selected) */}
+          {(filters.type || filters.modality || filters.religious || filters.location) && (
             <button
-              onClick={() => setFilters({ career: "", type: "", modality: "", religious: "", location: "" })}
+              onClick={() => setFilters(f => ({ career: f.career, type: "", modality: "", religious: "", location: "" }))}
               className="mt-4 text-sm text-primary hover:underline"
             >
               Limpiar filtros
@@ -271,7 +282,7 @@ function ChapterFiltros({
           <div className="py-12 text-center">
             <p className="text-muted-foreground">No encontramos universidades con esos filtros.</p>
             <button
-              onClick={() => setFilters({ career: "", type: "", modality: "", religious: "", location: "" })}
+              onClick={() => setFilters(f => ({ career: f.career, type: "", modality: "", religious: "", location: "" }))}
               className="mt-2 text-primary hover:underline"
             >
               Limpiar filtros
@@ -488,14 +499,14 @@ function ChapterDetalle({
               <h3 className="font-medium text-foreground mb-4">Becas y accesos especiales</h3>
               <div className="space-y-3">
                 {university.scholarships.map((scholarship, idx) => (
-                  <div key={idx} className="p-4 rounded-xl bg-accent/10 border border-accent/20">
+                  <div key={idx} className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-foreground">{scholarship.name}</h4>
-                      <span className="text-sm text-accent-foreground font-medium">
+                      <h4 className="font-medium text-emerald-900">{scholarship.name}</h4>
+                      <span className="text-sm text-emerald-700 font-semibold">
                         {scholarship.coverage}
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground">{scholarship.requirements}</p>
+                    <p className="text-sm text-emerald-900/80">{scholarship.requirements}</p>
                   </div>
                 ))}
               </div>
