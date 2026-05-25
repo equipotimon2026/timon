@@ -1,4 +1,5 @@
 import type { JourneyStepData } from "./types"
+import type { SectionStatus } from "@/hooks/use-sections"
 
 /**
  * Maps current assessment section slugs to journey path steps
@@ -151,29 +152,54 @@ const SECTION_ID_TO_STEP = new Map(
 )
 
 /**
- * Build JourneyStepData[] from config + completed section IDs.
- * First incomplete step → "current", completed → "done",
- * steps without forms yet → "active" (Pendiente), rest → "active".
+ * Build JourneyStepData[] from config + completed section IDs + optional sectionsStatus.
+ * If sectionsStatus is provided, uses API-driven status:
+ *   - completed_current → "done"
+ *   - completed_outdated → "outdated"
+ *   - missing + first not done → "current", rest → "active"
+ * Falls back to legacy behavior when sectionsStatus is empty/not provided.
  */
 export function buildJourneySteps(
   completedSectionIds: number[],
-  onNavigate: (slug: string) => void
+  onNavigate: (slug: string) => void,
+  sectionsStatus: SectionStatus[] = []
 ): JourneyStepData[] {
+  const hasApiStatus = sectionsStatus.length > 0
+  const statusMap = new Map(sectionsStatus.map((s) => [s.section_id, s.status]))
   const completedSet = new Set(completedSectionIds)
   let foundCurrent = false
 
   return JOURNEY_STEPS_CONFIG.map((config) => {
-    const isDone = config.sectionId !== null && completedSet.has(config.sectionId)
     const hasForm = config.assessmentSlug !== null
 
     let status: JourneyStepData["status"]
-    if (isDone) {
-      status = "done"
-    } else if (!foundCurrent) {
-      status = "current"
-      foundCurrent = true
+
+    if (hasApiStatus && config.sectionId !== null) {
+      const apiStatus = statusMap.get(config.sectionId)
+      if (apiStatus === "completed_current") {
+        status = "done"
+      } else if (apiStatus === "completed_outdated") {
+        status = "outdated"
+      } else {
+        // missing or not in map
+        if (!foundCurrent) {
+          status = "current"
+          foundCurrent = true
+        } else {
+          status = "active"
+        }
+      }
     } else {
-      status = "active"
+      // Legacy fallback: use completedSectionIds
+      const isDone = config.sectionId !== null && completedSet.has(config.sectionId)
+      if (isDone) {
+        status = "done"
+      } else if (!foundCurrent) {
+        status = "current"
+        foundCurrent = true
+      } else {
+        status = "active"
+      }
     }
 
     return {

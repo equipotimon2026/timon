@@ -200,9 +200,11 @@ function ChapterDetalle({
             {career.name}
           </h1>
 
-          <p className="text-xl text-muted-foreground leading-relaxed">
-            {career.definition.description}
-          </p>
+          {career.definition.description && (
+            <p className="text-xl text-muted-foreground leading-relaxed">
+              {career.definition.description}
+            </p>
+          )}
         </div>
 
         {/* Section 1: Why this appeared */}
@@ -315,20 +317,33 @@ function ChapterDetalle({
           </p>
 
           <div className="space-y-4">
-            {career.academic.studyPlan.distribution.map((item, idx) => (
-              <div key={idx}>
-                <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-foreground font-medium">{item.area}</span>
-                  <span className="text-muted-foreground tabular-nums">{item.percentage}%</span>
+            {career.academic.studyPlan.distribution.map((item, idx) => {
+              const fallbackColors = [
+                "bg-indigo-600",
+                "bg-violet-500",
+                "bg-sky-500",
+                "bg-emerald-500",
+                "bg-amber-500",
+                "bg-rose-500",
+              ]
+              const colorClass = item.color && item.color.trim().startsWith("bg-")
+                ? item.color
+                : fallbackColors[idx % fallbackColors.length]
+              return (
+                <div key={idx}>
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="text-foreground font-medium">{item.area}</span>
+                    <span className="text-muted-foreground tabular-nums">{item.percentage}%</span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={cn("h-full rounded-full transition-all duration-700", colorClass)}
+                      style={{ width: `${item.percentage}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="h-3 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className={cn("h-full rounded-full transition-all duration-700", item.color)}
-                    style={{ width: `${item.percentage}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 

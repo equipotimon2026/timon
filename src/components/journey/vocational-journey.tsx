@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { JourneySidebar, Act, Chapter } from "./journey-sidebar"
 import { MobileNav } from "./mobile-nav"
 import { ActPersona } from "@/components/acts/act-persona"
@@ -59,7 +59,7 @@ function transformAgentCareers(agentCareers: AgentCareer[]): Career[] {
     name: c.name,
     field: c.field,
     matchPercentage: c.matchPercentage,
-    definition: { description: c.lifeGlimpse, purpose: c.detail.problems.purpose },
+    definition: { description: "", purpose: c.detail.problems.purpose },
     competencies: c.detail.problems.competencies,
     academic: {
       complexity: c.detail.academics.complexity,
@@ -172,6 +172,11 @@ export function VocationalJourney({ results }: VocationalJourneyProps) {
 
   // Calculate overall progress
   const progress = Math.round((completedChapters.length / allChapters.length) * 100)
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    window.scrollTo({ top: 0, behavior: "auto" })
+  }, [currentChapter, currentAct, selectedCareer, selectedUniversity])
 
   // Build merged profile: agent data overrides static data
   const mergedProfile: Profile = results?.profile ? {

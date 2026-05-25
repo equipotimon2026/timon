@@ -1,39 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/admin/guard';
+import { createServerClient } from '@supabase/ssr';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { buildAzurePayload } from '@/lib/admin/build-azure-payload';
 
 const AZURE_BASE_URL =
   'https://timon-agents-ckfqd5evcdcqgsg9.eastus2-01.azurewebsites.net';
 const AZURE_ASSESSMENTS_URL = `${AZURE_BASE_URL}/api/assessments`;
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  let adminSupabase;
-  try {
-    ({ adminSupabase } = await requireAdmin(req));
-  } catch (err) {
-    return err as NextResponse;
-  }
-
+export async function POST(req: NextRequest) {
   const azureKey = process.env.AZURE_FUNCTIONS_KEY;
   if (!azureKey) {
     return NextResponse.json({ error: 'AZURE_FUNCTIONS_KEY not configured' }, { status: 500 });
   }
 
-  const { id } = await params;
-  const userId = Number(id);
+  // Auth check
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return req.cookies.getAll(); },
+        setAll() {},
+      },
+    }
+  );
 
-  if (isNaN(userId)) {
-    return NextResponse.json({ error: 'Invalid user id' }, { status: 400 });
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
 
-  // Check for pending assessment
+  // Resolve users.id (BIGINT) from auth.uid()
+  const adminSupabase = createAdminClient();
+  const { data: profile, error: profileError } = await adminSupabase
+    .from('users')
+    .select('id')
+    .eq('auth_id', user.id)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
+  }
+
+  // Check for existing processing assessment (409 if found)
   const { data: pending } = await adminSupabase
     .from('assessments')
     .select('assessment_id, status')
-    .eq('user_id', userId)
+    .eq('user_id', profile.id)
     .eq('status', 'processing')
     .maybeSingle();
 
@@ -44,15 +57,21 @@ export async function POST(
     );
   }
 
+  // Build Azure payload
   let payload;
   let sectionVersions: Record<string, number> = {};
   try {
-    ({ payload, sectionVersions } = await buildAzurePayload(adminSupabase, userId));
+    ({ payload, sectionVersions } = await buildAzurePayload(adminSupabase, profile.id));
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to build payload', details: String(err) },
+      { status: 500 }
+    );
   }
 
+  // POST to Azure
   try {
+    console.log('[regenerate] → POST %s', AZURE_ASSESSMENTS_URL);
     const submitResponse = await fetch(AZURE_ASSESSMENTS_URL, {
       method: 'POST',
       headers: {
@@ -63,6 +82,7 @@ export async function POST(
     });
 
     const submitBody = await submitResponse.text();
+    console.log('[regenerate] ← Submit status: %d, body: %s', submitResponse.status, submitBody.slice(0, 500));
 
     if (!submitResponse.ok) {
       return NextResponse.json(
@@ -72,7 +92,6 @@ export async function POST(
     }
 
     const submitResult = JSON.parse(submitBody);
-
     if (!submitResult.assessment_id) {
       return NextResponse.json(
         { error: 'No assessment_id returned from Azure', details: submitBody },
@@ -80,27 +99,30 @@ export async function POST(
       );
     }
 
-    // Insert row with generated_by='admin' and is_active=false
+    console.log('[regenerate] ← Assessment submitted: %s', submitResult.assessment_id);
+
+    // INSERT new assessment row — is_active=false, activated when polling detects completed
     const { error: insertError } = await adminSupabase
       .from('assessments')
       .insert({
-        user_id: userId,
+        user_id: profile.id,
         assessment_id: submitResult.assessment_id,
         status: 'processing',
-        generated_by: 'admin',
+        generated_by: 'user',
         is_active: false,
         section_versions: sectionVersions,
       });
 
     if (insertError) {
-      console.error('[admin/generate] Failed to insert assessment row:', insertError.message);
+      console.error('[regenerate] ← Failed to insert assessment row:', insertError.message);
     }
 
     return NextResponse.json({
       assessment_id: submitResult.assessment_id,
-      status: 'pending',
+      status: 'processing',
     });
   } catch (err) {
+    console.error('[regenerate] ← FAILED: %s', String(err));
     return NextResponse.json(
       { error: 'Failed to reach Azure endpoint', details: String(err) },
       { status: 502 }

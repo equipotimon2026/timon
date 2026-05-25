@@ -49,14 +49,26 @@ export interface AzurePayload {
   responses: Record<string, { name: string; responses: unknown[] }>;
 }
 
+export interface BuildAzurePayloadResult {
+  payload: AzurePayload;
+  sectionVersions: Record<string, number>;
+}
+
+interface SectionVersionRow {
+  section_id: number;
+  current_version: number;
+  questions_snapshot: Array<{ question_number: number; question_hash: string; text: string; type: string; options?: unknown }> | null;
+}
+
 /**
  * Build the Azure assessment payload for a given user (by public.users.id BIGINT).
  * adminSupabase must be a service-role client to access questions table.
+ * Returns the payload and a map of section_id → version used (for assessments.section_versions).
  */
 export async function buildAzurePayload(
   adminSupabase: SupabaseClient,
   userId: number
-): Promise<AzurePayload> {
+): Promise<BuildAzurePayloadResult> {
   // Fetch user profile
   const { data: profile, error: profileError } = await adminSupabase
     .from('users')
@@ -68,17 +80,60 @@ export async function buildAzurePayload(
     throw new Error(`Profile not found for userId=${userId}: ${profileError?.message ?? 'no data'}`);
   }
 
-  // Fetch all responses for this user
+  // Fetch all responses for this user (include question_hash for version filtering)
   const { data: responses, error: responsesError } = await adminSupabase
     .from('responses')
     .select(
-      'section_id, question_number, question, response_boolean, response_integer, response_text, response_array'
+      'section_id, question_number, question, question_hash, response_boolean, response_integer, response_text, response_array'
     )
     .eq('user_id', profile.id)
     .order('question_number', { ascending: true });
 
   if (responsesError) {
     throw new Error(`Failed to fetch responses: ${responsesError.message}`);
+  }
+
+  // Fetch section versions: sections + section_versions_log, join in memory
+  const { data: sectionsData, error: svError } = await adminSupabase
+    .from('sections')
+    .select('id, current_version');
+
+  const sectionVersionMap = new Map<number, SectionVersionRow>();
+
+  if (sectionsData && !svError) {
+    // For each section, fetch its current version snapshot from section_versions_log
+    const sectionIds = sectionsData.map((s: { id: number; current_version: number }) => s.id);
+    const { data: logRows } = await adminSupabase
+      .from('section_versions_log')
+      .select('section_id, version, questions_snapshot')
+      .in('section_id', sectionIds);
+
+    const sectionsMap = new Map<number, number>();
+    for (const s of sectionsData) {
+      sectionsMap.set(s.id, s.current_version);
+    }
+
+    for (const logRow of logRows ?? []) {
+      const currentVersion = sectionsMap.get(logRow.section_id);
+      if (currentVersion !== undefined && logRow.version === currentVersion) {
+        sectionVersionMap.set(logRow.section_id, {
+          section_id: logRow.section_id,
+          current_version: currentVersion,
+          questions_snapshot: logRow.questions_snapshot ?? null,
+        });
+      }
+    }
+
+    // Warn for sections that have no log row
+    for (const [sectionId, version] of sectionsMap.entries()) {
+      if (!sectionVersionMap.has(sectionId)) {
+        console.warn(
+          '[build-azure-payload] No section_versions_log row for section_id=%d (current_version=%d) — fallback: sending all responses',
+          sectionId,
+          version
+        );
+      }
+    }
   }
 
   // Fetch questions metadata
@@ -98,15 +153,55 @@ export async function buildAzurePayload(
     grouped[row.section_id].push(row);
   }
 
+  // Track section versions used
+  const sectionVersions: Record<string, number> = {};
+
   // Build responses payload
   const responsesPayload: Record<string, { name: string; responses: unknown[] }> = {};
   for (const [sectionId, meta] of Object.entries(SECTION_NAMES)) {
-    const sectionRows = grouped[Number(sectionId)] ?? [];
+    const sectionIdNum = Number(sectionId);
+    const allSectionRows = grouped[sectionIdNum] ?? [];
+    const versionInfo = sectionVersionMap.get(sectionIdNum);
+
+    let filteredRows = allSectionRows;
+
+    if (versionInfo) {
+      const snapshot = versionInfo.questions_snapshot;
+
+      if (!snapshot || snapshot.length === 0) {
+        // Empty snapshot → fallback
+        console.warn(
+          '[build-azure-payload] Empty questions_snapshot for section_id=%d — fallback: sending all responses',
+          sectionIdNum
+        );
+      } else {
+        // Build set of valid question_hashes from snapshot
+        const validHashes = new Set(snapshot.map((q) => q.question_hash));
+
+        filteredRows = allSectionRows.filter((row) => {
+          const hash = (row as typeof row & { question_hash?: string | null }).question_hash;
+          if (hash == null) {
+            // NULL question_hash (old data) → include with warning
+            console.warn(
+              '[build-azure-payload] NULL question_hash for section_id=%d question_number=%d — including (fallback)',
+              sectionIdNum,
+              row.question_number
+            );
+            return true;
+          }
+          return validHashes.has(hash);
+        });
+      }
+
+      sectionVersions[String(sectionIdNum)] = versionInfo.current_version;
+    }
+    // If no versionInfo, section is not versioned yet → all responses pass, no entry in sectionVersions
+
     responsesPayload[meta.key] = {
       name: meta.name,
-      responses: sectionRows.map((row) => {
+      responses: filteredRows.map((row) => {
         const { answer, response_type } = getResponseType(row);
-        const questionData = questionsMap.get(`${Number(sectionId)}_${row.question_number}`);
+        const questionData = questionsMap.get(`${sectionIdNum}_${row.question_number}`);
         return {
           question_number: row.question_number,
           question_text: row.question ?? '',
@@ -120,15 +215,18 @@ export async function buildAzurePayload(
   }
 
   return {
-    personal_data: {
-      first_name: profile.first_name ?? '',
-      last_name: profile.last_name ?? '',
-      age: profile.age ?? 0,
-      school: profile.school ?? '',
-      school_year: profile.school_year ?? '',
-      email: profile.email ?? '',
-      phone_number: profile.phone_number ?? '',
+    payload: {
+      personal_data: {
+        first_name: profile.first_name ?? '',
+        last_name: profile.last_name ?? '',
+        age: profile.age ?? 0,
+        school: profile.school ?? '',
+        school_year: profile.school_year ?? '',
+        email: profile.email ?? '',
+        phone_number: profile.phone_number ?? '',
+      },
+      responses: responsesPayload,
     },
-    responses: responsesPayload,
+    sectionVersions,
   };
 }

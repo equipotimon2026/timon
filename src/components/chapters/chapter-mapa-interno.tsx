@@ -386,6 +386,21 @@ function DominanciaTab({ data, isVisible }: { data: MapaInternoData["dominancia"
   )
 }
 
+function inclinationLabel(score: number): string {
+  if (score >= 80) return "Inclinación muy marcada"
+  if (score >= 65) return "Inclinación marcada"
+  if (score >= 55) return "Leve inclinación"
+  return "Equilibrio entre ambos"
+}
+
+function getOppositePole(name: string, pole: string): string {
+  const parts = name.split("/").map(p => p.trim())
+  if (parts.length !== 2) return ""
+  const matchIdx = parts.findIndex(p => p.toLowerCase() === pole.toLowerCase())
+  if (matchIdx === -1) return parts[1]
+  return parts[1 - matchIdx]
+}
+
 // MIPS Tab
 function MipsTab({ data, isVisible }: { data: MapaInternoData["mips"]; isVisible: boolean }) {
   return (
@@ -401,20 +416,25 @@ function MipsTab({ data, isVisible }: { data: MapaInternoData["mips"]; isVisible
       <div className="space-y-4">
         {data.traits.map((trait, idx) => {
           const animatedValue = useAnimatedValue(trait.score, isVisible, idx * 100)
+          const opposite = getOppositePole(trait.name, trait.pole)
+          const label = inclinationLabel(trait.score)
           return (
             <div
               key={trait.name}
               className="p-4 rounded-xl bg-card border border-border/50"
               style={{ animationDelay: `${idx * 100}ms` }}
             >
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-3">
                 <span className="text-sm text-muted-foreground">{trait.name}</span>
                 <span className="px-2.5 py-0.5 bg-primary/10 text-primary text-xs font-medium rounded-full">
-                  {trait.pole}
+                  {label} hacia {trait.pole}
                 </span>
               </div>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-lg font-serif text-foreground tabular-nums">{trait.score}%</span>
+              <div className="mb-2">
+                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                  <span className={trait.score >= 50 ? "font-medium text-foreground" : ""}>{trait.pole}</span>
+                  {opposite && <span className={trait.score < 50 ? "font-medium text-foreground" : ""}>{opposite}</span>}
+                </div>
                 <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                   <div
                     className="h-full bg-primary/70 rounded-full transition-all duration-700"

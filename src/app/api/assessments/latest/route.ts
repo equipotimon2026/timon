@@ -32,11 +32,41 @@ export async function GET(req: NextRequest) {
   const adminSupabase = createAdminClient();
   const { data: assessment } = await adminSupabase
     .from('assessments')
-    .select('assessment_id, status, results')
+    .select('assessment_id, status, results, section_versions, created_at, completed_at, is_active')
     .eq('user_id', profile.id)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  return NextResponse.json({ assessment });
+  if (!assessment) {
+    return NextResponse.json({ assessment: null });
+  }
+
+  // Compute is_outdated
+  let is_outdated = false;
+  const sectionVersionsSnapshot = assessment.section_versions as Record<string, number> | null;
+
+  if (!sectionVersionsSnapshot) {
+    // No version info — conservative: treat as outdated
+    is_outdated = true;
+  } else {
+    const { data: currentSections } = await adminSupabase
+      .from('sections')
+      .select('id, current_version');
+
+    if (currentSections) {
+      for (const section of currentSections) {
+        const snapshotVersion = sectionVersionsSnapshot[String(section.id)];
+        if (snapshotVersion !== undefined && section.current_version > snapshotVersion) {
+          is_outdated = true;
+          break;
+        }
+      }
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { section_versions: _sv, ...assessmentWithoutSnapshot } = assessment;
+
+  return NextResponse.json({ assessment: { ...assessmentWithoutSnapshot, is_outdated } });
 }
