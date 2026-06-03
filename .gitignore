@@ -20,6 +20,9 @@ docs/superpowers/
 /test-results/
 /playwright-report/
 /blob-report/
+# scratch screenshots de corridas manuales / playwright
+/e2e/verifications/*.png
+/*.png
 
 # next.js
 /.next/
