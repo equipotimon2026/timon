@@ -8,11 +8,34 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { visionFuturoData } from "@/lib/questionnaires/vision-futuro-questions"
+import type { StoredResponseRow } from "@/app/actions/questionnaire"
 
 type VisionFuturoResponse = {
   visualizaciones: { [key: string]: string }
   lugarFantaseado: { [key: string]: string }
   preguntasProfundidad: { [key: string]: string }
+}
+
+// Rebuild form state from canonical responses (save: each group = JSON of {label: text})
+export function denormalizeVisionFuturo(rows: StoredResponseRow[]): VisionFuturoResponse {
+  const byQuestion = new Map(rows.map((r) => [r.question ?? "", r]))
+  const responses: VisionFuturoResponse = { visualizaciones: {}, lugarFantaseado: {}, preguntasProfundidad: {} }
+  const parse = (q: string): Record<string, string> => {
+    try { return JSON.parse(byQuestion.get(q)?.responseText ?? "{}") } catch { return {} }
+  }
+  Object.entries(parse("Visualizaciones")).forEach(([desc, text]) => {
+    const item = visionFuturoData.visualizaciones.find((v) => v.description === desc)
+    if (item) responses.visualizaciones[item.id] = text
+  })
+  Object.entries(parse("Lugar Fantaseado Ocupacional")).forEach(([desc, text]) => {
+    const item = visionFuturoData.lugarFantaseado.find((l) => l.description === desc)
+    if (item) responses.lugarFantaseado[item.id] = text
+  })
+  Object.entries(parse("Preguntas de Profundidad")).forEach(([q, text]) => {
+    const item = visionFuturoData.preguntasProfundidad.find((p) => p.question === q)
+    if (item) responses.preguntasProfundidad[item.id] = text
+  })
+  return responses
 }
 
 interface VisionFuturoFormProps {

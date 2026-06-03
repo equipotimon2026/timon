@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { cn } from "@/lib/utils"
+import type { StoredResponseRow } from "@/app/actions/questionnaire"
 
 /* ══════════════════════════════════════
    DATA — 1:1 from V0 profesionales.html
@@ -128,6 +129,32 @@ const PROS: Professional[] = [
   ]},
 ]
 
+// Rebuild {completed, data} from canonical responses.
+// Save order per prof: `[area] Actividades` (responseArray=talents), then answer rows (responseText) keyed by question text.
+export function denormalizeProfesionales(rows: StoredResponseRow[]) {
+  const areaToId = new Map(PROS.map((p) => [p.area, p.id]))
+  const data: Record<string, { talents: string[]; answers: Record<string, string> }> = {}
+  const completed: string[] = []
+  let currentId: string | null = null
+  for (const r of rows) {
+    const q = r.question ?? ""
+    const m = q.match(/^\[(.+)\] Actividades$/)
+    if (m) {
+      const id = areaToId.get(m[1])
+      if (id) {
+        currentId = id
+        data[id] = { talents: r.responseArray ?? [], answers: {} }
+        completed.push(id)
+      } else {
+        currentId = null
+      }
+    } else if (currentId && r.responseText != null) {
+      data[currentId].answers[q] = r.responseText
+    }
+  }
+  return { completed, data }
+}
+
 const ACK_NONE = ["Entendido, seguimos.", "Ok."]
 const ACK_FEW = ["Hay algo ahí.", "Algunos de estos.", "Interesante."]
 const ACK_MANY = ["¡Bastante de esto te resuena!", "Hay material.", "Interesante lo que marcás.", "Bien."]
@@ -170,6 +197,10 @@ export function ProfesionalesForm({ userId, onComplete, onSave, initialResponses
   const [talents, setTalents] = useState<string[]>([])
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [isSaving, setIsSaving] = useState(false)
+  // Review/edit mode for an already-completed professional (instead of replaying the chat)
+  const [profReview, setProfReview] = useState(false)
+  const [editTalents, setEditTalents] = useState<string[]>([])
+  const [editAnswers, setEditAnswers] = useState<Record<string, string>>({})
   const msgRef = useRef<HTMLDivElement>(null)
   const processingRef = useRef(false)
   const talentsRef = useRef(talents)
@@ -231,6 +262,17 @@ export function ProfesionalesForm({ userId, onComplete, onSave, initialResponses
   const openProfessional = (id: string) => {
     setActiveProf(id)
     setChatOpen(true)
+    // Already completed → open review/edit prefilled from saved data
+    if (completedProfs.has(id)) {
+      const saved = profData[id] ?? { talents: [], answers: {} }
+      setProfReview(true)
+      setEditTalents(saved.talents ?? [])
+      setEditAnswers(saved.answers ?? {})
+      setMessages([])
+      setInputMode("none")
+      return
+    }
+    setProfReview(false)
     setMessages([])
     setInputMode("none")
     setTalents([])
@@ -240,8 +282,17 @@ export function ProfesionalesForm({ userId, onComplete, onSave, initialResponses
     setTimeout(() => processStep(0), 100)
   }
 
-  // Re-trigger processStep when prof changes
+  const saveProfEdit = () => {
+    if (!prof) return
+    setProfData((d) => ({ ...d, [prof.id]: { talents: editTalents, answers: editAnswers } }))
+    setProfReview(false)
+    setChatOpen(false)
+    setActiveProf(null)
+  }
+
+  // Re-trigger processStep when prof changes (chat mode only)
   useEffect(() => {
+    if (profReview) return
     if (activeProf && messages.length === 0 && !processingRef.current) {
       processStep(0)
     }
@@ -381,6 +432,86 @@ export function ProfesionalesForm({ userId, onComplete, onSave, initialResponses
             <div className="text-lg font-semibold" style={{ color: "#2D2D2D" }}>Elegí un profesional</div>
             <p className="text-[13px] mt-1.5 max-w-[240px] leading-relaxed" style={{ color: "#9A9590" }}>Seleccioná una conversación para empezar.</p>
           </div>
+        ) : profReview ? (
+          <>
+            {/* Review/edit header */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0" style={{ borderColor: "#E8E3DC" }}>
+              <button onClick={() => { setChatOpen(false); setProfReview(false); setActiveProf(null) }} className="md:hidden text-lg shrink-0 p-1" style={{ color: "#9A9590" }}>←</button>
+              <div className="w-[38px] h-[38px] rounded-full flex items-center justify-center text-lg shrink-0" style={{ background: prof.color }}>{prof.emoji}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[15px] font-semibold" style={{ letterSpacing: "-0.2px" }}>{prof.name}</div>
+                <div className="text-xs" style={{ color: "#9A9590" }}>Revisá y editá tus respuestas</div>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-5 flex flex-col gap-6">
+              {prof.flow.map((step, i) => {
+                if (step.t === "chips") {
+                  return (
+                    <div key={i} className="flex flex-col gap-2">
+                      <label className="text-[14px] font-medium leading-snug" style={{ color: "#2D2D2D" }}>{step.text}</label>
+                      <div className="flex flex-wrap gap-[7px]">
+                        {step.items.map((c) => {
+                          const on = editTalents.includes(c)
+                          return (
+                            <button key={c} type="button"
+                              onClick={() => setEditTalents((t) => on ? t.filter((x) => x !== c) : [...t, c])}
+                              className="px-3.5 py-[7px] rounded-full border text-[13px] font-medium transition-all active:scale-[0.97]"
+                              style={{ background: on ? prof.color : "#F9F8F6", color: on ? "white" : "#2D2D2D", borderColor: on ? prof.color : "#E8E3DC" }}>
+                              {c}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                }
+                if (step.t === "options") {
+                  return (
+                    <div key={i} className="flex flex-col gap-2">
+                      <label className="text-[14px] font-medium leading-snug" style={{ color: "#2D2D2D" }}>{step.text}</label>
+                      <div className="flex flex-wrap gap-2">
+                        {step.options.map((o) => {
+                          const on = editAnswers[step.text] === o
+                          return (
+                            <button key={o} type="button"
+                              onClick={() => setEditAnswers((a) => ({ ...a, [step.text]: o }))}
+                              className="px-[17px] py-[9px] rounded-full border text-[13.5px] font-medium transition-all active:scale-[0.96]"
+                              style={{ background: on ? "#2D2D2D" : "#F9F8F6", color: on ? "#F9F8F6" : "#2D2D2D", borderColor: on ? "#2D2D2D" : "#E8E3DC" }}>
+                              {o}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                }
+                if (step.t === "text") {
+                  return (
+                    <div key={i} className="flex flex-col gap-1.5">
+                      <label className="text-[14px] font-medium leading-snug" style={{ color: "#2D2D2D" }}>{step.text}</label>
+                      <textarea
+                        value={editAnswers[step.text] ?? ""}
+                        onChange={(e) => setEditAnswers((a) => ({ ...a, [step.text]: e.target.value }))}
+                        rows={2}
+                        className="w-full px-3.5 py-2.5 rounded-2xl border text-[15px] outline-none resize-none transition-colors"
+                        style={{ background: "white", borderColor: "#E8E3DC", color: "#2D2D2D", lineHeight: "1.5", fontFamily: "inherit" }}
+                      />
+                    </div>
+                  )
+                }
+                return null
+              })}
+            </div>
+
+            <div className="shrink-0 px-4 py-3.5 border-t" style={{ borderColor: "#E8E3DC" }}>
+              <button onClick={saveProfEdit}
+                className="w-full py-3 rounded-3xl text-[15px] font-semibold text-white transition-all hover:opacity-90 active:scale-[0.99]"
+                style={{ background: "#2D2D2D" }}>
+                Guardar cambios
+              </button>
+            </div>
+          </>
         ) : (
           <>
             {/* Chat header */}

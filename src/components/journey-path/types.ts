@@ -25,4 +25,11 @@ export interface JourneyPathProps {
   /** Overall completion percentage (0-100) */
   completionPercent?: number
   className?: string
+  /** Generate-results action shown beside the progress bar */
+  onGenerate?: () => void
+  canGenerate?: boolean
+  generating?: boolean
+  hasResults?: boolean
+  generateLabel?: string
+  generateError?: string | null
 }

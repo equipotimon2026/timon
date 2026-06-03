@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { cn } from "@/lib/utils"
+import type { StoredResponseRow } from "@/app/actions/questionnaire"
 
 /* V0 sobrevivientes.html — RIASEC Holland 1:1 replica */
 
@@ -51,6 +52,20 @@ const SECTIONS = [
     C: ["Seguridad","Precisión","Eficiencia","Estadísticas","Métodos","Pertenencia"],
   }},
 ]
+
+// Rebuild selections from canonical responses (save: question `[title] typeName` → responseArray)
+export function denormalizeRiasec(rows: StoredResponseRow[]) {
+  const byQuestion = new Map(rows.map((r) => [r.question ?? "", r]))
+  const selections: Record<number, Record<string, string[]>> = {}
+  SECTIONS.forEach((section, si) => {
+    selections[si] = {}
+    TYPES.forEach((t) => {
+      const row = byQuestion.get(`[${section.title}] ${TYPE_INFO[t].name}`)
+      selections[si][t] = row?.responseArray ?? []
+    })
+  })
+  return { sec: 0, selections }
+}
 
 const MAX_SCORE = 34 // 13+10+5+6
 

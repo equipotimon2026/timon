@@ -130,6 +130,41 @@ export async function saveDraft(input: { sectionId: number; draftData: unknown }
   if (error) throw error;
 }
 
+export type StoredResponseRow = {
+  questionNumber: number;
+  question: string | null;
+  responseBoolean: boolean | null;
+  responseInteger: number | null;
+  responseText: string | null;
+  responseArray: string[] | null;
+};
+
+/**
+ * Canonical saved responses for a section (from the `responses` table).
+ * Used to restore a completed form when the working draft is stale or absent.
+ */
+export async function getResponses(sectionId: number): Promise<StoredResponseRow[]> {
+  const supabase = await createServerSupabaseClient();
+  const userId = await getUserProfileId(supabase);
+
+  const { data, error } = await supabase
+    .from('responses')
+    .select('question_number, question, response_boolean, response_integer, response_text, response_array')
+    .eq('user_id', userId)
+    .eq('section_id', sectionId)
+    .order('question_number', { ascending: true });
+
+  if (error || !data) return [];
+  return data.map((r) => ({
+    questionNumber: r.question_number,
+    question: r.question ?? null,
+    responseBoolean: r.response_boolean ?? null,
+    responseInteger: r.response_integer ?? null,
+    responseText: r.response_text ?? null,
+    responseArray: (r.response_array as string[] | null) ?? null,
+  }));
+}
+
 export async function getDraft(sectionId: number): Promise<unknown | null> {
   const supabase = await createServerSupabaseClient();
   const userId = await getUserProfileId(supabase);

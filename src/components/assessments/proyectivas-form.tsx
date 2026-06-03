@@ -31,6 +31,8 @@ interface Props {
 
 export function ProyectivasForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: Props) {
   const [answers, setAnswers] = useState<Record<number, string>>(initialResponses?.answers ?? {})
+  // If reopened with answers already saved, show a review/edit screen instead of replaying the chat.
+  const [reviewMode] = useState<boolean>(() => Object.keys(initialResponses?.answers ?? {}).length > 0)
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [inputMode, setInputMode] = useState<"text" | "none" | "end">("none")
   const [qIdx, setQIdx] = useState(0)
@@ -82,10 +84,20 @@ export function ProyectivasForm({ userId, onComplete, onSave, initialResponses, 
   useEffect(() => {
     if (startedRef.current) return
     startedRef.current = true
+    if (reviewMode) return // skip chat replay; render review/edit UI instead
     addMsg({ type: "bot", text: "Ahora vamos a completar algunas frases. Escribí lo primero que se te venga a la mente." })
     addMsg({ type: "divider", text: "— Completá las frases —" })
     setTimeout(() => showNext(0), 1000)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleReviewSave = async () => {
+    setSaving(true)
+    try {
+      const r = [...FRASES, ...ABIERTAS].map((q, i) => ({ questionNumber: i + 1, question: q, responseText: answers[i] ?? "" }))
+      await onSave(0, r, { section: "proyectivas" })
+      onComplete()
+    } catch (e) { console.error(e) } finally { setSaving(false) }
+  }
 
   const handleSubmit = () => {
     if (!textVal.trim()) return
@@ -109,6 +121,60 @@ export function ProyectivasForm({ userId, onComplete, onSave, initialResponses, 
       addMsg({ type: "bot", text: "¡Excelente! Terminamos esta parte. Tus respuestas quedaron guardadas. 🎉" })
       setTimeout(() => onComplete(), 1500)
     } catch (e) { console.error(e) } finally { setSaving(false) }
+  }
+
+  if (reviewMode) {
+    const fields = [
+      { label: "Completá las frases", items: FRASES.map((q, i) => ({ q, idx: i })) },
+      { label: "Preguntas abiertas", items: ABIERTAS.map((q, j) => ({ q, idx: FRASES.length + j })) },
+    ]
+    return (
+      <div style={{ background: "#F9F8F6" }} className="flex flex-col h-full min-h-full">
+        <div className="shrink-0 flex gap-3 px-5 py-4 border-b" style={{ borderColor: "#E8E3DC" }}>
+          <div className="w-[38px] h-[38px] rounded-full flex items-center justify-center text-base shrink-0" style={{ background: "#2D2D2D", color: "white" }}>✦</div>
+          <div className="flex-1">
+            <h1 className="text-[15px] font-semibold" style={{ color: "#2D2D2D" }}>Chatiemos · Parte 2</h1>
+            <p className="text-xs mt-0.5" style={{ color: "#9A9590" }}>Revisá y editá tus respuestas</p>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-5 flex flex-col gap-6">
+          {fields.map((group) => (
+            <div key={group.label} className="flex flex-col gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex-1 h-px" style={{ background: "#E8E3DC" }} />
+                <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#9A9590" }}>{group.label}</span>
+                <div className="flex-1 h-px" style={{ background: "#E8E3DC" }} />
+              </div>
+              {group.items.map(({ q, idx }) => (
+                <div key={idx} className="flex flex-col gap-1.5">
+                  <label className="text-[14px] font-medium" style={{ color: "#2D2D2D" }}>{q}</label>
+                  <textarea
+                    value={answers[idx] ?? ""}
+                    onChange={(e) => setAnswers((a) => ({ ...a, [idx]: e.target.value }))}
+                    placeholder="Tu respuesta..."
+                    rows={2}
+                    className="w-full px-3.5 py-2.5 rounded-2xl border text-[15px] outline-none resize-none transition-colors"
+                    style={{ background: "white", borderColor: "#E8E3DC", color: "#2D2D2D", lineHeight: "1.5", fontFamily: "inherit" }}
+                  />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <div className="shrink-0 px-4 py-3.5 border-t" style={{ borderColor: "#E8E3DC" }}>
+          <button
+            onClick={handleReviewSave}
+            disabled={saving}
+            className="w-full py-3 rounded-3xl text-[15px] font-semibold text-white transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-50"
+            style={{ background: "#2D2D2D" }}
+          >
+            {saving ? "Guardando..." : "Guardar cambios"}
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (

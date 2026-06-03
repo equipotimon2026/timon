@@ -5,6 +5,8 @@ import { CheckCircle2, Lock } from 'lucide-react';
 interface Step {
   label: string;
   status: 'completed' | 'active' | 'locked';
+  /** Show a mini spinner over the node (e.g. while results are being generated) */
+  loading?: boolean;
 }
 
 interface ProgressStepsProps {
@@ -45,17 +47,22 @@ export function ProgressSteps({ steps, onStepClick }: ProgressStepsProps) {
               style={{ left: `${leftPercent}%` }}
               aria-label={step.label}
             >
-              {step.status === 'completed' && (
+              {step.loading && (
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-white shadow-[0_0_12px_rgba(124,58,237,0.5)]">
+                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                </span>
+              )}
+              {!step.loading && step.status === 'completed' && (
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-white">
                   <CheckCircle2 className="h-4 w-4" />
                 </span>
               )}
-              {step.status === 'active' && (
+              {!step.loading && step.status === 'active' && (
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary font-bold text-white text-xs shadow-[0_0_12px_rgba(124,58,237,0.5)]">
                   {i + 1}
                 </span>
               )}
-              {step.status === 'locked' && (
+              {!step.loading && step.status === 'locked' && (
                 <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-muted bg-background text-muted-foreground">
                   <Lock className="h-3 w-3" />
                 </span>

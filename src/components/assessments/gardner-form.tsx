@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { cn } from "@/lib/utils"
+import type { StoredResponseRow } from "@/app/actions/questionnaire"
 
 /* V0 termometro.html — 1:1 replica */
 
@@ -63,6 +64,21 @@ const INTEL = [
     "Me resulta satisfactorio ayudar a alguien a entender algo o aprender algo nuevo: soy paciente explicando.",
   ]},
 ]
+
+// Rebuild form state from canonical responses (save order: INTEL[ii].questions[qi] → n++)
+export function denormalizeGardner(rows: StoredResponseRow[]) {
+  const byQN = new Map(rows.map((r) => [r.questionNumber, r]))
+  const answers: Record<string, number> = {}
+  let n = 1
+  INTEL.forEach((intel, ii) => {
+    intel.questions.forEach((_, qi) => {
+      const row = byQN.get(n)
+      if (row && typeof row.responseInteger === "number") answers[`${ii}_${qi}`] = row.responseInteger
+      n++
+    })
+  })
+  return { idx: 0, answers, bgPhase: 0 }
+}
 
 const BG_PHASES = ["#F9F8F6", "#F5F2F8", "#F2F6F3", "#F8F4F0"]
 

@@ -93,6 +93,11 @@ export function PadresForm({ userId, onComplete, onSave, initialResponses, onRes
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  // If reopened with the flow already completed, show a review/edit screen instead of replaying the chat.
+  const [reviewMode] = useState<boolean>(
+    () => savedResponses.length > 0 && savedAnsweredCount >= totalAnswerable
+  )
+
   const messagesRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const processingRef = useRef(false)
@@ -203,6 +208,7 @@ export function PadresForm({ userId, onComplete, onSave, initialResponses, onRes
 
   // Start flow (after familiar selected)
   useEffect(() => {
+    if (reviewMode) { startedRef.current = true; return } // review/edit UI handles it
     if (startedRef.current) return
     if (showFamiliarModal) return
     if (!familiar) return
@@ -283,6 +289,69 @@ export function PadresForm({ userId, onComplete, onSave, initialResponses, onRes
 
   const charCount = textValue.trim().length
   const canSend = charCount >= currentMinChars
+
+  const handleReviewSave = async () => {
+    setIsSaving(true)
+    setSaveError(null)
+    try {
+      const formatted = [
+        { questionNumber: 0, question: "¿Qué familiar sos?", responseText: familiarLabel },
+        ...responses.map((r, i) => ({ questionNumber: i + 1, question: r.q, responseText: r.a })),
+      ]
+      await onSave(0, formatted, { section: "padres", familiar: familiarLabel })
+      onComplete()
+    } catch (e) {
+      console.error("Error saving Padres:", e)
+      setSaveError("No pudimos guardar tus respuestas. Reintentá en unos segundos.")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (reviewMode) {
+    return (
+      <div style={{ background: "#F9F8F6", minHeight: "100%" }} className="flex flex-col h-full">
+        <div className="shrink-0 flex gap-3 px-5 py-4 border-b" style={{ background: "#F9F8F6", borderColor: "#E8E3DC" }}>
+          <div className="w-[38px] h-[38px] rounded-full flex items-center justify-center text-base shrink-0" style={{ background: "#D97706" }}>🏠</div>
+          <div className="flex-1">
+            <h1 className="text-[15px] font-semibold" style={{ letterSpacing: "-0.2px", color: "#2D2D2D" }}>Perspectiva Familiar</h1>
+            <p className="text-xs mt-0.5" style={{ color: "#9A9590" }}>
+              {familiarLabel ? `Respondiendo: ${familiarLabel} · ` : ""}Revisá y editá tus respuestas
+            </p>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-5 flex flex-col gap-4">
+          {responses.map((r, i) => (
+            <div key={i} className="flex flex-col gap-1.5">
+              <label className="text-[14px] font-medium leading-snug" style={{ color: "#2D2D2D" }}>{r.q}</label>
+              <textarea
+                value={r.a}
+                onChange={(e) => setResponses((prev) => prev.map((x, idx) => (idx === i ? { ...x, a: e.target.value } : x)))}
+                rows={2}
+                className="w-full px-3.5 py-2.5 rounded-2xl border text-[15px] outline-none resize-none transition-colors"
+                style={{ background: "white", borderColor: "#E8E3DC", color: "#2D2D2D", lineHeight: "1.5", fontFamily: "inherit" }}
+              />
+            </div>
+          ))}
+        </div>
+
+        {saveError && (
+          <div className="shrink-0 mx-4 mb-2 px-4 py-3 rounded-[12px] text-sm" style={{ background: "#FEE2E2", color: "#991B1B", border: "1px solid #FCA5A5" }}>
+            {saveError}
+          </div>
+        )}
+
+        <div className="shrink-0 px-4 py-3.5 border-t" style={{ borderColor: "#E8E3DC" }}>
+          <button onClick={handleReviewSave} disabled={isSaving}
+            className="w-full py-3 rounded-3xl text-[15px] font-semibold text-white transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-50"
+            style={{ background: "#2D2D2D" }}>
+            {isSaving ? "Guardando..." : "Guardar cambios"}
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ background: "#F9F8F6", minHeight: "100%" }} className="flex flex-col h-full">

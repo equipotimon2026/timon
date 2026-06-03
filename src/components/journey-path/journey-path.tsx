@@ -37,6 +37,12 @@ export function JourneyPath({
   userName,
   completionPercent,
   className,
+  onGenerate,
+  canGenerate,
+  generating,
+  hasResults,
+  generateLabel,
+  generateError,
 }: JourneyPathProps) {
   const stepsContainerRef = useRef<HTMLDivElement>(null)
 
@@ -54,6 +60,12 @@ export function JourneyPath({
           userName={userName}
           completionPercent={completionPercent}
           className="mb-10"
+          onGenerate={onGenerate}
+          canGenerate={canGenerate}
+          generating={generating}
+          hasResults={hasResults}
+          generateLabel={generateLabel}
+          generateError={generateError}
         />
 
         {/* Section label */}

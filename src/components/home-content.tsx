@@ -6,8 +6,8 @@ import { useAssessmentStore } from '@/stores/assessment-store';
 import { QuestionnaireFlow } from '@/components/questionnaire/questionnaire-flow';
 import { JourneyPath, buildJourneySteps, calcCompletionPercent, JOURNEY_STEPS_CONFIG } from '@/components/journey-path';
 import { AssessmentModal } from '@/components/journey-path/assessment-modal';
-import { ProgressSteps } from '@/components/wizard/progress-steps';
-import { AssessmentSummary } from '@/components/wizard/assessment-summary';
+import { useWizardStore, type WizardStep } from '@/stores/wizard-store';
+import { LoadingScreen } from '@/components/wizard/loading-screen';
 import { ResultsView } from '@/components/wizard/results-view';
 import { AssessmentWrapper } from '@/components/assessment-wrapper';
 import { useRouter } from '@/i18n/routing';
@@ -35,6 +35,7 @@ interface HomeContentProps {
 export function HomeContent({ initialProfile }: HomeContentProps) {
   const { profile, setProfile, fetchProfile } = useAuthStore();
   const { completedSections, setCompletedSections } = useAssessmentStore();
+  const setWizard = useWizardStore((s) => s.setWizard);
   const router = useRouter();
 
   const [activeStep, setActiveStep] = useState(0);
@@ -47,6 +48,8 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
   const [showRegenerateModal, setShowRegenerateModal] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [regenerateError, setRegenerateError] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   // Fetch completed sections and latest assessment from API
   const fetchInitialData = useCallback(async () => {
@@ -72,8 +75,9 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
 
       if (assessment?.status === 'completed' && assessment.results) {
         setAnalyzeResults(assessment.results);
-        setActiveStep(2);
-      } else if (assessment?.status === 'processing' || assessment?.status === 'failed') {
+        setActiveStep(1);
+      } else if (assessment?.status === 'processing') {
+        // Resume polling happens in a dedicated effect below
         setActiveStep(1);
       }
     } catch (err) {
@@ -95,23 +99,121 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
   const allTestsCompleted = REQUIRED_SECTION_IDS.every((id) => completedSet.has(id));
   const hasResults = analyzeResults !== null;
 
-  const handleResultsReceived = useCallback((data: unknown) => {
-    setAnalyzeResults(data);
-    setActiveStep(2);
-  }, []);
+  // Poll the analyze endpoint until the assessment is completed or failed.
+  const pollAssessment = useCallback(
+    async (assessmentId: string, email: string, signal?: { cancelled: boolean }) => {
+      const POLL_INTERVAL = 20_000;
+      const MAX_POLLS = 30; // 30 * 20s = 10 minutes max
+
+      for (let i = 0; i < MAX_POLLS; i++) {
+        if (signal?.cancelled) return;
+
+        const pollRes = await fetch(
+          `/api/analyze?assessment_id=${assessmentId}&email=${encodeURIComponent(email)}`
+        );
+        if (!pollRes.ok) {
+          const body = await pollRes.json().catch(() => ({}));
+          throw new Error(body.error || `Error de polling: ${pollRes.status}`);
+        }
+
+        const pollData = await pollRes.json();
+        if (pollData.status === 'completed') {
+          if (signal?.cancelled) return;
+          setAnalyzeResults(pollData.results);
+          setGenerating(false);
+          return;
+        }
+        if (pollData.status === 'failed') {
+          throw new Error(pollData.error || 'El procesamiento falló');
+        }
+
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+      }
+
+      throw new Error('El procesamiento tardó demasiado. Intentá de nuevo.');
+    },
+    []
+  );
+
+  // Trigger generation from the Tests tab, then jump to the Results tab while polling.
+  const handleGenerate = useCallback(async () => {
+    setGenerating(true);
+    setGenerateError(null);
+    setActiveStep(1);
+
+    try {
+      const res = await fetch('/api/analyze', { method: 'POST' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Error ${res.status}`);
+      }
+
+      const { assessment_id, email } = await res.json();
+      if (!assessment_id) throw new Error('No se recibió el ID del assessment');
+
+      await pollAssessment(assessment_id, email);
+    } catch (err) {
+      console.error('[assessment] Error:', err);
+      setGenerateError('Hubo un problema al generar tu perfil. Por favor, intentá de nuevo.');
+      setGenerating(false);
+    }
+  }, [pollAssessment]);
+
+  // Resume polling on load if there is an assessment already processing.
+  useEffect(() => {
+    if (latestAssessment?.status !== 'processing') return;
+    const signal = { cancelled: false };
+    setGenerating(true);
+    setActiveStep(1);
+
+    (async () => {
+      try {
+        const profileRes = await fetch('/api/auth/profile');
+        const profileData = await profileRes.json();
+        const email = profileData.profile?.email ?? '';
+        await pollAssessment(latestAssessment.assessment_id, email, signal);
+      } catch (err) {
+        if (signal.cancelled) return;
+        console.error('[assessment] Resume polling error:', err);
+        setGenerateError('Hubo un problema al generar tu perfil. Por favor, intentá de nuevo.');
+        setGenerating(false);
+      }
+    })();
+
+    return () => {
+      signal.cancelled = true;
+    };
+  }, [latestAssessment, pollAssessment]);
 
   const handleStepClick = useCallback(
     (index: number) => {
       if (index === 0) {
         setActiveStep(0);
-      } else if (index === 1 && (allTestsCompleted || hasResults)) {
+      } else if (index === 1 && (hasResults || generating)) {
         setActiveStep(1);
-      } else if (index === 2 && hasResults) {
-        setActiveStep(2);
       }
     },
-    [allTestsCompleted, hasResults]
+    [hasResults, generating]
   );
+
+  // Publish the wizard stepper to the navbar (UserHeader renders it from the store).
+  useEffect(() => {
+    if (!isOnboardingComplete) return;
+    const wizardSteps: WizardStep[] = [
+      {
+        label: 'Tests',
+        status: activeStep === 0 ? 'active' : hasResults || allTestsCompleted ? 'completed' : 'active',
+      },
+      {
+        label: 'Resultados',
+        status: activeStep === 1 ? 'active' : hasResults ? 'completed' : 'locked',
+        loading: generating,
+      },
+    ];
+    wizardSteps[activeStep].status = 'active';
+    setWizard({ steps: wizardSteps, onStepClick: handleStepClick });
+    return () => setWizard(null);
+  }, [isOnboardingComplete, activeStep, hasResults, allTestsCompleted, generating, handleStepClick, setWizard]);
 
   if (!isOnboardingComplete) {
     return (
@@ -143,37 +245,6 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
     );
   }
 
-  const steps = [
-    {
-      label: 'Tests',
-      status: (activeStep === 0
-        ? 'active'
-        : hasResults || allTestsCompleted
-          ? 'completed'
-          : 'active') as 'active' | 'completed' | 'locked',
-    },
-    {
-      label: 'Resumen',
-      status: (
-        activeStep === 1
-          ? 'active'
-          : activeStep > 1 || hasResults || allTestsCompleted
-            ? 'completed'
-            : 'locked'
-      ) as 'active' | 'completed' | 'locked',
-    },
-    {
-      label: 'Resultados',
-      status: (activeStep === 2 ? 'active' : hasResults ? 'completed' : 'locked') as
-        | 'active'
-        | 'completed'
-        | 'locked',
-    },
-  ];
-
-  // Fix step statuses: active step should be 'active', not 'completed'
-  steps[activeStep].status = 'active';
-
   const outdatedSectionIds = sectionsStatus
     .filter((s) => s.status === 'completed_outdated')
     .map((s) => s.section_id);
@@ -187,7 +258,7 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
 
   const allSectionsCurrent = sectionsStatus.length > 0 && sectionsStatus.every((s) => s.status === 'completed_current');
   const assessmentIsOutdated = latestAssessment?.is_outdated === true;
-  const showBanner = activeStep === 2 && (assessmentOutdated || (hasResults && assessmentIsOutdated));
+  const showBanner = activeStep === 1 && (assessmentOutdated || (hasResults && assessmentIsOutdated));
   const canRegenerate = allSectionsCurrent;
 
   async function handleConfirmRegenerate() {
@@ -246,14 +317,20 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
   );
   const completionPercent = calcCompletionPercent(completedSections);
 
+  const hasProcessing = latestAssessment?.status === 'processing';
+  const canGenerate = allTestsCompleted && !hasResults && !generating && !hasProcessing;
+  const generateLabel = generating
+    ? 'Generando...'
+    : hasResults
+      ? 'Perfil generado'
+      : !allTestsCompleted
+        ? 'Completá los tests'
+        : 'Generar resultados';
+
   return (
     <div className="min-h-screen">
-      {/* Wizard Progress Steps — always visible */}
-      <div className="mx-auto max-w-7xl px-6 pt-8 sm:px-8 lg:px-12">
-        <div className="mb-6 animate-fade-up">
-          <ProgressSteps steps={steps} onStepClick={handleStepClick} />
-        </div>
-
+      {/* Wizard stepper is rendered in the navbar (UserHeader) via the wizard store */}
+      <div className="mx-auto max-w-7xl px-6 pt-8 sm:px-8 lg:px-12 empty:hidden">
         {/* Outdated assessment banner */}
         {showBanner && (
           <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
@@ -305,6 +382,12 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
           userName={currentProfile?.first_name ?? 'Usuario'}
           completionPercent={completionPercent}
           steps={journeySteps}
+          onGenerate={handleGenerate}
+          canGenerate={canGenerate}
+          generating={generating}
+          hasResults={hasResults}
+          generateLabel={generateLabel}
+          generateError={generateError}
         />
       )}
 
@@ -323,19 +406,27 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
         )}
       </AssessmentModal>
 
-      {activeStep > 0 && (
+      {activeStep === 1 && (
         <div className="bg-gradient-to-br from-background via-secondary/20 to-background">
           <div className="mx-auto max-w-7xl px-6 py-12 sm:px-8 lg:px-12">
-            {activeStep === 1 && (
-              <AssessmentSummary
-                onResultsReceived={handleResultsReceived}
-                assessmentId={latestAssessment?.status === 'processing' ? latestAssessment.assessment_id : null}
-                assessmentStatus={latestAssessment?.status ?? null}
-                completedSectionIds={completedSections}
-              />
+            {generating ? (
+              <LoadingScreen />
+            ) : generateError ? (
+              <div className="mx-auto max-w-md py-24 text-center animate-fade-up">
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+                  <p className="text-sm text-destructive">{generateError}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleGenerate}
+                  className="mt-6 rounded-xl bg-gradient-to-r from-primary to-accent px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:scale-[1.02] hover:shadow-lg"
+                >
+                  Reintentar
+                </button>
+              </div>
+            ) : (
+              <ResultsView />
             )}
-
-            {activeStep === 2 && <ResultsView />}
           </div>
         </div>
       )}

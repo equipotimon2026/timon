@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
+import type { StoredResponseRow } from "@/app/actions/questionnaire"
 
 /* V0 estilo-vida.html — chips + radio groups */
 
@@ -27,6 +28,16 @@ const RADIO_GROUPS: RadioGroup[] = [
   { id: "impacto", label: "Impacto que querés tener", options: ["Familia y círculo cercano","Comunidad","País","Global"] },
   { id: "dia", label: "Cómo querés que sea tu día típico", options: ["Tranquilo y organizado","Dinámico y cambiante","Creativo y motivador","Intenso y desafiante"] },
 ]
+
+// Rebuild form state from canonical responses (save: question = group.label)
+export function denormalizeEstiloVida(rows: StoredResponseRow[]) {
+  const byQuestion = new Map(rows.map((r) => [r.question ?? "", r]))
+  const chips: Record<string, string[]> = {}
+  const radios: Record<string, string> = {}
+  CHIP_GROUPS.forEach((g) => { chips[g.id] = byQuestion.get(g.label)?.responseArray ?? [] })
+  RADIO_GROUPS.forEach((g) => { radios[g.id] = byQuestion.get(g.label)?.responseText ?? "" })
+  return { chips, radios }
+}
 
 type State = { chips: Record<string, string[]>; radios: Record<string, string> }
 

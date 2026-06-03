@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
+import type { StoredResponseRow } from "@/app/actions/questionnaire"
 
 /* V0 autobiografia.html — guided writing with hints panels */
 
@@ -37,6 +38,17 @@ const SECTIONS: Section[] = [
     { id: "reflexion", label: "Reflexión — ¿Qué patrones o talentos encontrás en común entre estos dos recuerdos?", hints: ["¿Qué tienen en común ambos momentos?","¿Aparecen las mismas habilidades o valores en los dos?","¿Qué te dicen sobre qué trabajo podría darte satisfacción genuina?"] },
   ]},
 ]
+
+// Rebuild form state from canonical responses (save order: allQs flattened → questionNumber i+1)
+export function denormalizeAutodescubrimiento(rows: StoredResponseRow[]) {
+  const allQs = SECTIONS.flatMap((s) => s.questions)
+  const answers: Record<string, string> = {}
+  rows.forEach((r) => {
+    const q = allQs[r.questionNumber - 1]
+    if (q && r.responseText != null) answers[q.id] = r.responseText
+  })
+  return { answers }
+}
 
 interface Props {
   userId: number; onComplete: () => void

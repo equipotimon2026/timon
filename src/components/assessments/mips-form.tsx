@@ -31,6 +31,8 @@ type Msg = { type: "bot" | "user" | "typing" | "divider"; text: string }
 
 export function MIPSForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: Props) {
   const [answers, setAnswers] = useState<Record<number, string>>(initialResponses?.answers ?? {})
+  // If reopened with answers already saved, show a review/edit screen instead of replaying the chat.
+  const [reviewMode] = useState<boolean>(() => Object.keys(initialResponses?.answers ?? {}).length > 0)
   const [qIdx, setQIdx] = useState(0)
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [inputMode, setInputMode] = useState<"statement" | "icebreaker" | "none" | "end">("none")
@@ -77,6 +79,7 @@ export function MIPSForm({ userId, onComplete, onSave, initialResponses, onRespo
   useEffect(() => {
     if (startedRef.current) return
     startedRef.current = true
+    if (reviewMode) return // skip chat replay; render review/edit UI instead
 
     const intro: Msg[] = [
       { type: "bot", text: "Vamos a leer unas frases. Para cada una, elegí qué tan identificado/a te sentís." },
@@ -159,6 +162,71 @@ export function MIPSForm({ userId, onComplete, onSave, initialResponses, onRespo
       console.error(e)
       setSaveError("No pudimos guardar tus respuestas. Reintentá en unos segundos.")
     } finally { setSaving(false) }
+  }
+
+  const handleReviewSave = async () => {
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const r = STATEMENTS.map((s, i) => ({ questionNumber: i + 1, question: s, responseText: answers[i] ?? "" }))
+      await onSave(0, r, { section: "mips" })
+      onComplete()
+    } catch (e) {
+      console.error(e)
+      setSaveError("No pudimos guardar tus respuestas. Reintentá en unos segundos.")
+    } finally { setSaving(false) }
+  }
+
+  if (reviewMode) {
+    return (
+      <div style={{ background: "#F9F8F6" }} className="flex flex-col h-full min-h-full">
+        <div className="shrink-0 flex gap-3 px-5 py-4 border-b" style={{ borderColor: "#E8E3DC" }}>
+          <div className="w-[38px] h-[38px] rounded-full flex items-center justify-center text-base shrink-0" style={{ background: "#2D2D2D", color: "white" }}>✦</div>
+          <div className="flex-1">
+            <h1 className="text-[15px] font-semibold" style={{ color: "#2D2D2D" }}>Chatiemos · Parte 1</h1>
+            <p className="text-xs mt-0.5" style={{ color: "#9A9590" }}>Revisá y editá tus respuestas</p>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-5 flex flex-col gap-5">
+          {STATEMENTS.map((s, i) => (
+            <div key={i} className="flex flex-col gap-2">
+              <label className="text-[14px] font-medium leading-snug" style={{ color: "#2D2D2D" }}>{i + 1}. {s}</label>
+              <div className="flex flex-wrap gap-2">
+                {OPTS.map((o) => {
+                  const on = answers[i] === o
+                  return (
+                    <button key={o} type="button" onClick={() => setAnswers((a) => ({ ...a, [i]: o }))}
+                      className="px-4 py-2 rounded-full border-[1.5px] text-sm font-medium transition-all active:scale-[0.96]"
+                      style={{
+                        background: on ? "#2D2D2D" : "#F9F8F6",
+                        borderColor: on ? "#2D2D2D" : "#E8E3DC",
+                        color: on ? "#F9F8F6" : "#2D2D2D",
+                      }}>
+                      {o}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {saveError && (
+          <div className="shrink-0 mx-4 mb-2 px-4 py-3 rounded-[12px] text-sm" style={{ background: "#FEE2E2", color: "#991B1B", border: "1px solid #FCA5A5" }}>
+            {saveError}
+          </div>
+        )}
+
+        <div className="shrink-0 px-4 py-3.5 border-t" style={{ borderColor: "#E8E3DC" }}>
+          <button onClick={handleReviewSave} disabled={saving}
+            className="w-full py-3 rounded-3xl text-[15px] font-semibold text-white transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-50"
+            style={{ background: "#2D2D2D" }}>
+            {saving ? "Guardando..." : "Guardar cambios"}
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
