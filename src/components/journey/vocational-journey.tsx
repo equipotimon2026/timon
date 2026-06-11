@@ -13,6 +13,7 @@ import { universitiesData, University } from "@/lib/university-data"
 import { MapaInternoData, demoMapaInterno } from "@/components/chapters/chapter-mapa-interno"
 import { ResumenFinalData, demoResumenFinal } from "@/components/chapters/chapter-resumen-final"
 import { transformCareer, type AgentCareerNew } from "@/lib/agent/career-transform"
+import { transformUniversities, type AgentUniversities } from "@/lib/agent/university-transform"
 
 // Agent profile type
 interface AgentProfile {
@@ -39,7 +40,7 @@ interface AgentProfile {
 interface AgentResults {
   profile?: AgentProfile
   careers?: { intro?: string; ranking?: AgentCareerNew[] }
-  universities?: unknown
+  universities?: AgentUniversities
   meta?: unknown
 }
 
@@ -158,6 +159,11 @@ export function VocationalJourney({ results }: VocationalJourneyProps) {
     ? results.careers.ranking.map(transformCareer)
     : careersData
 
+  // Build merged universities from agent data
+  const mergedUniversities: University[] = results?.universities?.ranking?.length
+    ? transformUniversities(results.universities)
+    : universitiesData
+
   const navigateTo = useCallback((act: Act, chapter?: string) => {
     // Block navigation to futuro
     if (act === "futuro") return
@@ -255,8 +261,7 @@ export function VocationalJourney({ results }: VocationalJourneyProps) {
 
         {currentAct === "universidades" && (
           <ActUniversidades
-            universities={universitiesData}
-            careers={mergedCareers}
+            universities={mergedUniversities}
             currentChapter={currentChapter}
             selectedUniversity={selectedUniversity}
             onSelectUniversity={handleSelectUniversity}

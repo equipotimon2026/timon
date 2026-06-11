@@ -2,22 +2,17 @@
 
 import { useState, useMemo } from "react"
 import { University } from "@/lib/university-data"
-import { Career } from "@/lib/career-data"
 import {
   ChapterHeader,
   InsightCard,
-  ProseBlock,
-  ProgressBar,
-  CTAButton,
-  StatusIndicator
+  CTAButton
 } from "@/components/journey/narrative-blocks"
 import { UniversityCard } from "@/components/journey/university-card"
-import { ArrowLeft, ExternalLink, MapPin, DollarSign, Clock, Building2, BookOpen, Award, Check, X } from "lucide-react"
+import { ArrowLeft, MapPin, Building2, BookOpen, Award, Check, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface ActUniversidadesProps {
   universities: University[]
-  careers: Career[]
   currentChapter: string
   selectedUniversity: University | null
   onSelectUniversity: (university: University) => void
@@ -27,7 +22,6 @@ interface ActUniversidadesProps {
 
 export function ActUniversidades({
   universities,
-  careers,
   currentChapter,
   selectedUniversity,
   onSelectUniversity,
@@ -46,7 +40,6 @@ export function ActUniversidades({
         ) : (
           <ChapterFiltros
             universities={universities}
-            careers={careers}
             onSelectUniversity={onSelectUniversity}
             onNavigateToFuturo={onNavigateToFuturo}
           />
@@ -56,7 +49,6 @@ export function ActUniversidades({
         return (
           <ChapterFiltros
             universities={universities}
-            careers={careers}
             onSelectUniversity={onSelectUniversity}
             onNavigateToFuturo={onNavigateToFuturo}
           />
@@ -74,46 +66,29 @@ export function ActUniversidades({
 // Chapter: Filters & List
 function ChapterFiltros({
   universities,
-  careers,
   onSelectUniversity,
   onNavigateToFuturo
 }: {
   universities: University[]
-  careers: Career[]
   onSelectUniversity: (university: University) => void
   onNavigateToFuturo: () => void
 }) {
-  const uniqueCareers = useMemo(
-    () => [...new Set(universities.map(u => u.careerOffered))],
-    [universities]
-  )
   const uniqueLocations = useMemo(
-    () => [...new Set(universities.map(u => u.location.zone))],
+    () => [...new Set(universities.map(u => u.detail.location.zone).filter((z): z is string => z !== null))],
     [universities]
   )
-
-  const defaultCareer = useMemo(() => {
-    const sortedTop = [...careers].sort((a, b) => b.matchPercentage - a.matchPercentage)
-    const match = sortedTop.find(c => uniqueCareers.includes(c.name))
-    return match?.name || uniqueCareers[0] || ""
-  }, [careers, uniqueCareers])
 
   const [filters, setFilters] = useState({
-    career: defaultCareer,
     type: "",
     modality: "",
-    religious: "",
     location: ""
   })
 
   const filteredUniversities = useMemo(() => {
     return universities.filter(uni => {
-      if (filters.career && uni.careerOffered !== filters.career) return false
       if (filters.type && uni.type !== filters.type) return false
       if (filters.modality && uni.modality !== filters.modality) return false
-      if (filters.religious === "Sí" && !uni.religious) return false
-      if (filters.religious === "No" && uni.religious) return false
-      if (filters.location && uni.location.zone !== filters.location) return false
+      if (filters.location && uni.detail.location.zone !== filters.location) return false
       return true
     }).sort((a, b) => b.matchPercentage - a.matchPercentage)
   }, [universities, filters])
@@ -132,20 +107,6 @@ function ChapterFiltros({
           <h3 className="font-medium text-foreground mb-4">Filtros</h3>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Career filter — single select, always one chosen */}
-            <div>
-              <label className="text-sm text-muted-foreground mb-2 block">Carrera</label>
-              <select
-                value={filters.career}
-                onChange={(e) => setFilters(f => ({ ...f, career: e.target.value }))}
-                className="w-full px-4 py-2.5 rounded-xl bg-background border border-border/50 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                {uniqueCareers.map(name => (
-                  <option key={name} value={name}>{name}</option>
-                ))}
-              </select>
-            </div>
-
             {/* Cuota filter (Pública/Privada → cuota o no) */}
             <div>
               <label className="text-sm text-muted-foreground mb-2 block">Cuota</label>
@@ -170,22 +131,8 @@ function ChapterFiltros({
               >
                 <option value="">Todas</option>
                 <option value="Presencial">Presencial</option>
-                <option value="Híbrido">Híbrido</option>
                 <option value="Virtual">Virtual</option>
-              </select>
-            </div>
-
-            {/* Religious filter */}
-            <div>
-              <label className="text-sm text-muted-foreground mb-2 block">Religiosa</label>
-              <select
-                value={filters.religious}
-                onChange={(e) => setFilters(f => ({ ...f, religious: e.target.value }))}
-                className="w-full px-4 py-2.5 rounded-xl bg-background border border-border/50 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                <option value="">Indistinto</option>
-                <option value="Sí">Sí</option>
-                <option value="No">No</option>
+                <option value="Híbrida">Híbrida</option>
               </select>
             </div>
 
@@ -205,10 +152,10 @@ function ChapterFiltros({
             </div>
           </div>
 
-          {/* Clear filters (career stays selected) */}
-          {(filters.type || filters.modality || filters.religious || filters.location) && (
+          {/* Clear filters */}
+          {(filters.type || filters.modality || filters.location) && (
             <button
-              onClick={() => setFilters(f => ({ career: f.career, type: "", modality: "", religious: "", location: "" }))}
+              onClick={() => setFilters({ type: "", modality: "", location: "" })}
               className="mt-4 text-sm text-primary hover:underline"
             >
               Limpiar filtros
@@ -225,7 +172,7 @@ function ChapterFiltros({
 
         {/* University Cards */}
         <div className="space-y-6 stagger-children">
-          {filteredUniversities.slice(0, 5).map((university, idx) => (
+          {filteredUniversities.slice(0, 8).map((university, idx) => (
             <UniversityCard
               key={university.id}
               university={university}
@@ -239,7 +186,7 @@ function ChapterFiltros({
           <div className="py-12 text-center">
             <p className="text-muted-foreground">No encontramos universidades con esos filtros.</p>
             <button
-              onClick={() => setFilters(f => ({ career: f.career, type: "", modality: "", religious: "", location: "" }))}
+              onClick={() => setFilters({ type: "", modality: "", location: "" })}
               className="mt-2 text-primary hover:underline"
             >
               Limpiar filtros
@@ -264,6 +211,15 @@ function ChapterFiltros({
   )
 }
 
+const fallbackColors = [
+  "bg-indigo-600",
+  "bg-violet-500",
+  "bg-emerald-500",
+  "bg-amber-500",
+  "bg-sky-500",
+  "bg-rose-500"
+]
+
 // Chapter: University Detail
 function ChapterDetalle({
   university,
@@ -272,6 +228,8 @@ function ChapterDetalle({
   university: University
   onBack: () => void
 }) {
+  const { detail } = university
+
   return (
     <section className="px-6 md:px-12 lg:px-16 py-12 lg:py-16">
       <div className="max-w-3xl mx-auto">
@@ -305,18 +263,24 @@ function ChapterDetalle({
           </h1>
 
           <p className="text-lg text-muted-foreground">
-            {university.careerOffered} · {university.modality}
+            {university.modality}
           </p>
+
+          {university.glimpse && (
+            <p className="mt-4 text-base text-foreground/70 leading-relaxed">
+              {university.glimpse}
+            </p>
+          )}
         </div>
 
-        {/* Section 1: Match reasons */}
+        {/* Section: Match reasons */}
         <div className="mb-16">
           <h2 className="text-2xl font-serif text-foreground mb-6">
             Por qué es {university.matchPercentage >= 80 ? '' : 'o no '}un buen match para vos
           </h2>
 
           <div className="space-y-3">
-            {university.compatibility.reasons.map((reason, idx) => (
+            {detail.matchReasons.map((reason, idx) => (
               <div
                 key={idx}
                 className={cn(
@@ -341,13 +305,36 @@ function ChapterDetalle({
             ))}
           </div>
 
-          <InsightCard
-            quote={university.compatibility.summary}
-            variant="primary"
-          />
+          {detail.matchSummary && (
+            <InsightCard
+              quote={detail.matchSummary}
+              variant="primary"
+            />
+          )}
         </div>
 
-        {/* Section 2: Experience */}
+        {/* Section: Programs */}
+        {detail.programs.length > 0 && (
+          <div className="mb-16">
+            <h2 className="text-2xl font-serif text-foreground mb-6">
+              Programas que dicta
+            </h2>
+
+            <div className="space-y-3">
+              {detail.programs.map((program, idx) => (
+                <div key={idx} className="p-5 rounded-xl bg-card border border-border/50">
+                  <h4 className="font-medium text-foreground">
+                    {program.name}
+                    {program.duration ? ` · ${program.duration}` : ""}
+                    {program.modality ? ` · ${program.modality}` : ""}
+                  </h4>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Section: Experience */}
         <div className="mb-16">
           <h2 className="text-2xl font-serif text-foreground mb-6">
             Qué experiencia te ofrece
@@ -355,38 +342,45 @@ function ChapterDetalle({
 
           {/* Prestige & Quality */}
           <div className="grid md:grid-cols-2 gap-4 mb-6">
-            <div className="p-5 rounded-xl bg-card border border-border/50">
-              <div className="flex items-center gap-2 mb-3">
-                <Award className="w-4 h-4 text-primary" />
-                <h4 className="text-sm font-medium text-muted-foreground">Ranking nacional</h4>
+            {detail.prestige.ranking && (
+              <div className="p-5 rounded-xl bg-card border border-border/50">
+                <div className="flex items-center gap-2 mb-3">
+                  <Award className="w-4 h-4 text-primary" />
+                  <h4 className="text-sm font-medium text-muted-foreground">Ranking nacional</h4>
+                </div>
+                <p className="text-2xl font-light text-foreground">{detail.prestige.ranking}</p>
               </div>
-              <p className="text-2xl font-light text-foreground">{university.prestige.ranking}</p>
-            </div>
+            )}
 
-            <div className="p-5 rounded-xl bg-card border border-border/50">
-              <div className="flex items-center gap-2 mb-3">
-                <BookOpen className="w-4 h-4 text-primary" />
-                <h4 className="text-sm font-medium text-muted-foreground">Calidad académica</h4>
+            {detail.prestige.academicQuality && (
+              <div className="p-5 rounded-xl bg-card border border-border/50">
+                <div className="flex items-center gap-2 mb-3">
+                  <BookOpen className="w-4 h-4 text-primary" />
+                  <h4 className="text-sm font-medium text-muted-foreground">Calidad académica</h4>
+                </div>
+                <p className="text-foreground">{detail.prestige.academicQuality}</p>
               </div>
-              <p className="text-foreground">{university.prestige.academicQuality}</p>
-            </div>
+            )}
           </div>
 
-          <div className="space-y-4">
-            <ProgressBar
-              value={university.prestige.employability}
-              label="Empleabilidad de egresados"
-              color="primary"
-            />
-            <ProgressBar
-              value={university.prestige.marketReputation}
-              label="Reputación en el mercado"
-              color="secondary"
-            />
+          <div className="grid md:grid-cols-2 gap-4">
+            {detail.prestige.employability && (
+              <div className="p-5 rounded-xl bg-card border border-border/50">
+                <h4 className="text-sm font-medium text-muted-foreground mb-2">Empleabilidad de egresados</h4>
+                <p className="text-foreground">{detail.prestige.employability}</p>
+              </div>
+            )}
+
+            {detail.prestige.marketReputation && (
+              <div className="p-5 rounded-xl bg-card border border-border/50">
+                <h4 className="text-sm font-medium text-muted-foreground mb-2">Reputación en el mercado</h4>
+                <p className="text-foreground">{detail.prestige.marketReputation}</p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Section 3: Daily life */}
+        {/* Section: Daily life / Location */}
         <div className="mb-16">
           <h2 className="text-2xl font-serif text-foreground mb-6">
             Qué implica en tu día a día
@@ -396,19 +390,15 @@ function ChapterDetalle({
             <div className="flex items-start gap-4 p-5 rounded-xl bg-secondary/30">
               <MapPin className="w-5 h-5 text-primary mt-0.5" />
               <div>
-                <h4 className="font-medium text-foreground">{university.location.address}</h4>
-                <p className="text-sm text-muted-foreground mt-1">{university.location.zone}</p>
-                <p className="text-sm text-muted-foreground">{university.location.transport}</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4 p-5 rounded-xl bg-secondary/30">
-              <Clock className="w-5 h-5 text-primary mt-0.5" />
-              <div>
-                <h4 className="font-medium text-foreground">{university.studyPlan.duration}</h4>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {university.studyPlan.totalCredits} créditos · {university.studyPlan.practiceHours} horas de práctica
-                </p>
+                {detail.location.address && (
+                  <h4 className="font-medium text-foreground">{detail.location.address}</h4>
+                )}
+                {detail.location.zone && (
+                  <p className="text-sm text-muted-foreground mt-1">{detail.location.zone}</p>
+                )}
+                {detail.location.transport && (
+                  <p className="text-sm text-muted-foreground">{detail.location.transport}</p>
+                )}
               </div>
             </div>
 
@@ -416,13 +406,15 @@ function ChapterDetalle({
               <Building2 className="w-5 h-5 text-primary mt-0.5" />
               <div>
                 <h4 className="font-medium text-foreground">{university.modality}</h4>
-                <p className="text-sm text-muted-foreground mt-1">{university.location.campusInfo}</p>
+                {detail.location.campusInfo && (
+                  <p className="text-sm text-muted-foreground mt-1">{detail.location.campusInfo}</p>
+                )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Section 4: Investment */}
+        {/* Section: Investment */}
         <div className="mb-16">
           <h2 className="text-2xl font-serif text-foreground mb-6">
             Inversión
@@ -432,30 +424,25 @@ function ChapterDetalle({
             <div className="grid sm:grid-cols-3 gap-6">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Cuota mensual</p>
-                <p className="text-2xl font-light text-foreground">{university.investment.monthlyFee}</p>
+                <p className="text-2xl font-light text-foreground">{detail.costs.monthlyFee ?? "—"}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Matrícula</p>
-                <p className="text-lg text-foreground">{university.investment.enrollmentFee}</p>
+                <p className="text-lg text-foreground">{detail.costs.enrollmentFee ?? "—"}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Estimado anual</p>
-                <p className="text-lg text-foreground">{university.investment.annualEstimate}</p>
+                <p className="text-lg text-foreground">{detail.costs.annualEstimate ?? "—"}</p>
               </div>
             </div>
-            {university.investment.paymentOptions && (
-              <p className="text-sm text-muted-foreground mt-4 pt-4 border-t border-border/50">
-                {university.investment.paymentOptions}
-              </p>
-            )}
           </div>
 
           {/* Scholarships */}
-          {university.scholarships.length > 0 && (
+          {detail.scholarships.length > 0 && (
             <div>
               <h3 className="font-medium text-foreground mb-4">Becas y accesos especiales</h3>
               <div className="space-y-3">
-                {university.scholarships.map((scholarship, idx) => (
+                {detail.scholarships.map((scholarship, idx) => (
                   <div key={idx} className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-medium text-emerald-900">{scholarship.name}</h4>
@@ -471,52 +458,37 @@ function ChapterDetalle({
           )}
         </div>
 
-        {/* Section 5: Values */}
-        <div className="mb-16">
-          <h2 className="text-2xl font-serif text-foreground mb-6">
-            Valores y enfoque institucional
-          </h2>
+        {/* Section: Values */}
+        {(detail.values.description || detail.values.distribution.length > 0) && (
+          <div className="mb-16">
+            <h2 className="text-2xl font-serif text-foreground mb-6">
+              Valores y enfoque institucional
+            </h2>
 
-          <p className="text-muted-foreground leading-relaxed mb-6">
-            {university.values.description}
-          </p>
+            {detail.values.description && (
+              <p className="text-muted-foreground leading-relaxed mb-6">
+                {detail.values.description}
+              </p>
+            )}
 
-          <div className="space-y-4">
-            {university.values.distribution.map((item, idx) => (
-              <div key={idx}>
-                <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-foreground font-medium">{item.area}</span>
-                  <span className="text-muted-foreground tabular-nums">{item.percentage}%</span>
+            <div className="space-y-4">
+              {detail.values.distribution.map((item, idx) => (
+                <div key={idx}>
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="text-foreground font-medium">{item.area}</span>
+                    <span className="text-muted-foreground tabular-nums">{item.percentage}%</span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={cn("h-full rounded-full transition-all duration-700", fallbackColors[idx % fallbackColors.length])}
+                      style={{ width: `${item.percentage}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="h-3 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className={cn("h-full rounded-full transition-all duration-700", item.color)}
-                    style={{ width: `${item.percentage}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-
-        {/* CTA: Website */}
-        <div className="mt-12 p-8 rounded-2xl bg-gradient-to-br from-primary/5 to-secondary/10 border border-primary/10 text-center">
-          <h3 className="text-xl font-serif text-foreground mb-4">
-            Seguí investigando
-          </h3>
-          <p className="text-muted-foreground mb-6">
-            Visitá el sitio oficial de la universidad para ver más detalles sobre programas, inscripción y vida estudiantil.
-          </p>
-          <a
-            href={university.studyPlan.website}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors"
-          >
-            Visitar sitio oficial
-            <ExternalLink className="w-4 h-4" />
-          </a>
-        </div>
+        )}
       </div>
     </section>
   )

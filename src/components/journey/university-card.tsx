@@ -11,15 +11,9 @@ interface UniversityCardProps {
 }
 
 export function UniversityCard({ university, rank, onSelect }: UniversityCardProps) {
-  const getExperiencePhrase = () => {
-    if (university.type === "Pública") {
-      return "Experiencia universitaria clásica con diversidad"
-    }
-    if (university.religious) {
-      return "Formación integral con valores tradicionales"
-    }
-    return "Enfoque práctico y conexión con el mercado"
-  }
+  const zone = university.detail.location.zone
+  const monthlyFee = university.detail.costs.monthlyFee
+  const firstProgramDuration = university.detail.programs[0]?.duration
 
   return (
     <button
@@ -61,25 +55,31 @@ export function UniversityCard({ university, rank, onSelect }: UniversityCardPro
             </div>
           </div>
 
-          {/* Experience phrase */}
-          <p className="text-base text-foreground/70 mb-5 italic">
-            {getExperiencePhrase()}
-          </p>
+          {/* Glimpse phrase */}
+          {university.glimpse && (
+            <p className="text-base text-foreground/70 mb-5 italic">
+              {university.glimpse}
+            </p>
+          )}
 
           {/* Quick info */}
           <div className="grid grid-cols-2 gap-3 mb-5">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <MapPin className="w-4 h-4 shrink-0" />
-              <span className="truncate">{university.location.zone}</span>
-            </div>
+            {zone && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <MapPin className="w-4 h-4 shrink-0" />
+                <span className="truncate">{zone}</span>
+              </div>
+            )}
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <DollarSign className="w-4 h-4 shrink-0" />
-              <span>{university.investment.monthlyFee}</span>
+              <span>{monthlyFee ?? "—"}</span>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="w-4 h-4 shrink-0" />
-              <span>{university.studyPlan.duration}</span>
-            </div>
+            {firstProgramDuration && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Clock className="w-4 h-4 shrink-0" />
+                <span>{firstProgramDuration}</span>
+              </div>
+            )}
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Building2 className="w-4 h-4 shrink-0" />
               <span>{university.modality}</span>
@@ -87,7 +87,7 @@ export function UniversityCard({ university, rank, onSelect }: UniversityCardPro
           </div>
 
           {/* Match reasons preview */}
-          {university.compatibility.reasons.slice(0, 2).map((reason, idx) => (
+          {university.detail.matchReasons.slice(0, 2).map((reason, idx) => (
             <div
               key={idx}
               className={cn(
