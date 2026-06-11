@@ -9,6 +9,8 @@ const nextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
+  // @azure/cosmos es un driver Node-only: que no se bundlee, se carga en runtime.
+  serverExternalPackages: ['@azure/cosmos'],
 };
 
 export default withNextIntl(nextConfig);
