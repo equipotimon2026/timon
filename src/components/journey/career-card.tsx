@@ -1,7 +1,6 @@
 "use client"
 
-import { cn } from "@/lib/utils"
-import { ArrowRight, Briefcase, GraduationCap, TrendingUp } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { Career } from "@/lib/career-data"
 
 interface CareerCardProps {
@@ -12,14 +11,6 @@ interface CareerCardProps {
 }
 
 export function CareerCard({ career, rank, onSelect, variant = "default" }: CareerCardProps) {
-  // Generate a short fit phrase based on compatibility
-  const getFitPhrase = () => {
-    if (career.matchPercentage >= 90) return "Conecta muy bien con tu forma de pensar"
-    if (career.matchPercentage >= 80) return "Tiene mucho sentido para tu perfil"
-    if (career.matchPercentage >= 70) return "Un camino interesante para explorar"
-    return "Vale la pena considerarlo"
-  }
-
   if (variant === "compact") {
     return (
       <button
@@ -78,27 +69,6 @@ export function CareerCard({ career, rank, onSelect, variant = "default" }: Care
             </div>
           </div>
 
-          {/* Fit phrase */}
-          <p className="text-lg text-foreground/80 font-serif italic mb-6">
-            &ldquo;{getFitPhrase()}&rdquo;
-          </p>
-
-          {/* Quick stats */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <GraduationCap className="w-4 h-4" />
-              <span>{career.academic.weeklyHours}h/sem</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Briefcase className="w-4 h-4" />
-              <span>{career.market.jobOutlets?.length || 5}+ roles</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <TrendingUp className="w-4 h-4" />
-              <span>{career.market.jobOutlets?.[0]?.salarySenior || "Competitivo"}</span>
-            </div>
-          </div>
-
           {/* CTA */}
           <div className="flex items-center justify-end gap-2 text-primary font-medium">
             <span>Explorar este camino</span>
@@ -116,64 +86,49 @@ interface CareerFitBreakdownProps {
 }
 
 export function CareerFitBreakdown({ career }: CareerFitBreakdownProps) {
-  const compatibility = career.compatibility
-
-  const items = [
-    {
-      label: "Arquitectura mental",
-      status: compatibility.mentalArchitecture.status,
-      description: compatibility.mentalArchitecture.description,
-    },
-    {
-      label: "Barrera de entrada",
-      status: compatibility.entryBarrier.status,
-      description: compatibility.entryBarrier.description,
-    },
-    {
-      label: "Batería social",
-      status: compatibility.socialBattery.status,
-      description: compatibility.socialBattery.description,
-    },
-    {
-      label: "Estilo de vida",
-      status: compatibility.lifestyle.status,
-      description: compatibility.lifestyle.description,
-    },
-    {
-      label: "Tipo de trabajo",
-      status: compatibility.work.status,
-      description: compatibility.work.description,
-    },
-  ]
+  const { whyMatch, challenges } = career.detail
 
   return (
     <div className="space-y-4">
-      {items.map((item, idx) => (
-        <div
-          key={idx}
-          className={cn(
-            "p-5 rounded-xl border transition-colors",
-            item.status === "ÓPTIMO" && "bg-accent/10 border-accent/30",
-            item.status === "ALERTA" && "bg-amber-50 border-amber-200",
-            item.status === "PELIGRO" && "bg-red-50 border-red-200"
-          )}
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <span className={cn(
-              "px-2.5 py-1 rounded-full text-xs font-medium",
-              item.status === "ÓPTIMO" && "bg-accent text-accent-foreground",
-              item.status === "ALERTA" && "bg-amber-100 text-amber-800",
-              item.status === "PELIGRO" && "bg-red-100 text-red-800"
-            )}>
-              {item.status}
-            </span>
-            <span className="font-medium text-foreground">{item.label}</span>
-          </div>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            {item.description}
-          </p>
+      {whyMatch.length > 0 && (
+        <div className="space-y-4">
+          {whyMatch.map((description, idx) => (
+            <div
+              key={`why-${idx}`}
+              className="p-5 rounded-xl border bg-accent/10 border-accent/30 transition-colors"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-accent text-accent-foreground">
+                  ÓPTIMO
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {description}
+              </p>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
+
+      {challenges.length > 0 && (
+        <div className="space-y-4">
+          {challenges.map((description, idx) => (
+            <div
+              key={`challenge-${idx}`}
+              className="p-5 rounded-xl border bg-amber-50 border-amber-200 transition-colors"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                  ALERTA
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {description}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

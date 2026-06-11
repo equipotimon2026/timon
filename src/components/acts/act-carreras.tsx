@@ -1,19 +1,62 @@
 "use client"
 
-import { Career } from "@/lib/career-data"
+import { useState } from "react"
+import { Career, ProfessionalPath } from "@/lib/career-data"
 import {
   ChapterHeader,
   TransitionBlock,
-  InsightCard,
   ProseBlock,
-  ProgressBar,
   CTAButton,
-  StickyCTA,
-  StatusIndicator
 } from "@/components/journey/narrative-blocks"
 import { CareerCard, CareerFitBreakdown } from "@/components/journey/career-card"
-import { ArrowLeft, ExternalLink, Briefcase, GraduationCap, TrendingUp, Clock, AlertTriangle } from "lucide-react"
+import { CareerBubbles } from "@/components/journey/career-bubbles"
+import {
+  ArrowLeft,
+  ChevronDown,
+  MapPin,
+  Users,
+  Clock,
+  Compass,
+  Sparkles,
+  AlertTriangle,
+  BookOpen,
+  Hourglass,
+  Briefcase,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
+
+const SUBJECT_COLOR_MAP: Record<string, string> = {
+  indigo: "bg-indigo-600",
+  violet: "bg-violet-500",
+  emerald: "bg-emerald-500",
+  amber: "bg-amber-500",
+  sky: "bg-sky-500",
+  rose: "bg-rose-500",
+  slate: "bg-slate-600",
+}
+
+const FALLBACK_COLORS = [
+  "bg-indigo-600",
+  "bg-violet-500",
+  "bg-emerald-500",
+  "bg-amber-500",
+  "bg-sky-500",
+  "bg-rose-500",
+  "bg-slate-600",
+]
+
+function resolveBarColor(color: string, idx: number): string {
+  const trimmed = (color ?? "").trim()
+  if (trimmed.startsWith("bg-")) return trimmed
+  if (trimmed in SUBJECT_COLOR_MAP) return SUBJECT_COLOR_MAP[trimmed]
+  return FALLBACK_COLORS[idx % FALLBACK_COLORS.length]
+}
+
+const STUDY_HOURS_LABEL: Record<"alta" | "media" | "baja", string> = {
+  alta: "Alta",
+  media: "Media",
+  baja: "Baja",
+}
 
 interface ActCarrerasProps {
   careers: Career[]
@@ -21,7 +64,6 @@ interface ActCarrerasProps {
   selectedCareer: Career | null
   onSelectCareer: (career: Career) => void
   onBack: () => void
-  onNextChapter: () => void
   onNavigateToUniversidades: () => void
 }
 
@@ -31,22 +73,11 @@ export function ActCarreras({
   selectedCareer,
   onSelectCareer,
   onBack,
-  onNextChapter,
   onNavigateToUniversidades
 }: ActCarrerasProps) {
 
   const renderChapter = () => {
     switch (currentChapter) {
-      case "carreras-intro":
-        return <ChapterIntro onNext={onNextChapter} />
-      case "carreras-lista":
-        return (
-          <ChapterLista
-            careers={careers}
-            onSelectCareer={onSelectCareer}
-            onNavigateToUniversidades={onNavigateToUniversidades}
-          />
-        )
       case "carreras-detalle":
         return selectedCareer ? (
           <ChapterDetalle
@@ -61,8 +92,15 @@ export function ActCarreras({
             onNavigateToUniversidades={onNavigateToUniversidades}
           />
         )
+      case "carreras-lista":
       default:
-        return <ChapterIntro onNext={onNextChapter} />
+        return (
+          <ChapterLista
+            careers={careers}
+            onSelectCareer={onSelectCareer}
+            onNavigateToUniversidades={onNavigateToUniversidades}
+          />
+        )
     }
   }
 
@@ -70,44 +108,6 @@ export function ActCarreras({
     <div className="min-h-screen">
       {renderChapter()}
     </div>
-  )
-}
-
-// Chapter: Introduction to Careers
-function ChapterIntro({ onNext }: { onNext: () => void }) {
-  return (
-    <section className="min-h-screen flex flex-col justify-center px-6 md:px-12 lg:px-16 py-12">
-      <div className="max-w-2xl mx-auto w-full">
-        <div className="animate-fade-in-up">
-          <p className="text-sm font-medium text-primary uppercase tracking-wider mb-6">
-            Acto 02 — Los caminos
-          </p>
-
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif text-foreground leading-tight mb-8">
-            No hay una carrera perfecta
-          </h1>
-
-          <p className="text-xl text-muted-foreground leading-relaxed mb-6">
-            Pero sí hay caminos que encajan mucho mejor con tu forma de pensar, vivir y proyectarte.
-          </p>
-
-          <p className="text-lg text-foreground/70 leading-relaxed">
-            Lo que vas a ver ahora no es un ranking de &ldquo;las mejores carreras&rdquo;. Es una selección de caminos que, según todo lo que analizamos, tienen sentido para quien sos hoy y quien podrías querer ser.
-          </p>
-        </div>
-
-        <InsightCard
-          quote="Cada carrera es una puerta a un tipo de vida diferente. No estás eligiendo solo qué estudiar, sino cómo vas a pasar tus días."
-          variant="primary"
-        />
-
-        <div className="mt-12 animate-fade-in" style={{ animationDelay: '0.5s' }}>
-          <CTAButton onClick={onNext} size="large">
-            Ver mis caminos
-          </CTAButton>
-        </div>
-      </div>
-    </section>
   )
 }
 
@@ -165,6 +165,159 @@ function ChapterLista({
   )
 }
 
+// Reusable accordion section using native <details>/<summary>
+function DetailSection({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string
+  defaultOpen?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <details
+      open={defaultOpen}
+      className="group rounded-2xl border border-border/50 bg-card overflow-hidden"
+    >
+      <summary className="flex items-center justify-between gap-4 cursor-pointer list-none px-6 py-5 select-none hover:bg-muted/30 transition-colors">
+        <h2 className="text-lg md:text-xl font-serif text-foreground">{title}</h2>
+        <ChevronDown className="w-5 h-5 text-muted-foreground shrink-0 transition-transform duration-200 group-open:rotate-180" />
+      </summary>
+      <div className="px-6 pb-6 pt-1 border-t border-border/40">{children}</div>
+    </details>
+  )
+}
+
+// A single professional path card with expandable "Ver esta vida"
+function ProfessionalPathCard({ path }: { path: ProfessionalPath }) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <article className="rounded-2xl border border-border/50 bg-muted/20 overflow-hidden">
+      <div className="flex items-center justify-between gap-4 p-5">
+        <h3 className="font-medium text-foreground">{path.title}</h3>
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="inline-flex items-center gap-2 shrink-0 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+        >
+          <span>{expanded ? "Ocultar" : "Ver esta vida"}</span>
+          <ChevronDown
+            className={cn(
+              "w-4 h-4 transition-transform duration-200",
+              expanded && "rotate-180"
+            )}
+          />
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="px-5 pb-6 pt-1 space-y-6 animate-fade-in">
+          {/* Summary */}
+          <p className="text-muted-foreground leading-relaxed">{path.summary}</p>
+
+          {/* Fit vs Challenges */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="p-5 rounded-xl bg-accent/10 border border-accent/30">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="w-4 h-4 text-accent-foreground" />
+                <h4 className="text-sm font-medium text-accent-foreground">
+                  Natural para vos
+                </h4>
+              </div>
+              <ul className="space-y-2">
+                {path.lifestyleFit.map((item, idx) => (
+                  <li
+                    key={idx}
+                    className="text-sm text-muted-foreground leading-relaxed"
+                  >
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="p-5 rounded-xl bg-amber-50 border border-amber-200">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <h4 className="text-sm font-medium text-amber-800">
+                  Te va a desafiar
+                </h4>
+              </div>
+              <ul className="space-y-2">
+                {path.lifestyleChallenges.map((item, idx) => (
+                  <li
+                    key={idx}
+                    className="text-sm text-amber-800/90 leading-relaxed"
+                  >
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Day to day */}
+          <div>
+            <h4 className="text-sm font-medium text-foreground mb-3">El día a día</h4>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {[
+                { icon: MapPin, label: "Entorno", value: path.dayToDay.entorno },
+                { icon: Users, label: "Con quién", value: path.dayToDay.conQuien },
+                { icon: Clock, label: "Horarios", value: path.dayToDay.horarios },
+                { icon: Compass, label: "Autonomía", value: path.dayToDay.autonomia },
+              ].map(({ icon: Icon, label, value }) => (
+                <div
+                  key={label}
+                  className="flex items-start gap-3 p-4 rounded-xl bg-card border border-border/50"
+                >
+                  <Icon className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">{label}</p>
+                    <p className="text-sm text-foreground mt-0.5">{value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Trajectory */}
+          {path.trajectory.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-foreground mb-3">Trayectoria</h4>
+              <ol className="relative border-l border-border/60 ml-2 space-y-5">
+                {path.trajectory.map((step, idx) => (
+                  <li key={idx} className="ml-5">
+                    <span className="absolute -left-[5px] mt-1.5 w-2.5 h-2.5 rounded-full bg-primary/60" />
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <p className="font-medium text-foreground text-sm">{step.title}</p>
+                      <span className="text-xs font-medium text-primary tabular-nums">
+                        {step.salaryRange}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                      {step.description}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {/* Reflective question */}
+          {path.reflectiveQuestion && (
+            <div className="p-5 rounded-xl bg-primary/5 border border-primary/15">
+              <p className="text-foreground font-serif italic leading-relaxed">
+                {path.reflectiveQuestion}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </article>
+  )
+}
+
 // Chapter: Career Detail
 function ChapterDetalle({
   career,
@@ -175,6 +328,13 @@ function ChapterDetalle({
   onBack: () => void
   onNavigateToUniversidades: () => void
 }) {
+  const { detail } = career
+  const { academics } = detail
+  const { alerts } = academics
+
+  const durationLabel =
+    alerts.durationYears == null ? "—" : `${alerts.durationYears} años`
+
   return (
     <section className="px-6 md:px-12 lg:px-16 py-12 lg:py-16">
       <div className="max-w-3xl mx-auto">
@@ -184,11 +344,11 @@ function ChapterDetalle({
           className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-8"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Volver a los caminos</span>
+          <span>Volver a las carreras</span>
         </button>
 
         {/* Hero */}
-        <div className="mb-12 animate-fade-in-up">
+        <div className="mb-10 animate-fade-in-up">
           <div className="flex items-center gap-3 mb-4">
             <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
               {career.matchPercentage}% compatible
@@ -200,225 +360,146 @@ function ChapterDetalle({
             {career.name}
           </h1>
 
-          {career.definition.description && (
+          {detail.professionDescription && (
             <p className="text-xl text-muted-foreground leading-relaxed">
-              {career.definition.description}
+              {detail.professionDescription}
             </p>
           )}
         </div>
 
-        {/* Section 1: Why this appeared */}
-        <div className="mb-16">
-          <h2 className="text-2xl font-serif text-foreground mb-6">
-            Por qué apareció este camino para vos
-          </h2>
-
-          <CareerFitBreakdown career={career} />
+        {/* Bubbles: where it's offered */}
+        <div className="mb-12">
+          <h2 className="text-sm font-medium text-muted-foreground mb-3">Dónde se dicta</h2>
+          <CareerBubbles programSearchGroup={career.programSearchGroup} />
         </div>
 
-        {/* Section 2: What life looks like */}
-        <div className="mb-16">
-          <h2 className="text-2xl font-serif text-foreground mb-6">
-            Cómo se vive este camino
-          </h2>
-
-          <div className="p-6 rounded-2xl bg-muted/30 mb-6">
-            <h3 className="font-medium text-foreground mb-3">El día a día</h3>
-            <p className="text-muted-foreground leading-relaxed">
-              {career.operative.dailyLoad}
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="p-5 rounded-xl bg-card border border-border/50">
-              <h4 className="text-sm font-medium text-muted-foreground mb-2">Entorno típico</h4>
-              <p className="text-foreground">{career.operative.environment}</p>
-            </div>
-            <div className="p-5 rounded-xl bg-card border border-border/50">
-              <h4 className="text-sm font-medium text-muted-foreground mb-2">Nivel de incertidumbre</h4>
-              <p className="text-foreground">{career.operative.uncertaintyLevel}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Section 3: What it asks of you */}
-        <div className="mb-16">
-          <h2 className="text-2xl font-serif text-foreground mb-6">
-            Qué te pediría este camino
-          </h2>
-
-          <div className="grid gap-4 mb-6">
-            <div className="flex items-start gap-4 p-5 rounded-xl bg-secondary/30">
-              <GraduationCap className="w-5 h-5 text-primary mt-0.5" />
-              <div>
-                <h4 className="font-medium text-foreground">{career.academic.complexity}</h4>
-                <p className="text-sm text-muted-foreground">nivel de complejidad conceptual</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4 p-5 rounded-xl bg-secondary/30">
-              <Clock className="w-5 h-5 text-primary mt-0.5" />
-              <div>
-                <h4 className="font-medium text-foreground">{career.academic.weeklyHours} horas semanales</h4>
-                <p className="text-sm text-muted-foreground">de dedicación promedio</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Demand profile */}
-          <div className="space-y-4 mb-6">
-            <h3 className="font-medium text-foreground">Perfil de exigencia</h3>
-            <ProgressBar
-              value={career.academic.theoreticalPercentage}
-              label="Carga teórica"
-              color="primary"
-            />
-            <ProgressBar
-              value={career.academic.practicalPercentage}
-              label="Carga práctica"
-              color="secondary"
-            />
-            <ProgressBar
-              value={career.academic.presentialPercentage}
-              label="Presencialidad"
-              color="accent"
-            />
-          </div>
-
-          {/* Filter subjects */}
-          {career.academic.filterSubjects.length > 0 && (
-            <div className="p-5 rounded-xl bg-amber-50 border border-amber-200">
-              <div className="flex items-center gap-2 mb-3">
-                <AlertTriangle className="w-4 h-4 text-amber-600" />
-                <h4 className="font-medium text-amber-800">Filtros de retención</h4>
-              </div>
-              <p className="text-sm text-amber-700 mb-3">
-                Estas materias suelen ser desafiantes y determinan si vas a poder avanzar:
+        {/* Accordion sections */}
+        <div className="space-y-4">
+          {/* a) What we saw in your profile */}
+          <DetailSection title="Qué vimos en tu perfil" defaultOpen>
+            {detail.matchSummary && (
+              <p className="text-muted-foreground leading-relaxed mt-4 mb-6">
+                {detail.matchSummary}
               </p>
-              <ul className="space-y-2">
-                {career.academic.filterSubjects.map((subject, idx) => (
-                  <li key={idx} className="text-sm text-amber-800">
-                    <strong>{subject.name}</strong> — forja la capacidad de {subject.skill}
-                  </li>
+            )}
+            <CareerFitBreakdown career={career} />
+          </DetailSection>
+
+          {/* b) The paths — hidden when there are none */}
+          {detail.professionalPaths.length > 0 && (
+            <DetailSection title="Los caminos">
+              <p className="text-sm text-muted-foreground mt-4 mb-5">
+                Una misma carrera abre vidas muy distintas. Explorá cada una.
+              </p>
+              <div className="space-y-4">
+                {detail.professionalPaths.map((path, idx) => (
+                  <ProfessionalPathCard key={`${path.title}-${idx}`} path={path} />
                 ))}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        {/* Section 4: Study Plan */}
-        <div className="mb-16">
-          <h2 className="text-2xl font-serif text-foreground mb-6">
-            Qué vas a estudiar
-          </h2>
-
-          <p className="text-muted-foreground leading-relaxed mb-6">
-            {career.academic.studyPlan.description}
-          </p>
-
-          <div className="space-y-4">
-            {career.academic.studyPlan.distribution.map((item, idx) => {
-              const fallbackColors = [
-                "bg-indigo-600",
-                "bg-violet-500",
-                "bg-sky-500",
-                "bg-emerald-500",
-                "bg-amber-500",
-                "bg-rose-500",
-              ]
-              const colorClass = item.color && item.color.trim().startsWith("bg-")
-                ? item.color
-                : fallbackColors[idx % fallbackColors.length]
-              return (
-                <div key={idx}>
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-foreground font-medium">{item.area}</span>
-                    <span className="text-muted-foreground tabular-nums">{item.percentage}%</span>
-                  </div>
-                  <div className="h-3 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={cn("h-full rounded-full transition-all duration-700", colorClass)}
-                      style={{ width: `${item.percentage}%` }}
-                    />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Section 5: What you get */}
-        <div className="mb-16">
-          <h2 className="text-2xl font-serif text-foreground mb-6">
-            Qué te devuelve
-          </h2>
-
-          {/* Competencies */}
-          <div className="mb-8">
-            <h3 className="font-medium text-foreground mb-4">Competencias que desarrollás</h3>
-            <div className="space-y-3">
-              {career.competencies.map((comp, idx) => (
-                <div
-                  key={idx}
-                  className="p-4 rounded-xl bg-accent/10 border border-accent/20"
-                >
-                  <p className="text-foreground font-medium text-sm">{comp.title}</p>
-                  <p className="text-muted-foreground text-sm mt-1">{comp.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Market */}
-          <div>
-            <h3 className="font-medium text-foreground mb-4">Panorama laboral</h3>
-
-            <div className="grid gap-4 mb-6">
-              <div className="p-5 rounded-xl bg-card border border-border/50">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="w-4 h-4 text-primary" />
-                  <h4 className="text-sm font-medium text-muted-foreground">Escalabilidad salarial</h4>
-                </div>
-                <p className="text-foreground">
-                  {career.market.salaryScalability}
-                </p>
               </div>
+            </DetailSection>
+          )}
 
-              <div className="p-5 rounded-xl bg-card border border-border/50">
-                <h4 className="text-sm font-medium text-muted-foreground mb-3">Salidas laborales principales</h4>
-                <div className="space-y-3">
-                  {career.market.jobOutlets.slice(0, 3).map((job, idx) => (
-                    <div key={idx} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Briefcase className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-foreground">{job.position}</span>
+          {/* c) What the university degree is like */}
+          <DetailSection title="Cómo es la carrera universitaria">
+            {academics.academicComposition && (
+              <p className="text-muted-foreground leading-relaxed mt-4 mb-6">
+                {academics.academicComposition}
+              </p>
+            )}
+
+            {/* Subject distribution bars */}
+            {academics.subjectDistribution.length > 0 && (
+              <div className="mb-8">
+                <h3 className="font-medium text-foreground mb-4">Qué vas a estudiar</h3>
+                <div className="space-y-4">
+                  {academics.subjectDistribution.map((item, idx) => (
+                    <div key={`${item.area}-${idx}`}>
+                      <div className="flex items-center justify-between text-sm mb-2">
+                        <span className="text-foreground font-medium">{item.area}</span>
+                        <span className="text-muted-foreground tabular-nums">
+                          {item.percentage}%
+                        </span>
                       </div>
-                      <span className="text-sm text-muted-foreground">{job.salarySenior}</span>
+                      <div className="h-3 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-700",
+                            resolveBarColor(item.color, idx)
+                          )}
+                          style={{ width: `${item.percentage}%` }}
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Automation risk */}
-            <StatusIndicator
-              status={career.market.automationRisk <= 25 ? "optimal" : career.market.automationRisk <= 50 ? "alert" : "neutral"}
-              label={`Riesgo de automatización: ${career.market.automationRisk}%`}
-              description="Qué tan probable es que este trabajo sea reemplazado por tecnología en los próximos años."
-            />
-          </div>
+            {/* Key skills */}
+            {academics.keySkills.length > 0 && (
+              <div className="mb-8">
+                <h3 className="font-medium text-foreground mb-4">
+                  Competencias que desarrollás
+                </h3>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {academics.keySkills.map((skill, idx) => (
+                    <div
+                      key={idx}
+                      className="p-4 rounded-xl bg-accent/10 border border-accent/20"
+                    >
+                      <p className="text-sm text-foreground">{skill}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Alerts */}
+            <div className="grid sm:grid-cols-3 gap-3">
+              <div className="p-5 rounded-xl bg-secondary/30 border border-secondary">
+                <div className="flex items-center gap-2 mb-2">
+                  <BookOpen className="w-4 h-4 text-primary" />
+                  <h4 className="text-sm font-medium text-muted-foreground">
+                    Horas de estudio
+                  </h4>
+                </div>
+                <p className="text-foreground font-medium">
+                  {STUDY_HOURS_LABEL[alerts.studyHoursLevel]}
+                </p>
+              </div>
+
+              <div className="p-5 rounded-xl bg-secondary/30 border border-secondary">
+                <div className="flex items-center gap-2 mb-2">
+                  <Hourglass className="w-4 h-4 text-primary" />
+                  <h4 className="text-sm font-medium text-muted-foreground">Duración</h4>
+                </div>
+                <p className="text-foreground font-medium">{durationLabel}</p>
+              </div>
+
+              <div className="p-5 rounded-xl bg-secondary/30 border border-secondary">
+                <div className="flex items-center gap-2 mb-2">
+                  <Briefcase className="w-4 h-4 text-primary" />
+                  <h4 className="text-sm font-medium text-muted-foreground">
+                    Estudiar y trabajar
+                  </h4>
+                </div>
+                <p className="text-foreground text-sm">{alerts.workStudyCapacity}</p>
+              </div>
+            </div>
+          </DetailSection>
         </div>
 
-        {/* CTA */}
-        <div className="mt-12 p-8 rounded-2xl bg-gradient-to-br from-primary/5 to-secondary/10 border border-primary/10 text-center">
-          <h3 className="text-xl font-serif text-foreground mb-4">
-            Si este camino te hace sentido...
-          </h3>
-          <p className="text-muted-foreground mb-6">
-            El siguiente paso es ver dónde podrías construirlo. Cada universidad ofrece una experiencia diferente del mismo camino.
-          </p>
-          <CTAButton onClick={onNavigateToUniversidades} size="large">
-            Ver dónde estudiar esto
+        {/* d) Navigation buttons */}
+        <div className="mt-12 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <button
+            onClick={onBack}
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-foreground bg-secondary hover:bg-secondary/80 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Volver a las carreras</span>
+          </button>
+          <CTAButton onClick={onNavigateToUniversidades} size="default">
+            Ver universidades de esta carrera
           </CTAButton>
         </div>
       </div>

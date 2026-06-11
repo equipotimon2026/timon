@@ -12,96 +12,7 @@ import { careersData, Career } from "@/lib/career-data"
 import { universitiesData, University } from "@/lib/university-data"
 import { MapaInternoData, demoMapaInterno } from "@/components/chapters/chapter-mapa-interno"
 import { ResumenFinalData, demoResumenFinal } from "@/components/chapters/chapter-resumen-final"
-
-// Agent career type (from agent output)
-interface AgentCareer {
-  id: string
-  name: string
-  field: string
-  matchPercentage: number
-  lifeGlimpse: string
-  detail: {
-    lifestyle: { narrative: string; dailyRoutine: string; environment: string }
-    problems: { purpose: string; competencies: Array<{ title: string; description: string }>; hiddenTruth: string }
-    compatibility: {
-      mentalArchitecture: { status: string; description: string }
-      entryBarrier: { status: string; description: string }
-      socialBattery: { status: string; description: string }
-      lifestyle: { status: string; description: string }
-      workType: { status: string; description: string }
-    }
-    future: {
-      jobOutcomes: Array<{ position: string; salarySenior: string }>
-      automationRisk: number
-      geographicFlexibility: string
-      specializations: Array<{ name: string; niche: string; demand: string }>
-    }
-    academics: {
-      weeklyHours: number
-      complexity: string
-      studyPlan: { description: string; distribution: Array<{ area: string; percentage: number; color: string }> }
-      filterSubjects: Array<{ name: string; skill: string }>
-      workStudyBalance: string
-    }
-  }
-}
-
-function mapAgentStatus(status: string): "ÓPTIMO" | "ALERTA" | "PELIGRO" {
-  const map: Record<string, "ÓPTIMO" | "ALERTA" | "PELIGRO"> = {
-    OPTIMAL: "ÓPTIMO", ALERT: "ALERTA", DANGER: "PELIGRO",
-  }
-  return map[status] || "ALERTA"
-}
-
-function transformAgentCareers(agentCareers: AgentCareer[]): Career[] {
-  return agentCareers.map((c, idx) => ({
-    id: idx + 1,
-    name: c.name,
-    field: c.field,
-    matchPercentage: c.matchPercentage,
-    definition: { description: "", purpose: c.detail.problems.purpose },
-    competencies: c.detail.problems.competencies,
-    academic: {
-      complexity: c.detail.academics.complexity,
-      weeklyHours: c.detail.academics.weeklyHours,
-      presentialPercentage: 50,
-      autonomousPercentage: 50,
-      logicIntensity: "",
-      theoreticalPercentage: 40,
-      practicalPercentage: 60,
-      dropoutRate: 0,
-      filterSubjects: c.detail.academics.filterSubjects,
-      workStudyBalance: c.detail.academics.workStudyBalance,
-      studyPlan: c.detail.academics.studyPlan,
-    },
-    compatibility: {
-      mentalArchitecture: { status: mapAgentStatus(c.detail.compatibility.mentalArchitecture.status), description: c.detail.compatibility.mentalArchitecture.description },
-      entryBarrier: { status: mapAgentStatus(c.detail.compatibility.entryBarrier.status), description: c.detail.compatibility.entryBarrier.description },
-      socialBattery: { status: mapAgentStatus(c.detail.compatibility.socialBattery.status), description: c.detail.compatibility.socialBattery.description },
-      lifestyle: { status: mapAgentStatus(c.detail.compatibility.lifestyle.status), description: c.detail.compatibility.lifestyle.description },
-      work: { status: mapAgentStatus(c.detail.compatibility.workType.status), description: c.detail.compatibility.workType.description },
-    },
-    operative: {
-      dailyLoad: c.detail.lifestyle.narrative,
-      strategicIntervention: c.detail.problems.hiddenTruth,
-      environment: c.detail.lifestyle.environment,
-      uncertaintyLevel: "",
-    },
-    market: {
-      jobOutlets: c.detail.future.jobOutcomes.map(j => ({
-        position: j.position, salaryJunior: "", salarySemiSenior: "", salarySenior: j.salarySenior,
-      })),
-      automationRisk: c.detail.future.automationRisk,
-      employabilitySafety: "",
-      salaryScalability: "",
-      saturationIndex: "",
-      geographicFlexibility: c.detail.future.geographicFlexibility,
-      specializations: c.detail.future.specializations.map(s => ({
-        name: s.name, niche: s.niche, demand: s.demand as "Alta" | "Media" | "Baja",
-      })),
-    },
-  }))
-}
+import { transformCareer, type AgentCareerNew } from "@/lib/agent/career-transform"
 
 // Agent profile type
 interface AgentProfile {
@@ -127,7 +38,7 @@ interface AgentProfile {
 
 interface AgentResults {
   profile?: AgentProfile
-  careers?: { intro?: string; ranking?: AgentCareer[] }
+  careers?: { intro?: string; ranking?: AgentCareerNew[] }
   universities?: unknown
   meta?: unknown
 }
@@ -149,13 +60,11 @@ const allChapters: Chapter[] = [
   { id: "persona-vida", title: "Tipo de vida", act: "persona" },
   { id: "persona-resumen", title: "En resumen", act: "persona" },
 
-  // Act 2: Carreras
-  { id: "carreras-intro", title: "Los caminos", act: "carreras" },
+  // Act 2: Carreras (sin intro: se entra directo a la lista)
   { id: "carreras-lista", title: "Tu top 5", act: "carreras" },
   { id: "carreras-detalle", title: "Explorar carrera", act: "carreras" },
 
-  // Act 3: Universidades
-  { id: "unis-intro", title: "Dónde construir", act: "universidades" },
+  // Act 3: Universidades (sin intro: se entra directo a los filtros)
   { id: "unis-filtros", title: "Encontrar tu lugar", act: "universidades" },
   { id: "unis-detalle", title: "Ver universidad", act: "universidades" },
 
@@ -246,7 +155,7 @@ export function VocationalJourney({ results }: VocationalJourneyProps) {
 
   // Build merged careers from agent data
   const mergedCareers: Career[] = results?.careers?.ranking?.length
-    ? transformAgentCareers(results.careers.ranking)
+    ? results.careers.ranking.map(transformCareer)
     : careersData
 
   const navigateTo = useCallback((act: Act, chapter?: string) => {
@@ -327,7 +236,7 @@ export function VocationalJourney({ results }: VocationalJourneyProps) {
             profile={mergedProfile}
             currentChapter={currentChapter}
             onNextChapter={goToNextChapter}
-            onNavigateToCarreras={() => navigateTo("carreras", "carreras-intro")}
+            onNavigateToCarreras={() => navigateTo("carreras", "carreras-lista")}
             mapaInternoData={mergedMapaInterno}
             resumenData={mergedResumen}
           />
@@ -340,8 +249,7 @@ export function VocationalJourney({ results }: VocationalJourneyProps) {
             selectedCareer={selectedCareer}
             onSelectCareer={handleSelectCareer}
             onBack={handleBackFromDetail}
-            onNextChapter={goToNextChapter}
-            onNavigateToUniversidades={() => navigateTo("universidades", "unis-intro")}
+            onNavigateToUniversidades={() => navigateTo("universidades", "unis-filtros")}
           />
         )}
 
@@ -353,7 +261,6 @@ export function VocationalJourney({ results }: VocationalJourneyProps) {
             selectedUniversity={selectedUniversity}
             onSelectUniversity={handleSelectUniversity}
             onBack={handleBackFromDetail}
-            onNextChapter={goToNextChapter}
             onNavigateToFuturo={() => {}}
           />
         )}

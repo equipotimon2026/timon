@@ -5,7 +5,6 @@ import { University } from "@/lib/university-data"
 import { Career } from "@/lib/career-data"
 import {
   ChapterHeader,
-  TransitionBlock,
   InsightCard,
   ProseBlock,
   ProgressBar,
@@ -23,7 +22,6 @@ interface ActUniversidadesProps {
   selectedUniversity: University | null
   onSelectUniversity: (university: University) => void
   onBack: () => void
-  onNextChapter: () => void
   onNavigateToFuturo: () => void
 }
 
@@ -34,23 +32,11 @@ export function ActUniversidades({
   selectedUniversity,
   onSelectUniversity,
   onBack,
-  onNextChapter,
   onNavigateToFuturo
 }: ActUniversidadesProps) {
 
   const renderChapter = () => {
     switch (currentChapter) {
-      case "unis-intro":
-        return <ChapterIntro onNext={onNextChapter} />
-      case "unis-filtros":
-        return (
-          <ChapterFiltros
-            universities={universities}
-            careers={careers}
-            onSelectUniversity={onSelectUniversity}
-            onNavigateToFuturo={onNavigateToFuturo}
-          />
-        )
       case "unis-detalle":
         return selectedUniversity ? (
           <ChapterDetalle
@@ -65,8 +51,16 @@ export function ActUniversidades({
             onNavigateToFuturo={onNavigateToFuturo}
           />
         )
+      case "unis-filtros":
       default:
-        return <ChapterIntro onNext={onNextChapter} />
+        return (
+          <ChapterFiltros
+            universities={universities}
+            careers={careers}
+            onSelectUniversity={onSelectUniversity}
+            onNavigateToFuturo={onNavigateToFuturo}
+          />
+        )
     }
   }
 
@@ -74,43 +68,6 @@ export function ActUniversidades({
     <div className="min-h-screen">
       {renderChapter()}
     </div>
-  )
-}
-
-// Chapter: Introduction
-function ChapterIntro({ onNext }: { onNext: () => void }) {
-  return (
-    <section className="min-h-screen flex flex-col justify-center px-6 md:px-12 lg:px-16 py-12">
-      <div className="max-w-2xl mx-auto w-full">
-        <div className="animate-fade-in-up">
-          <p className="text-sm font-medium text-primary uppercase tracking-wider mb-6">
-            Acto 03 — Dónde construir
-          </p>
-
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif text-foreground leading-tight mb-8">
-            El mismo camino, distintas experiencias
-          </h1>
-
-          <p className="text-xl text-muted-foreground leading-relaxed mb-6">
-            Elegir universidad no es solo elegir prestigio. Es elegir una experiencia, un entorno, un estilo de vida durante varios años de tu vida.
-          </p>
-
-          <p className="text-lg text-foreground/70 leading-relaxed">
-            Dos personas pueden estudiar la misma carrera y tener experiencias completamente diferentes según dónde la estudien. Ahora vamos a ver qué opciones hacen más sentido para vos.
-          </p>
-        </div>
-
-        <TransitionBlock variant="highlight">
-          La universidad ideal no existe. Pero sí existe la que mejor se adapta a tu situación, tus prioridades y tu forma de aprender.
-        </TransitionBlock>
-
-        <div className="mt-8">
-          <CTAButton onClick={onNext}>
-            Encontrar tu lugar
-          </CTAButton>
-        </div>
-      </div>
-    </section>
   )
 }
 
