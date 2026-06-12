@@ -163,48 +163,53 @@ export async function buildAzurePayload(
     const allSectionRows = grouped[sectionIdNum] ?? [];
     const versionInfo = sectionVersionMap.get(sectionIdNum);
 
+    // The assessment agent is STATELESS: each call must contain the user's full
+    // current state. The rule for WHICH responses to include:
+    //   send a response IFF its question is STILL in the form's current version.
+    // We match by `question_number` (the question's identity), NOT by text/hash —
+    // so rewording a question keeps its answer, while REMOVING a question drops
+    // its answer (it's no longer in the form, so the agent must not see it).
+    //   • add questions (10 → 12): new question_numbers in snapshot → answered → sent
+    //   • remove a question: its question_number is gone from snapshot → dropped
+    //   • reword a question: same question_number → kept (with current wording)
     let filteredRows = allSectionRows;
+    // current question_number → snapshot text, for the active version
+    const currentTextByNumber = new Map<number, string>();
 
     if (versionInfo) {
       const snapshot = versionInfo.questions_snapshot;
 
       if (!snapshot || snapshot.length === 0) {
-        // Empty snapshot → fallback
+        // No snapshot to define the current question set → fallback: send all.
         console.warn(
           '[build-azure-payload] Empty questions_snapshot for section_id=%d — fallback: sending all responses',
           sectionIdNum
         );
       } else {
-        // Build set of valid question_hashes from snapshot
-        const validHashes = new Set(snapshot.map((q) => q.question_hash));
-
-        filteredRows = allSectionRows.filter((row) => {
-          const hash = (row as typeof row & { question_hash?: string | null }).question_hash;
-          if (hash == null) {
-            // NULL question_hash (old data) → include with warning
-            console.warn(
-              '[build-azure-payload] NULL question_hash for section_id=%d question_number=%d — including (fallback)',
-              sectionIdNum,
-              row.question_number
-            );
-            return true;
-          }
-          return validHashes.has(hash);
-        });
+        const currentNumbers = new Set<number>();
+        for (const q of snapshot) {
+          currentNumbers.add(q.question_number);
+          if (q.text) currentTextByNumber.set(q.question_number, q.text);
+        }
+        // Keep only responses whose question is still part of the current form.
+        filteredRows = allSectionRows.filter((row) => currentNumbers.has(row.question_number));
       }
 
       sectionVersions[String(sectionIdNum)] = versionInfo.current_version;
     }
-    // If no versionInfo, section is not versioned yet → all responses pass, no entry in sectionVersions
+    // If no versionInfo, section is not versioned yet → send all responses.
 
     responsesPayload[meta.key] = {
       name: meta.name,
       responses: filteredRows.map((row) => {
         const { answer, response_type } = getResponseType(row);
         const questionData = questionsMap.get(`${sectionIdNum}_${row.question_number}`);
+        // Prefer the current form wording (snapshot) so the agent sees the
+        // question as it stands now; fall back to the text saved with the answer.
+        const questionText = currentTextByNumber.get(row.question_number) ?? row.question ?? '';
         return {
           question_number: row.question_number,
-          question_text: row.question ?? '',
+          question_text: questionText,
           answer,
           response_type,
           ...(questionData?.options ? { options: questionData.options } : {}),

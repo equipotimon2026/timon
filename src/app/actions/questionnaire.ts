@@ -17,6 +17,16 @@ type SaveQuestionnaireInput = {
   responses: ResponseItem[];
   scoreData: Record<string, unknown>;
   meta?: Record<string, unknown>;
+  /**
+   * Whether `responses` represents the COMPLETE, authoritative state of the
+   * section (i.e. the form successfully restored every prior answer before
+   * submit). Only when true may we delete answers the user intentionally
+   * removed. When false (restore failed / partial submit), we MERGE: upsert the
+   * incoming answers and never delete prior ones — so a restore failure can
+   * never silently wipe a user's answers.
+   * Defaults to false (safe: never destructive) if the client omits it.
+   */
+  fullState?: boolean;
 };
 
 async function getUserProfileId(supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>) {
@@ -62,23 +72,41 @@ export async function saveQuestionnaireResponse(input: SaveQuestionnaireInput) {
     response_array: r.responseArray ?? null,
   }));
 
-  // Delete existing rows for this user+section, then insert fresh.
-  // Requires DELETE RLS policy (migration 006). Verifies rows actually removed
-  // before insert to avoid silent failures masking 23505 on re-save.
-  const { error: delResponsesError } = await supabase
-    .from('responses')
-    .delete()
-    .eq('user_id', userId)
-    .eq('section_id', input.sectionId);
-  if (delResponsesError) throw delResponsesError;
-
+  // MERGE semantics: always upsert the incoming answers, keyed on
+  // (user_id, section_id, question_number). This never destroys a prior answer
+  // that is also present in the payload, and — critically — never wipes the
+  // whole section. A partial or restore-failed submit can no longer cause data
+  // loss (the bug where reopening a section with a failed restore wiped all
+  // previously saved answers).
   if (responseRows.length > 0) {
-    // Use upsert as defense in depth: if delete didn't fully clear (e.g. RLS
-    // issue), upsert with onConflict still resolves conflicts atomically.
     const { error: responsesError } = await supabase
       .from('responses')
       .upsert(responseRows, { onConflict: 'user_id,section_id,question_number' });
     if (responsesError) throw responsesError;
+  }
+
+  // Intentional deletes: only when the client guarantees this payload is the
+  // COMPLETE, restored state of the section. Then any saved answer that is NOT
+  // in the payload was intentionally removed by the user → delete it. When
+  // fullState is false we skip this entirely, so we never delete an answer the
+  // user didn't explicitly remove.
+  if (input.fullState === true) {
+    const keptNumbers = responseRows.map((r) => r.question_number);
+    let deleteQuery = supabase
+      .from('responses')
+      .delete()
+      .eq('user_id', userId)
+      .eq('section_id', input.sectionId);
+    if (keptNumbers.length > 0) {
+      // Delete every saved answer for this section EXCEPT the ones still present.
+      deleteQuery = deleteQuery.not(
+        'question_number',
+        'in',
+        `(${keptNumbers.join(',')})`
+      );
+    }
+    const { error: delResponsesError } = await deleteQuery;
+    if (delResponsesError) throw delResponsesError;
   }
 
   // Upsert section result atomically

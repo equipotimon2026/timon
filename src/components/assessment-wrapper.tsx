@@ -148,6 +148,11 @@ export function AssessmentWrapper({ assessmentId, userId, onDone }: AssessmentWr
   const { markCompleted } = useAssessmentStore();
   const [initialResponses, setInitialResponses] = useState<unknown>(null);
   const [isLoadingDraft, setIsLoadingDraft] = useState(true);
+  // True only when the section's prior state was successfully loaded (or the
+  // section is genuinely empty). When restore THROWS this stays false, which
+  // tells the server to MERGE on save instead of replacing — so a failed
+  // restore can never wipe previously saved answers.
+  const restoreOkRef = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestRef = useRef<unknown>(undefined);
 
@@ -165,13 +170,20 @@ export function AssessmentWrapper({ assessmentId, userId, onDone }: AssessmentWr
           const rows = await getResponses(sectionId);
           if (!cancelled && rows.length > 0) {
             setInitialResponses(assessment.denormalize(rows));
+            restoreOkRef.current = true;
             return;
           }
         }
         const draft = await getDraft(sectionId);
         if (!cancelled) setInitialResponses(draft);
+        // Reached here without throwing → either a genuinely empty section or a
+        // restored draft. Either way the form's state is authoritative.
+        restoreOkRef.current = true;
       } catch {
-        // ignore — form starts empty
+        // Restore failed (network/RLS). Do NOT mark the state authoritative:
+        // the form may open with missing answers, so saves must MERGE, never
+        // replace, to avoid wiping the user's prior responses.
+        restoreOkRef.current = false;
       } finally {
         if (!cancelled) setIsLoadingDraft(false);
       }
@@ -203,6 +215,9 @@ export function AssessmentWrapper({ assessmentId, userId, onDone }: AssessmentWr
       responses,
       scoreData,
       meta,
+      // Only authorize destructive deletes when the prior state was fully
+      // restored. On a failed restore this is false → server merges, never wipes.
+      fullState: restoreOkRef.current,
     });
   };
 
