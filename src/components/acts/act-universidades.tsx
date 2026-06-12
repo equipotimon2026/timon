@@ -2,9 +2,9 @@
 
 import { useState, useMemo } from "react"
 import { University } from "@/lib/university-data"
+import { Career } from "@/lib/career-data"
 import {
   ChapterHeader,
-  InsightCard,
   CTAButton
 } from "@/components/journey/narrative-blocks"
 import { UniversityCard } from "@/components/journey/university-card"
@@ -13,9 +13,14 @@ import { cn } from "@/lib/utils"
 
 interface ActUniversidadesProps {
   universities: University[]
+  /** Per-career rankings keyed by programSearchGroup (for the "Carrera" filter). */
+  universitiesByGroup?: Record<string, University[]>
+  /** The user's matched careers, used to label the "Carrera" filter options. */
+  careers?: Career[]
+  /** programSearchGroup of the career the user came from (preselects the filter). */
+  defaultCareerGroup?: string | null
   currentChapter: string
   selectedUniversity: University | null
-  selectedCareerName?: string | null
   onSelectUniversity: (university: University) => void
   onBack: () => void
   onNavigateToFuturo: () => void
@@ -23,9 +28,11 @@ interface ActUniversidadesProps {
 
 export function ActUniversidades({
   universities,
+  universitiesByGroup = {},
+  careers = [],
+  defaultCareerGroup = null,
   currentChapter,
   selectedUniversity,
-  selectedCareerName = null,
   onSelectUniversity,
   onBack,
   onNavigateToFuturo
@@ -37,12 +44,14 @@ export function ActUniversidades({
         return selectedUniversity ? (
           <ChapterDetalle
             university={selectedUniversity}
-            highlightCareer={selectedCareerName}
             onBack={onBack}
           />
         ) : (
           <ChapterFiltros
             universities={universities}
+            universitiesByGroup={universitiesByGroup}
+            careers={careers}
+            defaultCareerGroup={defaultCareerGroup}
             onSelectUniversity={onSelectUniversity}
             onNavigateToFuturo={onNavigateToFuturo}
           />
@@ -52,6 +61,9 @@ export function ActUniversidades({
         return (
           <ChapterFiltros
             universities={universities}
+            universitiesByGroup={universitiesByGroup}
+            careers={careers}
+            defaultCareerGroup={defaultCareerGroup}
             onSelectUniversity={onSelectUniversity}
             onNavigateToFuturo={onNavigateToFuturo}
           />
@@ -69,32 +81,63 @@ export function ActUniversidades({
 // Chapter: Filters & List
 function ChapterFiltros({
   universities,
+  universitiesByGroup,
+  careers,
+  defaultCareerGroup,
   onSelectUniversity,
   onNavigateToFuturo
 }: {
   universities: University[]
+  universitiesByGroup: Record<string, University[]>
+  careers: Career[]
+  defaultCareerGroup: string | null
   onSelectUniversity: (university: University) => void
   onNavigateToFuturo: () => void
 }) {
-  const uniqueLocations = useMemo(
-    () => [...new Set(universities.map(u => u.detail.location.zone).filter((z): z is string => z !== null))],
-    [universities]
+  // Career filter options: only the user's careers we actually have a uni
+  // ranking for (programSearchGroup present in universitiesByGroup).
+  const careerOptions = useMemo(
+    () =>
+      careers
+        .filter((c) => c.programSearchGroup && universitiesByGroup[c.programSearchGroup]?.length)
+        .map((c) => ({ group: c.programSearchGroup as string, label: c.name })),
+    [careers, universitiesByGroup]
   )
+  const hasCareerFilter = careerOptions.length > 0
+
+  // Preselect the career the user came from (if we have its ranking), else "all".
+  const initialCareer =
+    defaultCareerGroup && universitiesByGroup[defaultCareerGroup]?.length
+      ? defaultCareerGroup
+      : ""
 
   const [filters, setFilters] = useState({
+    career: initialCareer,
     type: "",
     modality: "",
     location: ""
   })
 
+  // Base list depends on the selected career: its dedicated ranking, or the flat
+  // list when "Todas" (or when no grouped data is available).
+  const baseList =
+    filters.career && universitiesByGroup[filters.career]
+      ? universitiesByGroup[filters.career]
+      : universities
+
+  const uniqueLocations = useMemo(
+    () => [...new Set(baseList.map(u => u.detail.location.zone).filter((z): z is string => z !== null))],
+    [baseList]
+  )
+
   const filteredUniversities = useMemo(() => {
-    return universities.filter(uni => {
+    return baseList.filter(uni => {
       if (filters.type && uni.type !== filters.type) return false
       if (filters.modality && uni.modality !== filters.modality) return false
       if (filters.location && uni.detail.location.zone !== filters.location) return false
       return true
     }).sort((a, b) => b.matchPercentage - a.matchPercentage)
-  }, [universities, filters])
+  }, [baseList, filters])
 
   return (
     <section className="px-6 md:px-12 lg:px-16 py-12 lg:py-16">
@@ -108,6 +151,23 @@ function ChapterFiltros({
         {/* Filters */}
         <div className="mb-10 p-6 rounded-2xl bg-card border border-border/50">
           <h3 className="font-medium text-foreground mb-4">Filtros</h3>
+
+          {/* Carrera filter — scopes the list to one career's universities */}
+          {hasCareerFilter && (
+            <div className="mb-4">
+              <label className="text-sm text-muted-foreground mb-2 block">Carrera</label>
+              <select
+                value={filters.career}
+                onChange={(e) => setFilters(f => ({ ...f, career: e.target.value }))}
+                className="w-full px-4 py-2.5 rounded-xl bg-background border border-border/50 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="">Todas las carreras</option>
+                {careerOptions.map(opt => (
+                  <option key={opt.group} value={opt.group}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Cuota filter (Pública/Privada → cuota o no) */}
@@ -155,10 +215,10 @@ function ChapterFiltros({
             </div>
           </div>
 
-          {/* Clear filters */}
+          {/* Clear filters (keeps the selected career scope) */}
           {(filters.type || filters.modality || filters.location) && (
             <button
-              onClick={() => setFilters({ type: "", modality: "", location: "" })}
+              onClick={() => setFilters(f => ({ ...f, type: "", modality: "", location: "" }))}
               className="mt-4 text-sm text-primary hover:underline"
             >
               Limpiar filtros
@@ -189,7 +249,7 @@ function ChapterFiltros({
           <div className="py-12 text-center">
             <p className="text-muted-foreground">No encontramos universidades con esos filtros.</p>
             <button
-              onClick={() => setFilters({ type: "", modality: "", location: "" })}
+              onClick={() => setFilters(f => ({ ...f, type: "", modality: "", location: "" }))}
               className="mt-2 text-primary hover:underline"
             >
               Limpiar filtros
@@ -223,7 +283,9 @@ const fallbackColors = [
   "bg-rose-500"
 ]
 
-// Scholarships as a scannable table: Beca | Beneficio, requirements on expand.
+// Scholarships as scannable cards: name + benefit (coverage) on its own line,
+// requisitos behind an expand toggle. Coverage is a full sentence (not a short
+// chip), so stacking it under the name avoids the cramped/overlapping layout.
 function ScholarshipsTable({
   scholarships,
 }: {
@@ -232,42 +294,45 @@ function ScholarshipsTable({
   const [open, setOpen] = useState<number | null>(null)
 
   return (
-    <div className="rounded-xl border border-border/50 overflow-hidden divide-y divide-border/50">
-      <div className="hidden sm:grid grid-cols-[1fr_auto] gap-4 px-4 py-2.5 bg-muted/40 text-xs font-medium text-muted-foreground">
-        <span>Beca</span>
-        <span>Beneficio</span>
-      </div>
+    <div className="space-y-2">
       {scholarships.map((s, idx) => {
         const isOpen = open === idx
         const hasReq = !!s.requirements
         return (
-          <div key={idx}>
+          <div
+            key={idx}
+            className="rounded-xl border border-emerald-200 bg-emerald-50 overflow-hidden"
+          >
             <button
               type="button"
               onClick={() => hasReq && setOpen(isOpen ? null : idx)}
               className={cn(
-                "w-full text-left px-4 py-3 flex items-center justify-between gap-4 transition-colors",
-                hasReq && "hover:bg-muted/30"
+                "w-full text-left p-4 flex items-start gap-3",
+                hasReq && "hover:bg-emerald-100/50 transition-colors"
               )}
             >
-              <span className="flex items-center gap-2 min-w-0">
-                {hasReq && (
-                  <ChevronDown
-                    className={cn(
-                      "w-4 h-4 shrink-0 text-muted-foreground transition-transform duration-200",
-                      isOpen && "rotate-180"
-                    )}
-                  />
+              {hasReq ? (
+                <ChevronDown
+                  className={cn(
+                    "w-4 h-4 mt-0.5 shrink-0 text-emerald-700 transition-transform duration-200",
+                    isOpen && "rotate-180"
+                  )}
+                />
+              ) : (
+                <span className="w-4 shrink-0" />
+              )}
+              <div className="min-w-0 flex-1">
+                <h4 className="font-medium text-emerald-900">{s.name}</h4>
+                {s.coverage && (
+                  <p className="text-sm font-medium text-emerald-700 mt-0.5 leading-relaxed">
+                    {s.coverage}
+                  </p>
                 )}
-                <span className="font-medium text-foreground">{s.name}</span>
-              </span>
-              <span className="text-sm font-semibold text-emerald-700 text-right shrink-0">
-                {s.coverage}
-              </span>
+              </div>
             </button>
             {isOpen && hasReq && (
-              <div className="px-4 pb-4 sm:pl-10">
-                <p className="text-sm text-muted-foreground leading-relaxed">
+              <div className="px-4 pb-4 pl-11">
+                <p className="text-sm text-emerald-900/80 leading-relaxed">
                   {s.requirements}
                 </p>
               </div>
@@ -279,99 +344,12 @@ function ScholarshipsTable({
   )
 }
 
-const normalize = (s: string) =>
-  s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim()
-
-// "Programas que dicta": the career the user came from is pinned on top and
-// flagged; the rest collapse behind a "+ otras N" toggle to cut visual noise.
-function ProgramsList({
-  programs,
-  highlightCareer,
-}: {
-  programs: University["detail"]["programs"]
-  highlightCareer?: string | null
-}) {
-  const [showAll, setShowAll] = useState(false)
-  const target = highlightCareer ? normalize(highlightCareer) : null
-
-  const isMatch = (name: string) => {
-    if (!target) return false
-    const n = normalize(name)
-    return n.includes(target) || target.includes(n)
-  }
-
-  const sorted = useMemo(() => {
-    if (!target) return programs
-    return [...programs].sort(
-      (a, b) => (isMatch(b.name) ? 1 : 0) - (isMatch(a.name) ? 1 : 0)
-    )
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [programs, target])
-
-  const VISIBLE = 4
-  const visible = showAll ? sorted : sorted.slice(0, VISIBLE)
-  const hidden = sorted.length - visible.length
-
-  return (
-    <div className="space-y-3">
-      {visible.map((program, idx) => {
-        const matched = isMatch(program.name)
-        return (
-          <div
-            key={idx}
-            className={cn(
-              "p-5 rounded-xl border",
-              matched
-                ? "bg-primary/5 border-primary/30"
-                : "bg-card border-border/50"
-            )}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <h4 className="font-medium text-foreground">
-                {program.name}
-                {program.duration ? ` · ${program.duration}` : ""}
-                {program.modality ? ` · ${program.modality}` : ""}
-              </h4>
-              {matched && (
-                <span className="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
-                  ⭐ Tu carrera
-                </span>
-              )}
-            </div>
-          </div>
-        )
-      })}
-
-      {hidden > 0 && !showAll && (
-        <button
-          type="button"
-          onClick={() => setShowAll(true)}
-          className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-        >
-          + otras {hidden} {hidden === 1 ? "carrera" : "carreras"} del área
-        </button>
-      )}
-      {showAll && sorted.length > VISIBLE && (
-        <button
-          type="button"
-          onClick={() => setShowAll(false)}
-          className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-        >
-          Ver menos
-        </button>
-      )}
-    </div>
-  )
-}
-
 // Chapter: University Detail
 function ChapterDetalle({
   university,
-  highlightCareer,
   onBack
 }: {
   university: University
-  highlightCareer?: string | null
   onBack: () => void
 }) {
   const { detail } = university
@@ -451,27 +429,7 @@ function ChapterDetalle({
             ))}
           </div>
 
-          {detail.matchSummary && (
-            <InsightCard
-              quote={detail.matchSummary}
-              variant="primary"
-            />
-          )}
         </div>
-
-        {/* Section: Programs */}
-        {detail.programs.length > 0 && (
-          <div className="mb-16">
-            <h2 className="text-2xl font-serif text-foreground mb-1">
-              Carreras de tu área que se dictan acá
-            </h2>
-            <p className="text-sm text-muted-foreground mb-6">
-              Programas afines a tu perfil que ofrece esta universidad.
-            </p>
-
-            <ProgramsList programs={detail.programs} highlightCareer={highlightCareer} />
-          </div>
-        )}
 
         {/* Section: Experience */}
         <div className="mb-16">

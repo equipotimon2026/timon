@@ -13,7 +13,7 @@ import { universitiesData, University } from "@/lib/university-data"
 import { MapaInternoData, demoMapaInterno } from "@/components/chapters/chapter-mapa-interno"
 import { ResumenFinalData, demoResumenFinal } from "@/components/chapters/chapter-resumen-final"
 import { transformCareer, type AgentCareerNew } from "@/lib/agent/career-transform"
-import { transformUniversities, type AgentUniversities } from "@/lib/agent/university-transform"
+import { transformUniversities, transformUniversitiesByGroup, type AgentUniversities } from "@/lib/agent/university-transform"
 
 // Agent profile type
 interface AgentProfile {
@@ -164,6 +164,12 @@ export function VocationalJourney({ results }: VocationalJourneyProps) {
     ? transformUniversities(results.universities)
     : universitiesData
 
+  // Per-career university rankings (for the "Carrera" filter). Empty when the
+  // agent didn't send rankingBySearchTerm → the filter degrades to the flat list.
+  const universitiesByGroup = results?.universities
+    ? transformUniversitiesByGroup(results.universities)
+    : {}
+
   const navigateTo = useCallback((act: Act, chapter?: string) => {
     // Block navigation to futuro
     if (act === "futuro") return
@@ -262,9 +268,11 @@ export function VocationalJourney({ results }: VocationalJourneyProps) {
         {currentAct === "universidades" && (
           <ActUniversidades
             universities={mergedUniversities}
+            universitiesByGroup={universitiesByGroup}
+            careers={mergedCareers}
+            defaultCareerGroup={selectedCareer?.programSearchGroup ?? null}
             currentChapter={currentChapter}
             selectedUniversity={selectedUniversity}
-            selectedCareerName={selectedCareer?.name ?? null}
             onSelectUniversity={handleSelectUniversity}
             onBack={handleBackFromDetail}
             onNavigateToFuturo={() => {}}

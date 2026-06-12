@@ -66,3 +66,19 @@ export function transformUniversity(u: AgentUniversity): University {
 export function transformUniversities(data: AgentUniversities | undefined): University[] {
   return (data?.ranking ?? []).map(transformUniversity)
 }
+
+/**
+ * Universities grouped by `programSearchGroup` (one ranking per career), used by
+ * the "Carrera" filter in the university module. Empty object when the agent
+ * didn't send `rankingBySearchTerm` (then the UI falls back to the flat ranking).
+ */
+export function transformUniversitiesByGroup(
+  data: AgentUniversities | undefined
+): Record<string, University[]> {
+  const out: Record<string, University[]> = {}
+  for (const entry of data?.rankingBySearchTerm ?? []) {
+    if (!entry?.programSearchGroup) continue
+    out[entry.programSearchGroup] = (entry.ranking ?? []).map(transformUniversity)
+  }
+  return out
+}
