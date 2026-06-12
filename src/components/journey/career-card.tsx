@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, Check, AlertTriangle } from "lucide-react"
 import { Career } from "@/lib/career-data"
 
 interface CareerCardProps {
@@ -88,45 +88,49 @@ interface CareerFitBreakdownProps {
 export function CareerFitBreakdown({ career }: CareerFitBreakdownProps) {
   const { whyMatch, challenges } = career.detail
 
+  if (whyMatch.length === 0 && challenges.length === 0) return null
+
   return (
-    <div className="space-y-4">
+    <div className="grid md:grid-cols-2 gap-4">
+      {/* A favor */}
       {whyMatch.length > 0 && (
-        <div className="space-y-4">
-          {whyMatch.map((description, idx) => (
-            <div
-              key={`why-${idx}`}
-              className="p-5 rounded-xl border bg-accent/10 border-accent/30 transition-colors"
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-accent text-accent-foreground">
-                  ÓPTIMO
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {description}
-              </p>
-            </div>
-          ))}
+        <div className="p-5 rounded-xl border bg-accent/10 border-accent/30">
+          <div className="flex items-center gap-2 mb-4">
+            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+            <h4 className="text-sm font-semibold text-foreground">A favor</h4>
+          </div>
+          <ul className="space-y-3">
+            {whyMatch.map((description, idx) => (
+              <li
+                key={`why-${idx}`}
+                className="flex items-start gap-2.5 text-sm text-muted-foreground leading-relaxed"
+              >
+                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                <span>{description}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
+      {/* Atención */}
       {challenges.length > 0 && (
-        <div className="space-y-4">
-          {challenges.map((description, idx) => (
-            <div
-              key={`challenge-${idx}`}
-              className="p-5 rounded-xl border bg-amber-50 border-amber-200 transition-colors"
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                  ALERTA
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {description}
-              </p>
-            </div>
-          ))}
+        <div className="p-5 rounded-xl border bg-amber-50 border-amber-200">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <h4 className="text-sm font-semibold text-amber-900">Atención</h4>
+          </div>
+          <ul className="space-y-3">
+            {challenges.map((description, idx) => (
+              <li
+                key={`challenge-${idx}`}
+                className="flex items-start gap-2.5 text-sm text-amber-900/80 leading-relaxed"
+              >
+                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                <span>{description}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

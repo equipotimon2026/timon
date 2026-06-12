@@ -8,13 +8,14 @@ import {
   CTAButton
 } from "@/components/journey/narrative-blocks"
 import { UniversityCard } from "@/components/journey/university-card"
-import { ArrowLeft, MapPin, Building2, BookOpen, Award, Check, X } from "lucide-react"
+import { ArrowLeft, MapPin, Building2, BookOpen, Award, Check, X, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface ActUniversidadesProps {
   universities: University[]
   currentChapter: string
   selectedUniversity: University | null
+  selectedCareerName?: string | null
   onSelectUniversity: (university: University) => void
   onBack: () => void
   onNavigateToFuturo: () => void
@@ -24,6 +25,7 @@ export function ActUniversidades({
   universities,
   currentChapter,
   selectedUniversity,
+  selectedCareerName = null,
   onSelectUniversity,
   onBack,
   onNavigateToFuturo
@@ -35,6 +37,7 @@ export function ActUniversidades({
         return selectedUniversity ? (
           <ChapterDetalle
             university={selectedUniversity}
+            highlightCareer={selectedCareerName}
             onBack={onBack}
           />
         ) : (
@@ -220,12 +223,155 @@ const fallbackColors = [
   "bg-rose-500"
 ]
 
+// Scholarships as a scannable table: Beca | Beneficio, requirements on expand.
+function ScholarshipsTable({
+  scholarships,
+}: {
+  scholarships: University["detail"]["scholarships"]
+}) {
+  const [open, setOpen] = useState<number | null>(null)
+
+  return (
+    <div className="rounded-xl border border-border/50 overflow-hidden divide-y divide-border/50">
+      <div className="hidden sm:grid grid-cols-[1fr_auto] gap-4 px-4 py-2.5 bg-muted/40 text-xs font-medium text-muted-foreground">
+        <span>Beca</span>
+        <span>Beneficio</span>
+      </div>
+      {scholarships.map((s, idx) => {
+        const isOpen = open === idx
+        const hasReq = !!s.requirements
+        return (
+          <div key={idx}>
+            <button
+              type="button"
+              onClick={() => hasReq && setOpen(isOpen ? null : idx)}
+              className={cn(
+                "w-full text-left px-4 py-3 flex items-center justify-between gap-4 transition-colors",
+                hasReq && "hover:bg-muted/30"
+              )}
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                {hasReq && (
+                  <ChevronDown
+                    className={cn(
+                      "w-4 h-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                      isOpen && "rotate-180"
+                    )}
+                  />
+                )}
+                <span className="font-medium text-foreground">{s.name}</span>
+              </span>
+              <span className="text-sm font-semibold text-emerald-700 text-right shrink-0">
+                {s.coverage}
+              </span>
+            </button>
+            {isOpen && hasReq && (
+              <div className="px-4 pb-4 sm:pl-10">
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {s.requirements}
+                </p>
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+const normalize = (s: string) =>
+  s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim()
+
+// "Programas que dicta": the career the user came from is pinned on top and
+// flagged; the rest collapse behind a "+ otras N" toggle to cut visual noise.
+function ProgramsList({
+  programs,
+  highlightCareer,
+}: {
+  programs: University["detail"]["programs"]
+  highlightCareer?: string | null
+}) {
+  const [showAll, setShowAll] = useState(false)
+  const target = highlightCareer ? normalize(highlightCareer) : null
+
+  const isMatch = (name: string) => {
+    if (!target) return false
+    const n = normalize(name)
+    return n.includes(target) || target.includes(n)
+  }
+
+  const sorted = useMemo(() => {
+    if (!target) return programs
+    return [...programs].sort(
+      (a, b) => (isMatch(b.name) ? 1 : 0) - (isMatch(a.name) ? 1 : 0)
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [programs, target])
+
+  const VISIBLE = 4
+  const visible = showAll ? sorted : sorted.slice(0, VISIBLE)
+  const hidden = sorted.length - visible.length
+
+  return (
+    <div className="space-y-3">
+      {visible.map((program, idx) => {
+        const matched = isMatch(program.name)
+        return (
+          <div
+            key={idx}
+            className={cn(
+              "p-5 rounded-xl border",
+              matched
+                ? "bg-primary/5 border-primary/30"
+                : "bg-card border-border/50"
+            )}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h4 className="font-medium text-foreground">
+                {program.name}
+                {program.duration ? ` · ${program.duration}` : ""}
+                {program.modality ? ` · ${program.modality}` : ""}
+              </h4>
+              {matched && (
+                <span className="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                  ⭐ Tu carrera
+                </span>
+              )}
+            </div>
+          </div>
+        )
+      })}
+
+      {hidden > 0 && !showAll && (
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+        >
+          + otras {hidden} {hidden === 1 ? "carrera" : "carreras"} del área
+        </button>
+      )}
+      {showAll && sorted.length > VISIBLE && (
+        <button
+          type="button"
+          onClick={() => setShowAll(false)}
+          className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+        >
+          Ver menos
+        </button>
+      )}
+    </div>
+  )
+}
+
 // Chapter: University Detail
 function ChapterDetalle({
   university,
+  highlightCareer,
   onBack
 }: {
   university: University
+  highlightCareer?: string | null
   onBack: () => void
 }) {
   const { detail } = university
@@ -316,21 +462,14 @@ function ChapterDetalle({
         {/* Section: Programs */}
         {detail.programs.length > 0 && (
           <div className="mb-16">
-            <h2 className="text-2xl font-serif text-foreground mb-6">
-              Programas que dicta
+            <h2 className="text-2xl font-serif text-foreground mb-1">
+              Carreras de tu área que se dictan acá
             </h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Programas afines a tu perfil que ofrece esta universidad.
+            </p>
 
-            <div className="space-y-3">
-              {detail.programs.map((program, idx) => (
-                <div key={idx} className="p-5 rounded-xl bg-card border border-border/50">
-                  <h4 className="font-medium text-foreground">
-                    {program.name}
-                    {program.duration ? ` · ${program.duration}` : ""}
-                    {program.modality ? ` · ${program.modality}` : ""}
-                  </h4>
-                </div>
-              ))}
-            </div>
+            <ProgramsList programs={detail.programs} highlightCareer={highlightCareer} />
           </div>
         )}
 
@@ -441,19 +580,7 @@ function ChapterDetalle({
           {detail.scholarships.length > 0 && (
             <div>
               <h3 className="font-medium text-foreground mb-4">Becas y accesos especiales</h3>
-              <div className="space-y-3">
-                {detail.scholarships.map((scholarship, idx) => (
-                  <div key={idx} className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-emerald-900">{scholarship.name}</h4>
-                      <span className="text-sm text-emerald-700 font-semibold">
-                        {scholarship.coverage}
-                      </span>
-                    </div>
-                    <p className="text-sm text-emerald-900/80">{scholarship.requirements}</p>
-                  </div>
-                ))}
-              </div>
+              <ScholarshipsTable scholarships={detail.scholarships} />
             </div>
           )}
         </div>

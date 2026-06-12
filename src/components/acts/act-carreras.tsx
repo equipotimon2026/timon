@@ -10,6 +10,7 @@ import {
 } from "@/components/journey/narrative-blocks"
 import { CareerCard, CareerFitBreakdown } from "@/components/journey/career-card"
 import { CareerBubbles } from "@/components/journey/career-bubbles"
+import { ClampText } from "@/components/ui/clamp-text"
 import {
   ArrowLeft,
   ChevronDown,
@@ -22,6 +23,10 @@ import {
   BookOpen,
   Hourglass,
   Briefcase,
+  Building2,
+  Store,
+  Rocket,
+  Laptop,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -189,75 +194,109 @@ function DetailSection({
   )
 }
 
-// A single professional path card with expandable "Ver esta vida"
-function ProfessionalPathCard({ path }: { path: ProfessionalPath }) {
-  const [expanded, setExpanded] = useState(false)
+// Icons per path position — kept consistent so the same archetype slot shows the
+// same icon across careers (the archetype content itself comes from the agent).
+const PATH_ICONS = [Building2, Store, Rocket, Laptop]
+
+// "Los caminos": 2x2 grid of compact cards (icon + title + "Ver esta vida").
+// Selecting one opens its full detail in a panel below the grid.
+function ProfessionalPaths({ paths }: { paths: ProfessionalPath[] }) {
+  const [selected, setSelected] = useState<number | null>(null)
 
   return (
-    <article className="rounded-2xl border border-border/50 bg-muted/20 overflow-hidden">
-      <div className="flex items-center justify-between gap-4 p-5">
-        <h3 className="font-medium text-foreground">{path.title}</h3>
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="inline-flex items-center gap-2 shrink-0 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-        >
-          <span>{expanded ? "Ocultar" : "Ver esta vida"}</span>
-          <ChevronDown
-            className={cn(
-              "w-4 h-4 transition-transform duration-200",
-              expanded && "rotate-180"
-            )}
-          />
-        </button>
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {paths.map((path, idx) => {
+          const Icon = PATH_ICONS[idx % PATH_ICONS.length]
+          const active = selected === idx
+          return (
+            <article
+              key={`${path.title}-${idx}`}
+              className={cn(
+                "rounded-2xl border bg-muted/20 p-5 flex flex-col gap-4 transition-colors",
+                active ? "border-primary/40 bg-primary/5" : "border-border/50"
+              )}
+            >
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Icon className="w-5 h-5 text-primary" />
+              </div>
+              <h3 className="font-medium text-foreground leading-snug line-clamp-2">
+                {path.title}
+              </h3>
+              <button
+                onClick={() => setSelected(active ? null : idx)}
+                className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors mt-auto"
+              >
+                <span>{active ? "Ocultar" : "Ver esta vida"}</span>
+                <ChevronDown
+                  className={cn(
+                    "w-4 h-4 transition-transform duration-200",
+                    active && "rotate-180"
+                  )}
+                />
+              </button>
+            </article>
+          )
+        })}
       </div>
 
-      {expanded && (
-        <div className="px-5 pb-6 pt-1 space-y-6 animate-fade-in">
-          {/* Summary */}
-          <p className="text-muted-foreground leading-relaxed">{path.summary}</p>
+      {selected !== null && paths[selected] && (
+        <PathDetail key={selected} path={paths[selected]} />
+      )}
+    </div>
+  )
+}
 
-          {/* Fit vs Challenges */}
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="p-5 rounded-xl bg-accent/10 border border-accent/30">
-              <div className="flex items-center gap-2 mb-3">
-                <Sparkles className="w-4 h-4 text-accent-foreground" />
-                <h4 className="text-sm font-medium text-accent-foreground">
-                  Natural para vos
-                </h4>
-              </div>
-              <ul className="space-y-2">
-                {path.lifestyleFit.map((item, idx) => (
-                  <li
-                    key={idx}
-                    className="text-sm text-muted-foreground leading-relaxed"
-                  >
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
+// Full detail panel for a selected professional path.
+function PathDetail({ path }: { path: ProfessionalPath }) {
+  return (
+    <article className="rounded-2xl border border-border/50 bg-muted/20 overflow-hidden">
+      <div className="px-5 py-6 space-y-6 animate-fade-in">
+        {/* Summary */}
+        <p className="text-muted-foreground leading-relaxed">{path.summary}</p>
 
-            <div className="p-5 rounded-xl bg-amber-50 border border-amber-200">
-              <div className="flex items-center gap-2 mb-3">
-                <AlertTriangle className="w-4 h-4 text-amber-600" />
-                <h4 className="text-sm font-medium text-amber-800">
-                  Te va a desafiar
-                </h4>
-              </div>
-              <ul className="space-y-2">
-                {path.lifestyleChallenges.map((item, idx) => (
-                  <li
-                    key={idx}
-                    className="text-sm text-amber-800/90 leading-relaxed"
-                  >
-                    {item}
-                  </li>
-                ))}
-              </ul>
+        {/* Fit vs Challenges */}
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="p-5 rounded-xl bg-emerald-50 border border-emerald-200">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-4 h-4 text-emerald-600" />
+              <h4 className="text-sm font-semibold text-emerald-900">
+                Natural para vos
+              </h4>
             </div>
+            <ul className="space-y-2">
+              {path.lifestyleFit.map((item, idx) => (
+                <li
+                  key={idx}
+                  className="text-sm text-emerald-900/80 leading-relaxed"
+                >
+                  {item}
+                </li>
+              ))}
+            </ul>
           </div>
 
-          {/* Day to day */}
+          <div className="p-5 rounded-xl bg-amber-50 border border-amber-200">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="w-4 h-4 text-amber-600" />
+              <h4 className="text-sm font-semibold text-amber-900">
+                Te va a desafiar
+              </h4>
+            </div>
+            <ul className="space-y-2">
+              {path.lifestyleChallenges.map((item, idx) => (
+                <li
+                  key={idx}
+                  className="text-sm text-amber-900/80 leading-relaxed"
+                >
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Day to day */}
           <div>
             <h4 className="text-sm font-medium text-foreground mb-3">El día a día</h4>
             <div className="grid sm:grid-cols-2 gap-3">
@@ -304,16 +343,15 @@ function ProfessionalPathCard({ path }: { path: ProfessionalPath }) {
             </div>
           )}
 
-          {/* Reflective question */}
-          {path.reflectiveQuestion && (
-            <div className="p-5 rounded-xl bg-primary/5 border border-primary/15">
-              <p className="text-foreground font-serif italic leading-relaxed">
-                {path.reflectiveQuestion}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+        {/* Reflective question */}
+        {path.reflectiveQuestion && (
+          <div className="p-5 rounded-xl bg-primary/5 border border-primary/15">
+            <p className="text-foreground font-serif italic leading-relaxed">
+              {path.reflectiveQuestion}
+            </p>
+          </div>
+        )}
+      </div>
     </article>
   )
 }
@@ -361,9 +399,12 @@ function ChapterDetalle({
           </h1>
 
           {detail.professionDescription && (
-            <p className="text-xl text-muted-foreground leading-relaxed">
+            <ClampText
+              lines={4}
+              className="text-xl text-muted-foreground leading-relaxed"
+            >
               {detail.professionDescription}
-            </p>
+            </ClampText>
           )}
         </div>
 
@@ -378,9 +419,14 @@ function ChapterDetalle({
           {/* a) What we saw in your profile */}
           <DetailSection title="Qué vimos en tu perfil" defaultOpen>
             {detail.matchSummary && (
-              <p className="text-muted-foreground leading-relaxed mt-4 mb-6">
-                {detail.matchSummary}
-              </p>
+              <div className="mt-4 mb-6">
+                <ClampText
+                  lines={4}
+                  className="text-muted-foreground leading-relaxed"
+                >
+                  {detail.matchSummary}
+                </ClampText>
+              </div>
             )}
             <CareerFitBreakdown career={career} />
           </DetailSection>
@@ -391,20 +437,21 @@ function ChapterDetalle({
               <p className="text-sm text-muted-foreground mt-4 mb-5">
                 Una misma carrera abre vidas muy distintas. Explorá cada una.
               </p>
-              <div className="space-y-4">
-                {detail.professionalPaths.map((path, idx) => (
-                  <ProfessionalPathCard key={`${path.title}-${idx}`} path={path} />
-                ))}
-              </div>
+              <ProfessionalPaths paths={detail.professionalPaths} />
             </DetailSection>
           )}
 
           {/* c) What the university degree is like */}
           <DetailSection title="Cómo es la carrera universitaria">
             {academics.academicComposition && (
-              <p className="text-muted-foreground leading-relaxed mt-4 mb-6">
-                {academics.academicComposition}
-              </p>
+              <div className="mt-4 mb-6">
+                <ClampText
+                  lines={4}
+                  className="text-muted-foreground leading-relaxed"
+                >
+                  {academics.academicComposition}
+                </ClampText>
+              </div>
             )}
 
             {/* Subject distribution bars */}

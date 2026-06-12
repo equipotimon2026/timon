@@ -264,6 +264,7 @@ export function VocationalJourney({ results }: VocationalJourneyProps) {
             universities={mergedUniversities}
             currentChapter={currentChapter}
             selectedUniversity={selectedUniversity}
+            selectedCareerName={selectedCareer?.name ?? null}
             onSelectUniversity={handleSelectUniversity}
             onBack={handleBackFromDetail}
             onNavigateToFuturo={() => {}}
