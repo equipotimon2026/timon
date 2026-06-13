@@ -6,7 +6,6 @@ import { MobileNav } from "./mobile-nav"
 import { ActPersona } from "@/components/acts/act-persona"
 import { ActCarreras } from "@/components/acts/act-carreras"
 import { ActUniversidades } from "@/components/acts/act-universidades"
-import { ActFuturo } from "@/components/acts/act-futuro"
 import { Profile, profileData } from "@/lib/profile-data"
 import { careersData, Career } from "@/lib/career-data"
 import { universitiesData, University } from "@/lib/university-data"
@@ -68,9 +67,6 @@ const allChapters: Chapter[] = [
   // Act 3: Universidades (sin intro: se entra directo a los filtros)
   { id: "unis-filtros", title: "Encontrar tu lugar", act: "universidades" },
   { id: "unis-detalle", title: "Ver universidad", act: "universidades" },
-
-  // Act 4: Tu Futuro (disabled)
-  { id: "futuro-intro", title: "Tu Futuro", act: "futuro" },
 ]
 
 export function VocationalJourney({ results }: VocationalJourneyProps) {
@@ -171,9 +167,6 @@ export function VocationalJourney({ results }: VocationalJourneyProps) {
     : {}
 
   const navigateTo = useCallback((act: Act, chapter?: string) => {
-    // Block navigation to futuro
-    if (act === "futuro") return
-
     setCurrentAct(act)
     if (chapter) {
       setCurrentChapter(chapter)
@@ -195,8 +188,6 @@ export function VocationalJourney({ results }: VocationalJourneyProps) {
     const currentIndex = allChapters.findIndex(c => c.id === currentChapter)
     if (currentIndex < allChapters.length - 1) {
       const nextChapter = allChapters[currentIndex + 1]
-      // Don't advance to futuro
-      if (nextChapter.act === "futuro") return
       markChapterComplete(currentChapter)
       setCurrentChapter(nextChapter.id)
       setCurrentAct(nextChapter.act)
@@ -275,14 +266,6 @@ export function VocationalJourney({ results }: VocationalJourneyProps) {
             selectedUniversity={selectedUniversity}
             onSelectUniversity={handleSelectUniversity}
             onBack={handleBackFromDetail}
-            onNavigateToFuturo={() => {}}
-          />
-        )}
-
-        {currentAct === "futuro" && (
-          <ActFuturo
-            currentChapter={currentChapter}
-            onNextChapter={goToNextChapter}
           />
         )}
       </main>

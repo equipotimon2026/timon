@@ -3,10 +3,7 @@
 import { useState, useMemo } from "react"
 import { University } from "@/lib/university-data"
 import { Career } from "@/lib/career-data"
-import {
-  ChapterHeader,
-  CTAButton
-} from "@/components/journey/narrative-blocks"
+import { ChapterHeader } from "@/components/journey/narrative-blocks"
 import { UniversityCard } from "@/components/journey/university-card"
 import { ArrowLeft, MapPin, Building2, BookOpen, Award, Check, X, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -23,7 +20,6 @@ interface ActUniversidadesProps {
   selectedUniversity: University | null
   onSelectUniversity: (university: University) => void
   onBack: () => void
-  onNavigateToFuturo: () => void
 }
 
 export function ActUniversidades({
@@ -34,8 +30,7 @@ export function ActUniversidades({
   currentChapter,
   selectedUniversity,
   onSelectUniversity,
-  onBack,
-  onNavigateToFuturo
+  onBack
 }: ActUniversidadesProps) {
 
   const renderChapter = () => {
@@ -53,7 +48,6 @@ export function ActUniversidades({
             careers={careers}
             defaultCareerGroup={defaultCareerGroup}
             onSelectUniversity={onSelectUniversity}
-            onNavigateToFuturo={onNavigateToFuturo}
           />
         )
       case "unis-filtros":
@@ -65,7 +59,6 @@ export function ActUniversidades({
             careers={careers}
             defaultCareerGroup={defaultCareerGroup}
             onSelectUniversity={onSelectUniversity}
-            onNavigateToFuturo={onNavigateToFuturo}
           />
         )
     }
@@ -84,15 +77,13 @@ function ChapterFiltros({
   universitiesByGroup,
   careers,
   defaultCareerGroup,
-  onSelectUniversity,
-  onNavigateToFuturo
+  onSelectUniversity
 }: {
   universities: University[]
   universitiesByGroup: Record<string, University[]>
   careers: Career[]
   defaultCareerGroup: string | null
   onSelectUniversity: (university: University) => void
-  onNavigateToFuturo: () => void
 }) {
   // Career filter options: only the user's careers we actually have a uni
   // ranking for (programSearchGroup present in universitiesByGroup).
@@ -256,19 +247,6 @@ function ChapterFiltros({
             </button>
           </div>
         )}
-
-        {/* CTA to continue to Futuro */}
-        <div className="mt-16 p-8 rounded-2xl bg-gradient-to-br from-violet-500/10 to-indigo-500/10 border border-violet-500/20 text-center">
-          <h3 className="text-xl font-serif text-foreground mb-4">
-            Ya exploraste tus opciones
-          </h3>
-          <p className="text-muted-foreground mb-6">
-            Ahora veamos cómo sería tu vida en cada camino que elegiste. Te mostramos escenas reales de tu futuro.
-          </p>
-          <CTAButton onClick={onNavigateToFuturo}>
-            Ver mi futuro
-          </CTAButton>
-        </div>
       </div>
     </section>
   )
