@@ -33,7 +33,7 @@ export async function GET(
         .order('question_number', { ascending: true }),
       adminSupabase
         .from('assessments')
-        .select('id, assessment_id, status, is_active, generated_by, created_at, completed_at, error')
+        .select('id, assessment_id, status, is_active, generated_by, created_at, completed_at, released_at, error')
         .eq('user_id', userId)
         .order('created_at', { ascending: false }),
     ]);

@@ -13,9 +13,9 @@ export async function GET(
   }
 
   const { id } = await params;
-  const assessmentDbId = Number(id);
+  const assessmentDbId = id;
 
-  if (isNaN(assessmentDbId)) {
+  if (!assessmentDbId) {
     return NextResponse.json({ error: 'Invalid assessment id' }, { status: 400 });
   }
 

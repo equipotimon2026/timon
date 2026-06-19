@@ -79,6 +79,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch responses' }, { status: 500 });
   }
 
+  // Fetch which sections the user has a saved result for (the form was submitted).
+  // This is the same loose signal the progress bar uses, so badge and bar agree.
+  const { data: sectionResults } = await adminSupabase
+    .from('section_results')
+    .select('section_id')
+    .eq('user_id', profile.id);
+
+  const sectionResultIds = new Set<number>(
+    (sectionResults ?? []).map((r) => r.section_id)
+  );
+
   // Build map: section_id -> Set<question_hash> of user's responses
   const userHashesBySectionId = new Map<number, Set<string>>();
   for (const r of responses ?? []) {
@@ -159,6 +170,12 @@ export async function GET(req: NextRequest) {
         // didn't capture in the log) rather than missing.
         status = 'completed_outdated';
         user_version_completed = null;
+      } else if (sectionResultIds.has(section.id)) {
+        // No matching question_hash (e.g. responses saved without a hash), but the
+        // form WAS submitted (section_results row exists). Count it as completed so
+        // the badge matches the progress bar instead of showing "Pendiente".
+        status = 'completed_current';
+        user_version_completed = section.current_version;
       } else {
         status = 'missing';
       }

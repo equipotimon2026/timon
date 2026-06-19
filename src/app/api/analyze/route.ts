@@ -5,6 +5,11 @@ import { buildAzurePayload } from '@/lib/admin/build-azure-payload';
 
 export const maxDuration = 60;
 
+// Maximo que tarda el agente. Pasado este tiempo desde created_at, si sigue en
+// 'processing' lo marcamos 'failed' (timeout). Se controla en el servidor
+// comparando contra created_at para que sobreviva a reloads del cliente.
+const GENERATION_TIMEOUT_MS = 30 * 60 * 1000; // 30 min
+
 const AZURE_BASE_URL =
   'https://timon-agents-ckfqd5evcdcqgsg9.eastus2-01.azurewebsites.net';
 const AZURE_ASSESSMENTS_URL = `${AZURE_BASE_URL}/api/assessments`;
@@ -206,7 +211,7 @@ export async function GET(req: NextRequest) {
   const adminCheck = createAdminClient();
   const { data: ownerCheck } = await adminCheck
     .from('assessments')
-    .select('user_id')
+    .select('id, user_id, status, created_at, released_at')
     .eq('assessment_id', assessmentId)
     .maybeSingle();
 
@@ -222,6 +227,41 @@ export async function GET(req: NextRequest) {
 
   if (!userProfile || ownerCheck.user_id !== userProfile.id) {
     return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+  }
+
+  // --- Short-circuits que evitan exponer errores al usuario y respetan el gate ---
+  // El cliente solo necesita saber: seguir poolleando, mostrar resultados, o
+  // mostrar la pantalla "12hs". Nunca devolvemos un error visible.
+  const released = !!ownerCheck.released_at;
+
+  // Estado terminal completado: NO devolvemos results salvo que este liberado.
+  if (ownerCheck.status === 'completed') {
+    return NextResponse.json({ status: 'completed', released });
+  }
+
+  // Estado terminal de fallo/cancelado: el front muestra la pantalla "12hs",
+  // nunca un error. Respondemos 200 a proposito.
+  if (ownerCheck.status === 'failed' || ownerCheck.status === 'cancelled') {
+    return NextResponse.json({ status: ownerCheck.status, released });
+  }
+
+  // Sigue 'processing': si paso el timeout, lo marcamos failed y cortamos.
+  if (ownerCheck.created_at) {
+    const elapsed = Date.now() - new Date(ownerCheck.created_at).getTime();
+    if (elapsed > GENERATION_TIMEOUT_MS) {
+      const adminTimeout = createAdminClient();
+      await adminTimeout
+        .from('assessments')
+        .update({
+          status: 'failed',
+          error: 'Timeout: la generacion supero los 30 minutos.',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', ownerCheck.id)
+        .eq('status', 'processing');
+      console.log('[analyze] ← Assessment %s marcado failed por timeout', assessmentId);
+      return NextResponse.json({ status: 'failed', timedOut: true });
+    }
   }
 
   try {
@@ -305,7 +345,9 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      return NextResponse.json({ status: 'completed', results: pollResult.results });
+      // Recien completado → todavia no liberado (gate manual del admin).
+      // No devolvemos results al usuario hasta que released_at este seteado.
+      return NextResponse.json({ status: 'completed', released: false });
     }
 
     if (pollResult.status === 'failed') {
@@ -325,18 +367,15 @@ export async function GET(req: NextRequest) {
         console.log('[analyze] ← Assessment marked as failed for %s', assessmentId);
       }
 
-      return NextResponse.json(
-        { status: 'failed', error: pollResult.error },
-        { status: 502 }
-      );
+      // 200 a proposito: el front muestra la pantalla "12hs", nunca un error.
+      return NextResponse.json({ status: 'failed' });
     }
 
     return NextResponse.json({ status: pollResult.status });
   } catch (err) {
     console.error('[analyze] ← Poll FAILED: %s', String(err));
-    return NextResponse.json(
-      { error: 'Failed to poll Azure', details: String(err) },
-      { status: 502 }
-    );
+    // No exponer el error de red al usuario: respondemos como "todavia procesando"
+    // para que el cliente reintente; el timeout server-side cerrara el caso.
+    return NextResponse.json({ status: 'processing' });
   }
 }

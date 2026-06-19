@@ -225,3 +225,24 @@ export function calcCompletionPercent(completedSectionIds: number[]): number {
   ).length
   return Math.round((done / total) * 100)
 }
+
+/**
+ * Same as calcCompletionPercent but derived from the sectionsStatus API — the
+ * SAME source the module badges use. A section counts as done when it is
+ * completed_current or completed_outdated (i.e. the badge is not "Pendiente").
+ * Use this when sectionsStatus is available so the bar and badges never diverge.
+ */
+const DONE_STATUSES = new Set(["completed_current", "completed_outdated"])
+
+export function calcCompletionPercentFromStatus(
+  sectionsStatus: SectionStatus[]
+): number {
+  const total = JOURNEY_STEPS_CONFIG.length
+  const stepSectionIds = new Set(
+    JOURNEY_STEPS_CONFIG.filter((s) => s.sectionId !== null).map((s) => s.sectionId)
+  )
+  const done = sectionsStatus.filter(
+    (s) => stepSectionIds.has(s.section_id) && DONE_STATUSES.has(s.status)
+  ).length
+  return Math.round((done / total) * 100)
+}

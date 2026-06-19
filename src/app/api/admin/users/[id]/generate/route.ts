@@ -29,19 +29,22 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid user id' }, { status: 400 });
   }
 
-  // Check for pending assessment
-  const { data: pending } = await adminSupabase
+  // Mejora #3: en vez de bloquear con 409, "pisamos" cualquier assessment previo
+  // en 'processing' marcandolo 'cancelled'. Asi el admin siempre puede arrancar una
+  // nueva generacion (ej: cuando el anterior quedo colgado por timeout) y se deja
+  // de pollear ese id.
+  const { error: cancelError } = await adminSupabase
     .from('assessments')
-    .select('assessment_id, status')
+    .update({
+      status: 'cancelled',
+      error: 'Reemplazado por una nueva generacion.',
+      completed_at: new Date().toISOString(),
+    })
     .eq('user_id', userId)
-    .eq('status', 'processing')
-    .maybeSingle();
+    .eq('status', 'processing');
 
-  if (pending) {
-    return NextResponse.json(
-      { error: 'Ya hay un assessment en proceso para este usuario.', assessment_id: pending.assessment_id },
-      { status: 409 }
-    );
+  if (cancelError) {
+    console.error('[admin/generate] Failed to cancel previous processing:', cancelError.message);
   }
 
   let payload;

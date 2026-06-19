@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/guard';
 
+// Mejora #2: "Liberar resultado". Marca released_at para que el usuario pueda ver
+// el resultado. Solo aplica a assessments 'completed'.
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -19,10 +21,9 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid assessment id' }, { status: 400 });
   }
 
-  // Fetch target assessment
   const { data: assessment, error: fetchError } = await adminSupabase
     .from('assessments')
-    .select('id, user_id, status')
+    .select('id, status, released_at')
     .eq('id', assessmentDbId)
     .single();
 
@@ -32,37 +33,23 @@ export async function POST(
 
   if (assessment.status !== 'completed') {
     return NextResponse.json(
-      { error: 'Only completed assessments can be activated' },
+      { error: 'Solo se pueden liberar resultados completados.' },
       { status: 400 }
     );
   }
 
-  // Demote all active assessments for this user
-  const { error: demoteError } = await adminSupabase
+  const releasedAt = new Date().toISOString();
+  const { error: updateError } = await adminSupabase
     .from('assessments')
-    .update({ is_active: false })
-    .eq('user_id', assessment.user_id)
-    .eq('is_active', true);
-
-  if (demoteError) {
-    return NextResponse.json(
-      { error: `Failed to demote existing active assessment: ${demoteError.message}` },
-      { status: 500 }
-    );
-  }
-
-  // Promote target
-  const { error: promoteError } = await adminSupabase
-    .from('assessments')
-    .update({ is_active: true })
+    .update({ released_at: releasedAt })
     .eq('id', assessmentDbId);
 
-  if (promoteError) {
+  if (updateError) {
     return NextResponse.json(
-      { error: `Failed to activate assessment: ${promoteError.message}` },
+      { error: `Failed to release: ${updateError.message}` },
       { status: 500 }
     );
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, released_at: releasedAt });
 }

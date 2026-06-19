@@ -30,13 +30,14 @@ interface Response {
 }
 
 interface Assessment {
-  id: number;
+  id: string;
   assessment_id: string;
   status: string;
   is_active: boolean;
   generated_by: string;
   created_at: string;
   completed_at: string | null;
+  released_at: string | null;
   error: string | null;
 }
 
@@ -104,7 +105,12 @@ export default function UserDetailClient({
           const updated = data.assessments as Assessment[];
           setAssessments(updated);
           const found = updated.find((a) => a.assessment_id === assessmentId);
-          if (found && (found.status === 'completed' || found.status === 'failed')) {
+          if (
+            found &&
+            (found.status === 'completed' ||
+              found.status === 'failed' ||
+              found.status === 'cancelled')
+          ) {
             clearInterval(interval);
             setPollingId(null);
             setGenerating(false);
@@ -133,16 +139,20 @@ export default function UserDetailClient({
       // Add optimistic pending row
       setAssessments((prev) => [
         {
-          id: 0,
+          id: '', // se completa con el id real (uuid) en el primer poll
           assessment_id: body.assessment_id,
           status: 'processing',
           is_active: false,
           generated_by: 'admin',
           created_at: new Date().toISOString(),
           completed_at: null,
+          released_at: null,
           error: null,
         },
-        ...prev,
+        // "Pisamos" cualquier processing previo en la UI (el server lo cancela).
+        ...prev.map((a) =>
+          a.status === 'processing' ? { ...a, status: 'cancelled' } : a
+        ),
       ]);
       pollAssessment(body.assessment_id);
     } catch {
@@ -152,7 +162,7 @@ export default function UserDetailClient({
   }
 
   // Activate assessment
-  async function handleActivate(assessmentId: number) {
+  async function handleActivate(assessmentId: string) {
     const res = await fetch(`/api/admin/assessments/${assessmentId}/activate`, { method: 'POST' });
     if (!res.ok) {
       const body = await res.json();
@@ -164,8 +174,49 @@ export default function UserDetailClient({
     );
   }
 
+  // Cancel a stuck "processing" assessment (Mejora #3)
+  async function handleCancel(assessmentId: string) {
+    if (!assessmentId) {
+      alert('Esperá unos segundos a que cargue el assessment y reintentá.');
+      return;
+    }
+    if (!confirm('¿Cancelar este assessment en proceso? Pasará a "cancelled".')) return;
+    const res = await fetch(`/api/admin/assessments/${assessmentId}/cancel`, { method: 'POST' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      alert(body.error ?? 'Error al cancelar.');
+      return;
+    }
+    // Si estabamos polleando ese id, cortamos.
+    setPollingId(null);
+    setGenerating(false);
+    setAssessments((prev) =>
+      prev.map((a) =>
+        a.id === assessmentId ? { ...a, status: 'cancelled' } : a
+      )
+    );
+  }
+
+  // Release a completed result to the user (Mejora #2)
+  async function handleRelease(assessmentId: string) {
+    const res = await fetch(`/api/admin/assessments/${assessmentId}/release`, { method: 'POST' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      alert(body.error ?? 'Error al liberar resultado.');
+      return;
+    }
+    const body = await res.json().catch(() => ({}));
+    setAssessments((prev) =>
+      prev.map((a) =>
+        a.id === assessmentId
+          ? { ...a, released_at: body.released_at ?? new Date().toISOString() }
+          : a
+      )
+    );
+  }
+
   // Download results
-  async function handleDownloadResults(assessmentId: string, dbId: number) {
+  async function handleDownloadResults(assessmentId: string, dbId: string) {
     const res = await fetch(`/api/admin/assessments/${dbId}/results`);
     if (!res.ok) {
       alert('Error al descargar resultados.');
@@ -336,11 +387,27 @@ export default function UserDetailClient({
                             ? 'text-green-600'
                             : a.status === 'failed'
                             ? 'text-red-600'
+                            : a.status === 'cancelled'
+                            ? 'text-gray-500'
                             : 'text-yellow-600'
                         }
                       >
-                        {a.status}
+                        {a.status === 'failed' ? 'error' : a.status}
                       </span>
+                      {(a.status === 'failed' || a.status === 'cancelled') && a.error && (
+                        <p className="mt-1 max-w-xs text-xs text-gray-500 break-words">
+                          {a.error}
+                        </p>
+                      )}
+                      {a.status === 'completed' && (
+                        <p className="mt-1 text-xs font-medium">
+                          {a.released_at ? (
+                            <span className="text-green-600">Liberado ✓</span>
+                          ) : (
+                            <span className="text-amber-600">Sin liberar</span>
+                          )}
+                        </p>
+                      )}
                     </td>
                     <td className="px-3 py-2">
                       {a.is_active ? (
@@ -350,6 +417,22 @@ export default function UserDetailClient({
                       )}
                     </td>
                     <td className="px-3 py-2 flex gap-2 flex-wrap">
+                      {a.status === 'processing' && a.id && (
+                        <button
+                          onClick={() => handleCancel(a.id)}
+                          className="text-red-600 hover:text-red-800 text-xs font-medium"
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                      {a.status === 'completed' && !a.released_at && (
+                        <button
+                          onClick={() => handleRelease(a.id)}
+                          className="text-emerald-600 hover:text-emerald-800 text-xs font-medium"
+                        >
+                          Liberar resultado
+                        </button>
+                      )}
                       {!a.is_active && a.status === 'completed' && (
                         <button
                           onClick={() => handleActivate(a.id)}

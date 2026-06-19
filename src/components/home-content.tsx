@@ -4,10 +4,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
 import { useAssessmentStore } from '@/stores/assessment-store';
 import { QuestionnaireFlow } from '@/components/questionnaire/questionnaire-flow';
-import { JourneyPath, buildJourneySteps, calcCompletionPercent, JOURNEY_STEPS_CONFIG } from '@/components/journey-path';
+import { JourneyPath, buildJourneySteps, calcCompletionPercent, calcCompletionPercentFromStatus, JOURNEY_STEPS_CONFIG } from '@/components/journey-path';
 import { AssessmentModal } from '@/components/journey-path/assessment-modal';
 import { useWizardStore, type WizardStep } from '@/stores/wizard-store';
 import { LoadingScreen } from '@/components/wizard/loading-screen';
+import { PendingResultsScreen } from '@/components/wizard/pending-results-screen';
 import { ResultsView } from '@/components/wizard/results-view';
 import { AssessmentWrapper } from '@/components/assessment-wrapper';
 import { useRouter } from '@/i18n/routing';
@@ -26,6 +27,7 @@ interface Assessment {
   results: unknown;
   is_outdated?: boolean;
   created_at?: string;
+  released_at?: string | null;
 }
 
 interface HomeContentProps {
@@ -49,7 +51,9 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
   const [regenerating, setRegenerating] = useState(false);
   const [regenerateError, setRegenerateError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [generateError, setGenerateError] = useState<string | null>(null);
+  // Pantalla "12hs": la generacion termino/fallo pero el resultado aun no esta
+  // disponible para el usuario (gate manual del admin o fallo silencioso).
+  const [awaitingResults, setAwaitingResults] = useState(false);
 
   // Fetch completed sections and latest assessment from API
   const fetchInitialData = useCallback(async () => {
@@ -73,8 +77,14 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
         setAssessmentOutdated(statusData.assessment_outdated ?? false);
       }
 
-      if (assessment?.status === 'completed' && assessment.results) {
+      if (assessment?.status === 'completed' && assessment.released_at && assessment.results) {
+        // Liberado por el admin → mostrar resultados.
         setAnalyzeResults(assessment.results);
+        setActiveStep(1);
+      } else if (assessment?.status === 'completed' || assessment?.status === 'failed' || assessment?.status === 'cancelled') {
+        // Terminado pero todavia no liberado, o fallo/cancelado → pantalla "12hs".
+        // El usuario nunca ve un error.
+        setAwaitingResults(true);
         setActiveStep(1);
       } else if (assessment?.status === 'processing') {
         // Resume polling happens in a dedicated effect below
@@ -99,46 +109,63 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
   const allTestsCompleted = REQUIRED_SECTION_IDS.every((id) => completedSet.has(id));
   const hasResults = analyzeResults !== null;
 
-  // Poll the analyze endpoint until the assessment is completed or failed.
+  // Poll the analyze endpoint. El usuario NUNCA ve un error: cualquier estado
+  // terminal sin resultado liberado cae en la pantalla "12hs". El timeout (30min)
+  // lo controla el servidor comparando contra created_at, asi que el loop del
+  // cliente solo reacciona al estado que devuelve el server.
   const pollAssessment = useCallback(
     async (assessmentId: string, email: string, signal?: { cancelled: boolean }) => {
       const POLL_INTERVAL = 20_000;
-      const MAX_POLLS = 30; // 30 * 20s = 10 minutes max
+      const MAX_POLLS = 120; // tope de seguridad (~40min); el corte real es server-side
 
       for (let i = 0; i < MAX_POLLS; i++) {
         if (signal?.cancelled) return;
 
-        const pollRes = await fetch(
-          `/api/analyze?assessment_id=${assessmentId}&email=${encodeURIComponent(email)}`
-        );
-        if (!pollRes.ok) {
-          const body = await pollRes.json().catch(() => ({}));
-          throw new Error(body.error || `Error de polling: ${pollRes.status}`);
+        let pollData: { status?: string; released?: boolean } = {};
+        try {
+          const pollRes = await fetch(
+            `/api/analyze?assessment_id=${assessmentId}&email=${encodeURIComponent(email)}`
+          );
+          pollData = await pollRes.json().catch(() => ({}));
+        } catch {
+          // Error de red: no exponerlo, reintentar.
+          await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+          continue;
         }
 
-        const pollData = await pollRes.json();
+        if (signal?.cancelled) return;
+
         if (pollData.status === 'completed') {
-          if (signal?.cancelled) return;
-          setAnalyzeResults(pollData.results);
+          if (pollData.released) {
+            // Liberado mientras poolleabamos → traer los resultados via latest.
+            await fetchInitialData();
+          } else {
+            setAwaitingResults(true);
+          }
           setGenerating(false);
           return;
         }
-        if (pollData.status === 'failed') {
-          throw new Error(pollData.error || 'El procesamiento falló');
+        if (pollData.status === 'failed' || pollData.status === 'cancelled') {
+          // Fallo/cancelado/timeout → pantalla "12hs", sin error visible.
+          setAwaitingResults(true);
+          setGenerating(false);
+          return;
         }
 
         await new Promise((r) => setTimeout(r, POLL_INTERVAL));
       }
 
-      throw new Error('El procesamiento tardó demasiado. Intentá de nuevo.');
+      // Tope de seguridad alcanzado: igual mostramos "12hs", nunca un error.
+      setAwaitingResults(true);
+      setGenerating(false);
     },
-    []
+    [fetchInitialData]
   );
 
   // Trigger generation from the Tests tab, then jump to the Results tab while polling.
   const handleGenerate = useCallback(async () => {
     setGenerating(true);
-    setGenerateError(null);
+    setAwaitingResults(false);
     setActiveStep(1);
 
     try {
@@ -153,8 +180,9 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
 
       await pollAssessment(assessment_id, email);
     } catch (err) {
+      // El usuario nunca ve el error: mostramos la pantalla "12hs".
       console.error('[assessment] Error:', err);
-      setGenerateError('Hubo un problema al generar tu perfil. Por favor, intentá de nuevo.');
+      setAwaitingResults(true);
       setGenerating(false);
     }
   }, [pollAssessment]);
@@ -175,7 +203,7 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
       } catch (err) {
         if (signal.cancelled) return;
         console.error('[assessment] Resume polling error:', err);
-        setGenerateError('Hubo un problema al generar tu perfil. Por favor, intentá de nuevo.');
+        setAwaitingResults(true);
         setGenerating(false);
       }
     })();
@@ -189,11 +217,11 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
     (index: number) => {
       if (index === 0) {
         setActiveStep(0);
-      } else if (index === 1 && (hasResults || generating)) {
+      } else if (index === 1 && (hasResults || generating || awaitingResults)) {
         setActiveStep(1);
       }
     },
-    [hasResults, generating]
+    [hasResults, generating, awaitingResults]
   );
 
   // Publish the wizard stepper to the navbar (UserHeader renders it from the store).
@@ -315,7 +343,9 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
     (slug) => setModalSlug(slug),
     sectionsStatus
   );
-  const completionPercent = calcCompletionPercent(completedSections);
+  const completionPercent = sectionsStatus.length > 0
+    ? calcCompletionPercentFromStatus(sectionsStatus)
+    : calcCompletionPercent(completedSections);
 
   const hasProcessing = latestAssessment?.status === 'processing';
   const canGenerate = allTestsCompleted && !hasResults && !generating && !hasProcessing;
@@ -387,7 +417,6 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
           generating={generating}
           hasResults={hasResults}
           generateLabel={generateLabel}
-          generateError={generateError}
         />
       )}
 
@@ -411,21 +440,10 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
           <div className="mx-auto max-w-7xl px-6 py-12 sm:px-8 lg:px-12">
             {generating ? (
               <LoadingScreen />
-            ) : generateError ? (
-              <div className="mx-auto max-w-md py-24 text-center animate-fade-up">
-                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-                  <p className="text-sm text-destructive">{generateError}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleGenerate}
-                  className="mt-6 rounded-xl bg-gradient-to-r from-primary to-accent px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:scale-[1.02] hover:shadow-lg"
-                >
-                  Reintentar
-                </button>
-              </div>
-            ) : (
+            ) : hasResults ? (
               <ResultsView />
+            ) : (
+              <PendingResultsScreen />
             )}
           </div>
         </div>

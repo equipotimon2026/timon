@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   const adminSupabase = createAdminClient();
   const { data: assessment } = await adminSupabase
     .from('assessments')
-    .select('assessment_id, status, results, section_versions, created_at, completed_at, is_active')
+    .select('assessment_id, status, results, section_versions, created_at, completed_at, released_at, is_active')
     .eq('user_id', profile.id)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -40,6 +40,14 @@ export async function GET(req: NextRequest) {
 
   if (!assessment) {
     return NextResponse.json({ assessment: null });
+  }
+
+  // Gate manual de visibilidad: el usuario solo recibe results si el admin
+  // libero el resultado (released_at seteado). Mientras tanto ocultamos results
+  // para que el front muestre la pantalla "12hs".
+  const isReleased = !!assessment.released_at;
+  if (!isReleased) {
+    assessment.results = null;
   }
 
   // Compute is_outdated

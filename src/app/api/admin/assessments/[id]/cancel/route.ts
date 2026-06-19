@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/guard';
 
+// Mejora #3: cancelar un assessment atascado en 'processing'. Pasa a 'cancelled'
+// para que quede claro que no esta activo y se pueda generar uno nuevo.
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -19,10 +21,9 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid assessment id' }, { status: 400 });
   }
 
-  // Fetch target assessment
   const { data: assessment, error: fetchError } = await adminSupabase
     .from('assessments')
-    .select('id, user_id, status')
+    .select('id, status')
     .eq('id', assessmentDbId)
     .single();
 
@@ -30,36 +31,26 @@ export async function POST(
     return NextResponse.json({ error: 'Assessment not found' }, { status: 404 });
   }
 
-  if (assessment.status !== 'completed') {
+  if (assessment.status !== 'processing') {
     return NextResponse.json(
-      { error: 'Only completed assessments can be activated' },
+      { error: 'Solo se pueden cancelar assessments en proceso.' },
       { status: 400 }
     );
   }
 
-  // Demote all active assessments for this user
-  const { error: demoteError } = await adminSupabase
+  const { error: updateError } = await adminSupabase
     .from('assessments')
-    .update({ is_active: false })
-    .eq('user_id', assessment.user_id)
-    .eq('is_active', true);
+    .update({
+      status: 'cancelled',
+      error: 'Cancelado por el administrador.',
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', assessmentDbId)
+    .eq('status', 'processing');
 
-  if (demoteError) {
+  if (updateError) {
     return NextResponse.json(
-      { error: `Failed to demote existing active assessment: ${demoteError.message}` },
-      { status: 500 }
-    );
-  }
-
-  // Promote target
-  const { error: promoteError } = await adminSupabase
-    .from('assessments')
-    .update({ is_active: true })
-    .eq('id', assessmentDbId);
-
-  if (promoteError) {
-    return NextResponse.json(
-      { error: `Failed to activate assessment: ${promoteError.message}` },
+      { error: `Failed to cancel: ${updateError.message}` },
       { status: 500 }
     );
   }
