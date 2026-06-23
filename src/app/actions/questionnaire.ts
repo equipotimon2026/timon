@@ -72,16 +72,31 @@ export async function saveQuestionnaireResponse(input: SaveQuestionnaireInput) {
     response_array: r.responseArray ?? null,
   }));
 
-  // MERGE semantics: always upsert the incoming answers, keyed on
+  // An answer is "empty" when it carries no real value. A boolean answer of
+  // `false` is a real value, so we only treat null/missing booleans as empty.
+  const isEmptyAnswer = (r: (typeof responseRows)[number]) =>
+    r.response_boolean === null &&
+    r.response_integer === null &&
+    r.response_array === null &&
+    (r.response_text ?? '') === '';
+
+  // HARDENING: never persist an empty answer. The upsert below would otherwise
+  // overwrite a previously-saved good answer with "" when a restore-failed or
+  // partial submit sends blanks (the root cause that wiped MIPS/Proyectivas).
+  // Filtering empties out means a blank can never clobber real data; we only
+  // write answers that actually carry a value.
+  const nonEmptyRows = responseRows.filter((r) => !isEmptyAnswer(r));
+
+  // MERGE semantics: always upsert the incoming (non-empty) answers, keyed on
   // (user_id, section_id, question_number). This never destroys a prior answer
   // that is also present in the payload, and — critically — never wipes the
   // whole section. A partial or restore-failed submit can no longer cause data
   // loss (the bug where reopening a section with a failed restore wiped all
   // previously saved answers).
-  if (responseRows.length > 0) {
+  if (nonEmptyRows.length > 0) {
     const { error: responsesError } = await supabase
       .from('responses')
-      .upsert(responseRows, { onConflict: 'user_id,section_id,question_number' });
+      .upsert(nonEmptyRows, { onConflict: 'user_id,section_id,question_number' });
     if (responsesError) throw responsesError;
   }
 
