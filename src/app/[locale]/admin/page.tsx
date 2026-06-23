@@ -14,10 +14,13 @@ interface UserRow {
   has_active_assessment: boolean;
   profile_status: ProfileStatus;
   output_date: string | null;
+  // Assessment "output" (ultimo completado) para liberar desde la tabla.
+  output_assessment_id: string | null;
+  released: boolean;
 }
 
 const PAGE_SIZE = 20;
-const VALID_STATUS = new Set(['completed', 'processing', 'error', 'none']);
+const VALID_STATUS = new Set(['completed', 'processing', 'error', 'none', 'pending_release']);
 const VALID_SORT = new Set(['created', 'output', 'school']);
 
 // Estado "del perfil" de un usuario = estado del assessment mas reciente.
@@ -75,37 +78,66 @@ export default async function AdminPage({
 
   const userIds = (users ?? []).map((u) => u.id);
 
-  // 2. Batch: todos los assessments de esos usuarios (1 query) + responses (1 query).
-  const [{ data: allAssessments }, { data: allResponses }] = await Promise.all([
+  // 2. Batch: todos los assessments + responses de esos usuarios.
+  //    OJO: PostgREST limita cada respuesta a 1000 filas. `responses` tiene
+  //    miles de filas, asi que paginamos con .range() hasta traerlas todas;
+  //    si no, la mayoria de usuarios mostraban 0/13.
+  async function fetchAllResponses(): Promise<{ user_id: number; section_id: number }[]> {
+    if (!userIds.length) return [];
+    const PAGE = 1000;
+    const out: { user_id: number; section_id: number }[] = [];
+    for (let offset = 0; ; offset += PAGE) {
+      const { data } = await adminSupabase
+        .from('responses')
+        .select('user_id, section_id')
+        .in('user_id', userIds)
+        .order('user_id', { ascending: true })
+        .range(offset, offset + PAGE - 1);
+      const batch = data ?? [];
+      out.push(...batch);
+      if (batch.length < PAGE) break;
+    }
+    return out;
+  }
+
+  const [{ data: allAssessments }, allResponses] = await Promise.all([
     userIds.length
       ? adminSupabase
           .from('assessments')
-          .select('user_id, status, is_active, completed_at, created_at')
+          .select('id, user_id, status, is_active, completed_at, created_at, released_at')
           .in('user_id', userIds)
           .order('created_at', { ascending: false })
       : Promise.resolve({
           data: [] as {
+            id: string;
             user_id: number;
             status: string;
             is_active: boolean;
             completed_at: string | null;
             created_at: string;
+            released_at: string | null;
           }[],
         }),
-    userIds.length
-      ? adminSupabase.from('responses').select('user_id, section_id').in('user_id', userIds)
-      : Promise.resolve({ data: [] as { user_id: number; section_id: number }[] }),
+    fetchAllResponses(),
   ]);
 
   // Latest assessment (por created_at desc), activo y ultima fecha de output por usuario.
   const latestByUser = new Map<number, { status: string }>();
   const activeByUser = new Set<number>();
-  const outputDateByUser = new Map<number, string>();
+  const outputByUser = new Map<
+    number,
+    { id: string; completed_at: string | null; released: boolean }
+  >();
   for (const a of allAssessments ?? []) {
     if (!latestByUser.has(a.user_id)) latestByUser.set(a.user_id, { status: a.status });
     if (a.is_active) activeByUser.add(a.user_id);
-    if (a.status === 'completed' && a.completed_at && !outputDateByUser.has(a.user_id)) {
-      outputDateByUser.set(a.user_id, a.completed_at);
+    // Primer completado en orden desc = ultimo completado (el "output" del usuario).
+    if (a.status === 'completed' && !outputByUser.has(a.user_id)) {
+      outputByUser.set(a.user_id, {
+        id: a.id,
+        completed_at: a.completed_at,
+        released: !!a.released_at,
+      });
     }
   }
 
@@ -116,16 +148,24 @@ export default async function AdminPage({
     responsesByUser.get(r.user_id)!.add(r.section_id);
   }
 
-  let enriched: UserRow[] = (users ?? []).map((user) => ({
-    ...user,
-    responses_count: responsesByUser.get(user.id)?.size ?? 0,
-    has_active_assessment: activeByUser.has(user.id),
-    profile_status: mapProfileStatus(latestByUser.get(user.id)?.status),
-    output_date: outputDateByUser.get(user.id) ?? null,
-  }));
+  let enriched: UserRow[] = (users ?? []).map((user) => {
+    const output = outputByUser.get(user.id);
+    return {
+      ...user,
+      responses_count: responsesByUser.get(user.id)?.size ?? 0,
+      has_active_assessment: activeByUser.has(user.id),
+      profile_status: mapProfileStatus(latestByUser.get(user.id)?.status),
+      output_date: output?.completed_at ?? null,
+      output_assessment_id: output?.id ?? null,
+      released: output?.released ?? false,
+    };
+  });
 
   // 3. Filtro por estado del perfil.
-  if (statusFilter) {
+  if (statusFilter === 'pending_release') {
+    // Completados con output pero sin liberar.
+    enriched = enriched.filter((u) => u.output_assessment_id && !u.released);
+  } else if (statusFilter) {
     enriched = enriched.filter((u) => u.profile_status === statusFilter);
   }
 

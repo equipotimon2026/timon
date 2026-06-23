@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, Fragment } from 'react';
 import { Link } from '@/i18n/routing';
 import PasswordModal from './password-modal';
+import { RationaleView } from './rationale-view';
 
 interface User {
   id: number;
@@ -75,6 +76,31 @@ export default function UserDetailClient({
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [pollingId, setPollingId] = useState<string | null>(null);
+  // Rationale (analisis del agente) expandible por fila, lazy-load.
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [rationaleById, setRationaleById] = useState<Record<string, any>>({});
+  const [rationaleLoading, setRationaleLoading] = useState(false);
+
+  async function toggleRationale(assessmentId: string) {
+    if (expandedId === assessmentId) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(assessmentId);
+    if (!(assessmentId in rationaleById)) {
+      setRationaleLoading(true);
+      try {
+        const res = await fetch(`/api/admin/assessments/${assessmentId}/rationale`);
+        const body = await res.json().catch(() => ({}));
+        setRationaleById((prev) => ({ ...prev, [assessmentId]: body.rationale ?? null }));
+      } catch {
+        setRationaleById((prev) => ({ ...prev, [assessmentId]: null }));
+      } finally {
+        setRationaleLoading(false);
+      }
+    }
+  }
 
   const totalSections = Object.keys(responsesBySection).length;
 
@@ -215,6 +241,20 @@ export default function UserDetailClient({
     );
   }
 
+  // Unrelease: volver a ocultar el resultado al usuario (Mejora #2)
+  async function handleUnrelease(assessmentId: string) {
+    if (!confirm('¿Desliberar este resultado? El usuario dejará de verlo.')) return;
+    const res = await fetch(`/api/admin/assessments/${assessmentId}/unrelease`, { method: 'POST' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      alert(body.error ?? 'Error al desliberar.');
+      return;
+    }
+    setAssessments((prev) =>
+      prev.map((a) => (a.id === assessmentId ? { ...a, released_at: null } : a))
+    );
+  }
+
   // Download results
   async function handleDownloadResults(assessmentId: string, dbId: string) {
     const res = await fetch(`/api/admin/assessments/${dbId}/results`);
@@ -323,12 +363,21 @@ export default function UserDetailClient({
       {/* Section 5.3: Debug */}
       <section className="bg-white rounded-lg border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Debug</h2>
-        <button
-          onClick={handleDownloadPayload}
-          className="px-4 py-2 text-sm text-white bg-gray-700 rounded-md hover:bg-gray-800"
-        >
-          Descargar payload .json
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleDownloadPayload}
+            className="px-4 py-2 text-sm text-white bg-gray-700 rounded-md hover:bg-gray-800"
+          >
+            Descargar payload .json
+          </button>
+          <Link
+            href={`/admin/users/${userId}/input`}
+            target="_blank"
+            className="px-4 py-2 text-sm text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+          >
+            View user input ↗
+          </Link>
+        </div>
       </section>
 
       {/* Section 5.4: Assessments */}
@@ -375,7 +424,8 @@ export default function UserDetailClient({
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {assessments.map((a) => (
-                  <tr key={a.assessment_id} className="hover:bg-gray-50">
+                  <Fragment key={a.assessment_id}>
+                  <tr className="hover:bg-gray-50">
                     <td className="px-3 py-2 text-gray-700">
                       {new Date(a.created_at).toLocaleDateString('es-AR')}
                     </td>
@@ -433,6 +483,14 @@ export default function UserDetailClient({
                           Liberar resultado
                         </button>
                       )}
+                      {a.status === 'completed' && a.released_at && (
+                        <button
+                          onClick={() => handleUnrelease(a.id)}
+                          className="text-amber-600 hover:text-amber-800 text-xs font-medium"
+                        >
+                          Desliberar
+                        </button>
+                      )}
                       {!a.is_active && a.status === 'completed' && (
                         <button
                           onClick={() => handleActivate(a.id)}
@@ -455,10 +513,28 @@ export default function UserDetailClient({
                           >
                             Descargar .json
                           </button>
+                          <button
+                            onClick={() => toggleRationale(a.id)}
+                            className="text-indigo-600 hover:text-indigo-800 text-xs font-medium"
+                          >
+                            {expandedId === a.id ? 'Ocultar análisis' : 'Ver análisis del agente'}
+                          </button>
                         </>
                       )}
                     </td>
                   </tr>
+                  {expandedId === a.id && (
+                    <tr>
+                      <td colSpan={5} className="bg-gray-50 px-4 py-4">
+                        {rationaleLoading && !(a.id in rationaleById) ? (
+                          <p className="text-sm text-gray-500">Cargando análisis...</p>
+                        ) : (
+                          <RationaleView rationale={rationaleById[a.id]} />
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

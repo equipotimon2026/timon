@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { Link, useRouter } from '@/i18n/routing';
 
 type ProfileStatus = 'completed' | 'processing' | 'error' | 'none';
@@ -16,6 +16,8 @@ interface UserRow {
   has_active_assessment: boolean;
   profile_status: ProfileStatus;
   output_date: string | null;
+  output_assessment_id: string | null;
+  released: boolean;
 }
 
 interface UsersTableProps {
@@ -53,6 +55,11 @@ function buildHref(opts: {
   return `/admin${qs ? `?${qs}` : ''}`;
 }
 
+// Una fila es "liberable" si tiene un output completado todavia sin liberar.
+function isReleasable(u: UserRow): boolean {
+  return !!u.output_assessment_id && !u.released;
+}
+
 export default function UsersTable({
   users,
   total,
@@ -67,9 +74,19 @@ export default function UsersTable({
   const [term, setTerm] = useState(search);
   const [, startTransition] = useTransition();
 
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Modal de confirmacion: lista de assessment ids a liberar.
+  const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
+  const [releasing, setReleasing] = useState(false);
+
   useEffect(() => {
     setTerm(search);
   }, [search]);
+
+  // Limpiar seleccion cuando cambian los datos visibles (paginar/filtrar).
+  useEffect(() => {
+    setSelected(new Set());
+  }, [users]);
 
   useEffect(() => {
     if (term === search) return;
@@ -81,18 +98,19 @@ export default function UsersTable({
     return () => clearTimeout(handle);
   }, [term, search, status, sort, dir, router]);
 
+  const releasableRows = useMemo(() => users.filter(isReleasable), [users]);
+  const allReleasableSelected =
+    releasableRows.length > 0 && releasableRows.every((u) => selected.has(u.output_assessment_id!));
+
   const from = total === 0 ? 0 : (page - 1) * 20 + 1;
   const to = Math.min(page * 20, total);
 
   function navigate(next: Partial<{ status: string; sort: string; dir: string }>) {
     startTransition(() => {
-      router.push(
-        buildHref({ search, status, sort, dir, ...next, page: 1 })
-      );
+      router.push(buildHref({ search, status, sort, dir, ...next, page: 1 }));
     });
   }
 
-  // Click en header ordenable: alterna direccion si ya esta activo.
   function toggleSort(field: string) {
     if (sort === field) {
       navigate({ sort: field, dir: dir === 'asc' ? 'desc' : 'asc' });
@@ -104,6 +122,47 @@ export default function UsersTable({
   function sortArrow(field: string) {
     if (sort !== field) return '';
     return dir === 'asc' ? ' ↑' : ' ↓';
+  }
+
+  function toggleRow(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelected((prev) => {
+      if (releasableRows.every((u) => prev.has(u.output_assessment_id!))) {
+        return new Set();
+      }
+      return new Set(releasableRows.map((u) => u.output_assessment_id!));
+    });
+  }
+
+  async function doRelease(ids: string[]) {
+    setReleasing(true);
+    try {
+      const res = await fetch('/api/admin/assessments/release-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        alert(body.error ?? 'Error al liberar.');
+        return;
+      }
+      setConfirmIds(null);
+      setSelected(new Set());
+      startTransition(() => router.refresh());
+    } catch {
+      alert('Error de red al liberar.');
+    } finally {
+      setReleasing(false);
+    }
   }
 
   return (
@@ -127,6 +186,7 @@ export default function UsersTable({
             <option value="processing">Procesando</option>
             <option value="error">Error</option>
             <option value="none">Sin perfil generado</option>
+            <option value="pending_release">Pendientes por liberar</option>
           </select>
         </div>
         <span className="text-sm text-gray-500">
@@ -134,16 +194,49 @@ export default function UsersTable({
         </span>
       </div>
 
+      {/* Barra de accion masiva */}
+      {selected.size > 0 && (
+        <div className="flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2">
+          <span className="text-sm text-emerald-800">
+            {selected.size} seleccionado{selected.size > 1 ? 's' : ''} para liberar
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSelected(new Set())}
+              className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+            >
+              Limpiar
+            </button>
+            <button
+              onClick={() => setConfirmIds(Array.from(selected))}
+              className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+            >
+              Liberar seleccionados
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              <th className="px-4 py-3 text-left">
+                <input
+                  type="checkbox"
+                  checked={allReleasableSelected}
+                  disabled={releasableRows.length === 0}
+                  onChange={toggleAll}
+                  aria-label="Seleccionar todos los liberables"
+                />
+              </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
               <SortableTh label="Colegio" active={sort === 'school'} arrow={sortArrow('school')} onClick={() => toggleSort('school')} />
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Respuestas</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
               <SortableTh label="Output" active={sort === 'output'} arrow={sortArrow('output')} onClick={() => toggleSort('output')} />
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Liberado</th>
               <SortableTh label="Registrado" active={sort === 'created'} arrow={sortArrow('created')} onClick={() => toggleSort('created')} />
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
@@ -151,15 +244,27 @@ export default function UsersTable({
           <tbody className="divide-y divide-gray-200">
             {users.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-6 text-center text-sm text-gray-500">
+                <td colSpan={10} className="px-4 py-6 text-center text-sm text-gray-500">
                   No hay usuarios para mostrar.
                 </td>
               </tr>
             )}
             {users.map((user) => {
               const st = STATUS_LABELS[user.profile_status];
+              const releasable = isReleasable(user);
+              const aid = user.output_assessment_id;
               return (
                 <tr key={user.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    {releasable && aid && (
+                      <input
+                        type="checkbox"
+                        checked={selected.has(aid)}
+                        onChange={() => toggleRow(aid)}
+                        aria-label={`Seleccionar ${user.email}`}
+                      />
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-900">{user.email}</td>
                   <td className="px-4 py-3 text-sm text-gray-900">
                     {[user.first_name, user.last_name].filter(Boolean).join(' ') || '—'}
@@ -168,14 +273,28 @@ export default function UsersTable({
                   <td className="px-4 py-3 text-sm text-gray-900">{user.responses_count} / 13</td>
                   <td className="px-4 py-3 text-sm">
                     <span className={`font-medium ${st.className}`}>{st.label}</span>
-                    {user.has_active_assessment && (
-                      <span className="ml-2 text-xs text-green-600">• activo</span>
-                    )}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
                     {user.output_date
                       ? new Date(user.output_date).toLocaleDateString('es-AR')
                       : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    {!user.output_assessment_id ? (
+                      <span className="text-gray-400">—</span>
+                    ) : user.released ? (
+                      <span className="font-medium text-green-600">Sí ✓</span>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-amber-600">No</span>
+                        <button
+                          onClick={() => setConfirmIds([user.output_assessment_id!])}
+                          className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+                        >
+                          Liberar
+                        </button>
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
                     {new Date(user.created_at).toLocaleDateString('es-AR')}
@@ -211,6 +330,35 @@ export default function UsersTable({
               disabled={page >= totalPages}
               label="Siguiente →"
             />
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmacion de liberacion */}
+      {confirmIds && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900">Liberar resultado{confirmIds.length > 1 ? 's' : ''}</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Vas a liberar {confirmIds.length} resultado{confirmIds.length > 1 ? 's' : ''}. Los
+              usuarios van a poder ver su perfil. Esta acción no se puede deshacer.
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmIds(null)}
+                disabled={releasing}
+                className="rounded-md px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => doRelease(confirmIds)}
+                disabled={releasing}
+                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {releasing ? 'Liberando...' : 'Confirmar liberación'}
+              </button>
+            </div>
           </div>
         </div>
       )}
