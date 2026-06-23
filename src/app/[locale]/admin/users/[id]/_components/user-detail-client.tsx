@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, Fragment } from 'react';
+import { useState, useCallback, useEffect, Fragment } from 'react';
 import { Link } from '@/i18n/routing';
 import PasswordModal from './password-modal';
 import { RationaleView } from './rationale-view';
@@ -128,9 +128,31 @@ export default function UserDetailClient({
           const res = await fetch(`/api/admin/users/${userId}`);
           if (!res.ok) return;
           const data = await res.json();
-          const updated = data.assessments as Assessment[];
+          let updated = data.assessments as Assessment[];
+          let found = updated.find((a) => a.assessment_id === assessmentId);
+
+          // Clave del fix: el GET de arriba solo relee la DB. El estado real lo
+          // tiene Azure. Mientras siga 'processing' y ya tengamos el db id,
+          // disparamos el poll server-side que consulta Azure y persiste el
+          // resultado; luego releemos para reflejar el estado nuevo.
+          if (found?.id && found.status === 'processing') {
+            const pollRes = await fetch(
+              `/api/admin/assessments/${found.id}/poll`,
+              { method: 'POST' }
+            );
+            if (pollRes.ok) {
+              const pollData = await pollRes.json();
+              if (pollData.status && pollData.status !== 'processing') {
+                const res2 = await fetch(`/api/admin/users/${userId}`);
+                if (res2.ok) {
+                  updated = (await res2.json()).assessments as Assessment[];
+                  found = updated.find((a) => a.assessment_id === assessmentId);
+                }
+              }
+            }
+          }
+
           setAssessments(updated);
-          const found = updated.find((a) => a.assessment_id === assessmentId);
           if (
             found &&
             (found.status === 'completed' ||
@@ -148,6 +170,18 @@ export default function UserDetailClient({
     },
     [userId]
   );
+
+  // Al montar: si hay assessments 'processing' (ej: generados antes y que
+  // quedaron sin pollear, o tras un reload), arrancamos el poll a Azure para
+  // traer el resultado. Sin esto, un processing solo se actualizaba mientras
+  // estabas en la pantalla justo despues de generar.
+  useEffect(() => {
+    const processing = initialAssessments.filter((a) => a.status === 'processing');
+    if (processing.length === 0) return;
+    setPollingId(processing[0].assessment_id);
+    processing.forEach((a) => pollAssessment(a.assessment_id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Generate new profile
   async function handleGenerate() {
