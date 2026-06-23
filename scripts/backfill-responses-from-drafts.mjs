@@ -34,6 +34,8 @@ const DRY_RUN = process.env.DRY_RUN !== '0';
 const SECTIONS = (process.env.SECTIONS ?? '2,6').split(',').map((s) => Number(s.trim())).filter(Boolean);
 const EMAILS = (process.env.EMAILS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 const USER_IDS = (process.env.USER_IDS ?? '').split(',').map((s) => Number(s.trim())).filter(Boolean);
+// INSERT_MISSING=1 (default): inserta filas que el wipe borro enteras. =0 las saltea.
+const INSERT_MISSING = process.env.INSERT_MISSING !== '0';
 
 const isEmpty = (r) =>
   r.response_boolean === null &&
@@ -65,6 +67,7 @@ async function main() {
   console.log('Scope usuarios:', userIds ? userIds.join(',') : 'TODOS');
 
   let totalUpdated = 0;
+  let totalInserted = 0;
   let totalSkipped = 0;
 
   for (const sectionId of SECTIONS) {
@@ -90,17 +93,45 @@ async function main() {
         if (!Number.isInteger(idx)) continue;
         if (valEmpty(v)) continue;
         const qn = idx + 1;
+        const cols = valueToColumns(v);
         const row = byQn.get(qn);
         if (!row) {
-          console.log(`  [skip:no-row] user=${d.user_id} sec=${sectionId} qn=${qn}`);
-          totalSkipped++;
+          // Fila inexistente: el wipe borro la fila entera (no solo la vacio).
+          // La insertamos. `question` queda null a proposito: buildAzurePayload
+          // toma el texto del snapshot de la version vigente (currentTextByNumber)
+          // y filtra por question_number, no por hash → el agente lo recibe bien.
+          if (!INSERT_MISSING) {
+            console.log(`  [skip:no-row] user=${d.user_id} sec=${sectionId} qn=${qn}`);
+            totalSkipped++;
+            continue;
+          }
+          if (DRY_RUN) {
+            console.log(`  [would-insert] user=${d.user_id} sec=${sectionId} qn=${qn} <= ${JSON.stringify(cols)}`);
+            totalInserted++;
+          } else {
+            const { error } = await supabase.from('responses').insert({
+              user_id: d.user_id,
+              section_id: sectionId,
+              question_number: qn,
+              question: null,
+              response_boolean: null,
+              response_integer: null,
+              response_text: null,
+              response_array: null,
+              ...cols,
+            });
+            if (error) {
+              console.log(`  [ERROR:insert] user=${d.user_id} sec=${sectionId} qn=${qn}: ${error.message}`);
+            } else {
+              totalInserted++;
+            }
+          }
           continue;
         }
         if (!isEmpty(row)) {
           totalSkipped++; // ya tiene valor, no pisar
           continue;
         }
-        const cols = valueToColumns(v);
         if (DRY_RUN) {
           console.log(`  [would-set] user=${d.user_id} sec=${sectionId} qn=${qn} <= ${JSON.stringify(cols)}`);
           totalUpdated++;
@@ -116,7 +147,7 @@ async function main() {
     }
   }
 
-  console.log(`\n=== ${DRY_RUN ? 'WOULD UPDATE' : 'UPDATED'}: ${totalUpdated} filas | skipped: ${totalSkipped} ===\n`);
+  console.log(`\n=== ${DRY_RUN ? 'WOULD' : 'DONE'}: update=${totalUpdated} insert=${totalInserted} | skipped: ${totalSkipped} ===\n`);
 }
 
 main().catch((e) => {
