@@ -368,13 +368,6 @@ export default function LoginPage() {
         </form>
       )}
 
-      {/* Divider */}
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border" />
-        </div>
-      </div>
-
       {/* Register link */}
       <p className="text-center text-sm text-muted-foreground">
         {t('login.noAccount', { defaultValue: 'No tenes cuenta?' })}{' '}

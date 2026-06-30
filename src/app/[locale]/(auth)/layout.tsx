@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { Compass } from 'lucide-react';
+import { TimonLogo } from '@/components/ui/timon-logo';
 
 export default function AuthLayout({
   children,
@@ -22,8 +22,8 @@ export default function AuthLayout({
         <div className="relative z-10 max-w-md px-12 text-center animate-fade-up">
           {/* Logo / Brand */}
           <div className="mb-8 flex items-center justify-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm">
-              <Compass className="h-8 w-8 text-primary-foreground" />
+            <div className="flex h-20 w-20 items-center justify-center">
+              <TimonLogo className="h-14 w-14 text-primary-foreground" />
             </div>
           </div>
 
@@ -44,8 +44,8 @@ export default function AuthLayout({
       <div className="flex w-full flex-col items-center justify-center bg-background px-6 py-12 lg:w-1/2">
         {/* Mobile logo (shown only on small screens) */}
         <div className="mb-8 flex items-center gap-3 lg:hidden animate-fade-up">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-            <Compass className="h-5 w-5 text-primary" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
+            <TimonLogo className="h-6 w-6 text-primary" />
           </div>
           <span className="font-serif text-2xl font-bold text-foreground">
             Timon

@@ -1,6 +1,5 @@
 'use client';
 
-import { useRef, useState } from 'react';
 import { Link } from '@/i18n/routing';
 import { VocationalJourney } from '@/components/journey/vocational-journey';
 
@@ -11,45 +10,11 @@ interface AdminResultsViewProps {
   userName: string;
 }
 
-export function AdminResultsView({ results, assessmentId, userId, userName }: AdminResultsViewProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [exporting, setExporting] = useState(false);
-
-  async function exportToPdf() {
-    setExporting(true);
-    try {
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import('html2canvas'),
-        import('jspdf'),
-      ]);
-      if (!containerRef.current) return;
-      const canvas = await html2canvas(containerRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-      });
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position = 0;
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
-      }
-      pdf.save(`perfil-${userName.replace(/\s+/g, '_')}-${assessmentId}.pdf`);
-    } finally {
-      setExporting(false);
-    }
-  }
-
+// Nota: el botón "Export PDF" se quitó por ahora. La generación vía html2canvas +
+// jspdf chocaba con los colores CSS Color 4 (oklch/lab) de Tailwind v4 (incl. en
+// pseudo-elementos, que no se pueden normalizar inline). Si se reintroduce, la vía
+// limpia es html2canvas-pro (soporte oklch/lab nativo) o window.print() con print CSS.
+export function AdminResultsView({ results, userId }: AdminResultsViewProps) {
   return (
     <div>
       {/* Top bar */}
@@ -60,19 +25,9 @@ export function AdminResultsView({ results, assessmentId, userId, userName }: Ad
         >
           &larr; Volver al usuario
         </Link>
-        <button
-          onClick={exportToPdf}
-          disabled={exporting}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-        >
-          {exporting ? 'Generando PDF...' : 'Export PDF'}
-        </button>
       </div>
 
-      {/* Results container captured for PDF */}
-      <div ref={containerRef} className="print-container">
-        <VocationalJourney results={results} />
-      </div>
+      <VocationalJourney results={results} />
     </div>
   );
 }

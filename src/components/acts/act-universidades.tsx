@@ -131,7 +131,7 @@ function ChapterFiltros({
   }, [baseList, filters])
 
   return (
-    <section className="px-6 md:px-12 lg:px-16 py-12 lg:py-16">
+    <section className="px-4 sm:px-6 md:px-12 lg:px-16 py-12 lg:py-16">
       <div className="max-w-3xl mx-auto">
         <ChapterHeader
           number="01"
@@ -140,7 +140,7 @@ function ChapterFiltros({
         />
 
         {/* Filters */}
-        <div className="mb-10 p-6 rounded-2xl bg-card border border-border/50">
+        <div className="mb-10 p-5 sm:p-6 rounded-2xl bg-card border border-border/50">
           <h3 className="font-medium text-foreground mb-4">Filtros</h3>
 
           {/* Carrera filter — scopes the list to one career's universities */}
@@ -150,7 +150,7 @@ function ChapterFiltros({
               <select
                 value={filters.career}
                 onChange={(e) => setFilters(f => ({ ...f, career: e.target.value }))}
-                className="w-full px-4 py-2.5 rounded-xl bg-background border border-border/50 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full truncate px-4 py-2.5 rounded-xl bg-background border border-border/50 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="">Todas las carreras</option>
                 {careerOptions.map(opt => (
@@ -333,7 +333,7 @@ function ChapterDetalle({
   const { detail } = university
 
   return (
-    <section className="px-6 md:px-12 lg:px-16 py-12 lg:py-16">
+    <section className="px-4 sm:px-6 md:px-12 lg:px-16 py-12 lg:py-16">
       <div className="max-w-3xl mx-auto">
         {/* Back button */}
         <button
@@ -495,8 +495,8 @@ function ChapterDetalle({
             Inversión
           </h2>
 
-          <div className="p-6 rounded-2xl bg-muted/30 mb-6">
-            <div className="grid sm:grid-cols-3 gap-6">
+          <div className="p-5 sm:p-6 rounded-2xl bg-muted/30 mb-6">
+            <div className="grid sm:grid-cols-3 gap-4 sm:gap-6">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Cuota mensual</p>
                 <p className="text-2xl font-light text-foreground">{detail.costs.monthlyFee ?? "—"}</p>
@@ -537,9 +537,9 @@ function ChapterDetalle({
             <div className="space-y-4">
               {detail.values.distribution.map((item, idx) => (
                 <div key={idx}>
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-foreground font-medium">{item.area}</span>
-                    <span className="text-muted-foreground tabular-nums">{item.percentage}%</span>
+                  <div className="flex items-center justify-between gap-3 text-sm mb-2">
+                    <span className="min-w-0 truncate text-foreground font-medium">{item.area}</span>
+                    <span className="shrink-0 text-muted-foreground tabular-nums">{item.percentage}%</span>
                   </div>
                   <div className="h-3 bg-muted rounded-full overflow-hidden">
                     <div

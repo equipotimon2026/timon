@@ -31,6 +31,13 @@ type Msg = { type: "bot" | "user" | "typing" | "divider"; text: string }
 
 export function MIPSForm({ userId, onComplete, onSave, initialResponses, onResponseChange }: Props) {
   const [answers, setAnswers] = useState<Record<number, string>>(initialResponses?.answers ?? {})
+  // Live mirror of `answers`. showStatement is a stable useCallback created on the
+  // first render, so the handleSave it captures also closes over the render-0
+  // `answers` ({}). Reading answersRef.current inside handleSave avoids that stale
+  // closure — otherwise the canonical save `r` and the "missing" count are computed
+  // from an empty object (every completed chat wrongly reported "92/92 sin responder"
+  // and persisted empty canonical responses).
+  const answersRef = useRef<Record<number, string>>(answers)
   // If reopened with answers already saved, show a review/edit screen instead of replaying the chat.
   const [reviewMode] = useState<boolean>(() => Object.keys(initialResponses?.answers ?? {}).length > 0)
   const [qIdx, setQIdx] = useState(0)
@@ -43,8 +50,11 @@ export function MIPSForm({ userId, onComplete, onSave, initialResponses, onRespo
   const processingRef = useRef(false)
   const icebreakerIdxRef = useRef<number>(0)
   const startedRef = useRef(false)
+  // Icebreaker indices already shown this session — so re-entering showStatement
+  // at the same idx renders the statement instead of re-triggering the icebreaker.
+  const shownIcebreakersRef = useRef<Set<number>>(new Set())
 
-  useEffect(() => { onResponseChange?.({ answers }) }, [answers]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { answersRef.current = answers; onResponseChange?.({ answers }) }, [answers]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const scroll = useCallback(() => { setTimeout(() => { msgRef.current?.scrollTo({ top: msgRef.current.scrollHeight, behavior: "smooth" }) }, 60) }, [])
   const addMsg = useCallback((m: Msg) => { setMsgs((p) => [...p, m]); setTimeout(scroll, 80) }, [scroll])
@@ -53,9 +63,16 @@ export function MIPSForm({ userId, onComplete, onSave, initialResponses, onRespo
 
   const showStatement = useCallback((idx: number) => {
     if (idx >= STATEMENTS.length) { if (!saving) handleSave(); return }
-    // Check icebreaker
+    // Icebreaker: show ONCE before the statement at this idx. Previously this
+    // branch returned and the caller advanced to idx+1, which SKIPPED the
+    // statement at every icebreaker index (20, 45, 65, 80). The user could only
+    // ever answer 88/92, so the chat auto-saved an "incomplete" set and the
+    // module got stuck (the reported "preguntas sin respuesta al volver"). Now
+    // we mark the icebreaker as shown and re-enter showStatement(idx) afterwards
+    // so STATEMENTS[idx] is still rendered and answerable.
     const ib = ICEBREAKERS.find((i) => i.after === idx)
-    if (ib) {
+    if (ib && !shownIcebreakersRef.current.has(idx)) {
+      shownIcebreakersRef.current.add(idx)
       icebreakerIdxRef.current = idx
       addMsg({ type: "typing", text: "" })
       setTimeout(() => {
@@ -136,16 +153,19 @@ export function MIPSForm({ userId, onComplete, onSave, initialResponses, onRespo
     setInputMode("none")
     // Show custom icebreaker ack then advance past the icebreaker idx
     const ib = ICEBREAKERS.find((i) => i.after === icebreakerIdxRef.current)
-    const nextIdx = icebreakerIdxRef.current + 1
+    // Resume at the SAME idx: the icebreaker no longer consumes a statement slot,
+    // so showStatement(idx) now renders STATEMENTS[idx] (the icebreaker is marked
+    // shown and won't re-trigger).
+    const resumeIdx = icebreakerIdxRef.current
     if (ib?.ack) {
       addMsg({ type: "typing", text: "" })
       setTimeout(() => {
         setMsgs((p) => p.filter((m) => m.type !== "typing"))
         addMsg({ type: "bot", text: ib.ack })
-        setTimeout(() => showStatement(nextIdx), 400)
+        setTimeout(() => showStatement(resumeIdx), 400)
       }, 500)
     } else {
-      setTimeout(() => showStatement(nextIdx), 400)
+      setTimeout(() => showStatement(resumeIdx), 400)
     }
   }
 
@@ -153,11 +173,23 @@ export function MIPSForm({ userId, onComplete, onSave, initialResponses, onRespo
     setSaving(true)
     setSaveError(null)
     try {
-      const r = STATEMENTS.map((s, i) => ({ questionNumber: i + 1, question: s, responseText: answers[i] ?? "" }))
+      // Read live answers via ref (showStatement is a stable callback; see answersRef note).
+      const live = answersRef.current
+      const r = STATEMENTS.map((s, i) => ({ questionNumber: i + 1, question: s, responseText: live[i] ?? "" }))
       await onSave(0, r, { section: "mips" })
       setInputMode("end")
-      addMsg({ type: "bot", text: "¡Terminamos la primera parte! Tus respuestas quedaron guardadas. 🎉" })
-      setTimeout(() => onComplete(), 1500)
+      // Partial saves are allowed: persist what's answered and just inform how
+      // many are still missing (non-blocking). Empty answers aren't persisted, so
+      // the user can return and complete them later from the review screen.
+      const missing = STATEMENTS.length - Object.keys(live).length
+      addMsg({
+        type: "bot",
+        text:
+          missing > 0
+            ? `Guardé tu progreso. Te ${missing === 1 ? "queda" : "quedan"} ${missing} de ${STATEMENTS.length} sin responder; podés completarlas cuando quieras.`
+            : "¡Terminamos la primera parte! Tus respuestas quedaron guardadas. 🎉",
+      })
+      setTimeout(() => onComplete(), missing > 0 ? 2200 : 1500)
     } catch (e) {
       console.error(e)
       setSaveError("No pudimos guardar tus respuestas. Reintentá en unos segundos.")
@@ -184,7 +216,7 @@ export function MIPSForm({ userId, onComplete, onSave, initialResponses, onRespo
           <div className="w-[38px] h-[38px] rounded-full flex items-center justify-center text-base shrink-0" style={{ background: "#2D2D2D", color: "white" }}>✦</div>
           <div className="flex-1">
             <h1 className="text-[15px] font-semibold" style={{ color: "#2D2D2D" }}>Chatiemos · Parte 1</h1>
-            <p className="text-xs mt-0.5" style={{ color: "#9A9590" }}>Revisá y editá tus respuestas</p>
+            <p className="text-xs mt-0.5" style={{ color: "#9A9590" }}>{Object.keys(answers).length} / {STATEMENTS.length} respondidas · revisá y editá</p>
           </div>
         </div>
 

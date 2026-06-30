@@ -21,8 +21,10 @@ export function MobileNav({ currentAct, onNavigate, progress }: MobileNavProps) 
 
   return (
     <>
-      {/* Top Progress Bar */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border/50">
+      {/* Top Progress Bar — debajo del UserHeader (sticky top-0 z-50, ~64px) para
+          no tapar el toggle Tests/Resultados en mobile. z-40 < 50: si hay solape
+          en el borde, gana el UserHeader. */}
+      <div className="lg:hidden fixed top-16 left-0 right-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border/50">
         <div className="h-1 bg-muted">
           <div
             className="h-full bg-primary transition-all duration-500 ease-out"

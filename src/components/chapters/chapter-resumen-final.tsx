@@ -122,10 +122,10 @@ export function ChapterResumenFinal({ data, onNext }: ChapterResumenFinalProps) 
         />
 
         {/* Constellation Map */}
-        <div className="relative flex justify-center my-12">
+        <div className="relative flex justify-center my-12 overflow-hidden">
           <svg
-            viewBox="0 0 340 340"
-            className="w-full max-w-[340px] h-auto"
+            viewBox="-16 -16 372 372"
+            className="w-full max-w-full sm:max-w-[340px] h-auto"
           >
             {/* Orbit Rings */}
             <g className={cn(

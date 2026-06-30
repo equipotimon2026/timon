@@ -54,3 +54,9 @@ next-env.d.ts
 
 # supabase CLI cache
 supabase/.temp/
+
+# Demos POC generadas por Claude (no parte del producto)
+demo/
+
+# Ejemplos/insumos pasados por el cliente (no parte del repo)
+.espejo-ejemplo.html

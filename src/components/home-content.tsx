@@ -286,7 +286,8 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
 
   const allSectionsCurrent = sectionsStatus.length > 0 && sectionsStatus.every((s) => s.status === 'completed_current');
   const assessmentIsOutdated = latestAssessment?.is_outdated === true;
-  const showBanner = activeStep === 1 && (assessmentOutdated || (hasResults && assessmentIsOutdated));
+  // ocultado: un solo run por ahora — no mostrar el banner de formularios actualizados
+  const showBanner = false && activeStep === 1 && (assessmentOutdated || (hasResults && assessmentIsOutdated));
   const canRegenerate = allSectionsCurrent;
 
   async function handleConfirmRegenerate() {

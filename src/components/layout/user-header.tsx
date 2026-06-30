@@ -23,12 +23,12 @@ export function UserHeader({ userName = "Usuario" }: UserHeaderProps) {
   const { steps, onStepClick } = useWizardStore();
 
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-border bg-background px-6 py-4">
+    <div className="sticky top-0 z-50 flex items-center justify-between gap-2 border-b border-border bg-background px-4 py-3 sm:gap-4 sm:px-6 sm:py-4">
       <h1 className="hidden shrink-0 text-2xl font-semibold text-foreground sm:block">{userName}</h1>
 
       {steps && (
         <div className="flex min-w-0 flex-1 justify-center">
-          <div className="flex items-center gap-1 rounded-full border border-border bg-muted/40 p-1">
+          <div className="flex w-full items-center gap-1 rounded-full border border-border bg-muted/40 p-1 sm:w-auto">
             {steps.map((step, i) => {
               const isActive = step.status === "active"
               const isLocked = step.status === "locked" && !step.loading
@@ -39,7 +39,7 @@ export function UserHeader({ userName = "Usuario" }: UserHeaderProps) {
                   disabled={isLocked}
                   onClick={() => !isLocked && onStepClick?.(i)}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-all",
+                    "flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium transition-all sm:flex-none sm:px-4 sm:py-1.5",
                     isActive
                       ? "bg-primary text-primary-foreground shadow-sm"
                       : isLocked
@@ -66,7 +66,7 @@ export function UserHeader({ userName = "Usuario" }: UserHeaderProps) {
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full">
+          <Button variant="ghost" size="icon" className="relative h-10 w-10 shrink-0 rounded-full">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
               <User className="h-5 w-5" />
             </div>

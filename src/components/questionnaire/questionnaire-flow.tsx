@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import { WelcomeScreen } from "./welcome-screen"
 import { PersonalDataForm, type PersonalData } from "./personal-data-form"
 import { CareerStatus } from "./career-status"
 import { CareerChangeQuestions, type CareerChangeData } from "./career-change-questions"
@@ -20,14 +19,13 @@ interface QuestionnaireFlowProps {
   onSavePersonalData?: (data: PersonalData) => Promise<void>
 }
 
-type Step = "welcome" | "personalData" | "careerStatus" | "careerChangeQuestions" | "initial" | "careerInput" | "validation" | "restart"
+type Step = "personalData" | "careerStatus" | "careerChangeQuestions" | "initial" | "careerInput" | "validation" | "restart"
 
-const STEP_ORDER: Step[] = ["welcome", "personalData", "careerStatus", "initial"]
+const STEP_ORDER: Step[] = ["personalData", "careerStatus", "initial"]
 const TOTAL_ONBOARDING_STEPS = 3 // personalData, careerStatus, initial/careerInput
 
 function getStepIndex(step: Step): number {
   const map: Record<Step, number> = {
-    welcome: 0,
     personalData: 1,
     careerStatus: 2,
     careerChangeQuestions: 2,
@@ -40,7 +38,7 @@ function getStepIndex(step: Step): number {
 }
 
 export function QuestionnaireFlow({ userId, onComplete, onSavePersonalData }: QuestionnaireFlowProps) {
-  const [step, setStep] = useState<Step>("welcome")
+  const [step, setStep] = useState<Step>("personalData")
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [personalData, setPersonalData] = useState<PersonalData | null>(null)
   const [careerStatus, setCareerStatus] = useState<"first" | "change" | null>(null)
@@ -127,18 +125,10 @@ export function QuestionnaireFlow({ userId, onComplete, onSavePersonalData }: Qu
 
   // Progress indicator for onboarding steps
   const currentStepIdx = getStepIndex(step)
-  const showProgress = step !== "welcome" && step !== "restart" && step !== "validation"
+  const showProgress = step !== "restart" && step !== "validation"
   const totalSteps = TOTAL_ONBOARDING_STEPS
 
   const wrapperClass = `transition-all duration-200 ${isTransitioning ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"}`
-
-  if (step === "welcome") {
-    return (
-      <div className={wrapperClass}>
-        <WelcomeScreen onContinue={() => transitionTo("personalData")} />
-      </div>
-    )
-  }
 
   // Progress bar component for onboarding steps
   const ProgressBar = showProgress ? (

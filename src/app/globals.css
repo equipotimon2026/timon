@@ -5,11 +5,12 @@
 
 /* === BRAND CONFIGURATION === */
 /* Change these values to rebrand the entire app */
+/* Timon landing palette: primary blue ~#2563EB, ink navy #0F1F36, warm cream bg */
 :root {
-  --brand-hue: 240;
-  --brand-saturation: 0.15;
-  --brand-accent-hue: 200;
-  --brand-accent-saturation: 0.12;
+  --brand-hue: 264;            /* Timon primary blue (#2563EB family) */
+  --brand-saturation: 0.18;    /* chroma for the blue primary */
+  --brand-accent-hue: 255;     /* accent: slightly cooler blue */
+  --brand-accent-saturation: 0.14;
   --brand-font-sans: "DM Sans";
   --brand-font-serif: "Crimson Pro";
   --brand-radius: 1rem;
@@ -17,8 +18,10 @@
 
 /* === LIGHT THEME === */
 :root {
-  --background: oklch(0.99 0.005 var(--brand-hue));
-  --foreground: oklch(0.25 0.01 var(--brand-hue));
+  /* Warm cream background from the Timon landing (NOT pure white), warm hue ~85 */
+  --background: oklch(0.985 0.008 85);
+  /* Ink navy text (#0F1F36) for high contrast on the cream background */
+  --foreground: oklch(0.22 0.035 264);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.3 0.01 var(--brand-hue));
   --popover: oklch(1 0 0);

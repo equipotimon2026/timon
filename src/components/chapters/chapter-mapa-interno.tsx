@@ -116,6 +116,20 @@ export function ChapterMapaInterno({ data, onNext }: ChapterMapaInternoProps) {
     return () => observer.disconnect()
   }, [])
 
+  // Navegación entre sub-tabs: el CTA avanza al siguiente sub-tab y solo
+  // pasa al siguiente módulo (onNext) cuando estamos en el último.
+  const activeIndex = tabs.findIndex((tab) => tab.id === activeTab)
+  const nextTab = tabs[activeIndex + 1]
+  const isLastTab = activeIndex === tabs.length - 1
+
+  const handleAdvance = () => {
+    if (!isLastTab && nextTab) {
+      setActiveTab(nextTab.id)
+    } else {
+      onNext()
+    }
+  }
+
   return (
     <section className="px-6 md:px-12 lg:px-16 py-12 lg:py-16">
       <div className="max-w-2xl mx-auto">
@@ -172,16 +186,36 @@ export function ChapterMapaInterno({ data, onNext }: ChapterMapaInternoProps) {
 
         <StickyCTA
           label="Continuar"
-          onClick={onNext}
-          hint="Siguiente: Tu energía"
+          onClick={handleAdvance}
+          hint={isLastTab ? "Siguiente: Tu energía" : `Siguiente: ${nextTab.label}`}
         />
       </div>
     </section>
   )
 }
 
+// Estado parcial compartido: cuando un módulo psicométrico llega incompleto o
+// malformado (ej. el agente devuelve psychometrics con un sub-objeto vacío, que
+// no dispara el fallback `|| demo`), mostramos esto en vez de crashear el tab.
+function PartialResults({ text }: { text: string }) {
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="p-8 rounded-2xl bg-muted/40 border border-border/50 text-center">
+        <p className="text-lg font-serif text-foreground mb-2">Resultados parciales</p>
+        <p className="text-sm text-muted-foreground leading-relaxed">{text}</p>
+      </div>
+    </div>
+  )
+}
+
 // RIASEC Tab
 function RiasecTab({ data, isVisible }: { data: MapaInternoData["riasec"]; isVisible: boolean }) {
+  // Render defensivo: el tab RIASEC es el default, así que un dato parcial
+  // crashearía toda la pantalla antes de que el usuario llegue a otro tab.
+  if (!data?.primary?.code) {
+    return <PartialResults text="Completá los cuestionarios para ver tu perfil de intereses completo." />
+  }
+  const secondary = Array.isArray(data.secondary) ? data.secondary : []
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Primary Code Hero */}
@@ -209,7 +243,7 @@ function RiasecTab({ data, isVisible }: { data: MapaInternoData["riasec"]; isVis
 
       {/* Secondary Codes */}
       <div className="space-y-3">
-        {data.secondary.map((item, idx) => {
+        {secondary.map((item, idx) => {
           const animatedValue = useAnimatedValue(item.score, isVisible, idx * 100)
           return (
             <div key={item.code} className="flex items-center gap-4">
@@ -246,6 +280,10 @@ function RiasecTab({ data, isVisible }: { data: MapaInternoData["riasec"]; isVis
 
 // Inteligencias Tab
 function InteligenciasTab({ data, isVisible }: { data: MapaInternoData["inteligencias"]; isVisible: boolean }) {
+  // Render defensivo: si `data` no es un array poblado, no intentes .slice().
+  if (!Array.isArray(data) || data.length === 0) {
+    return <PartialResults text="Completá los cuestionarios para ver tu perfil de inteligencias completo." />
+  }
   const top3 = data.slice(0, 3)
   const rest = data.slice(3)
 
@@ -332,6 +370,10 @@ function InteligenciasTab({ data, isVisible }: { data: MapaInternoData["intelige
 
 // Dominancia Tab
 function DominanciaTab({ data, isVisible }: { data: MapaInternoData["dominancia"]; isVisible: boolean }) {
+  // Render defensivo: .reduce sin valor inicial revienta con quadrants vacío.
+  if (!data?.quadrants?.length) {
+    return <PartialResults text="Completá los cuestionarios para ver tu perfil de dominancia completo." />
+  }
   const dominant = data.quadrants.reduce((a, b) => a.score > b.score ? a : b)
 
   return (
@@ -403,37 +445,60 @@ function getOppositePole(name: string, pole: string): string {
 
 // MIPS Tab
 function MipsTab({ data, isVisible }: { data: MapaInternoData["mips"]; isVisible: boolean }) {
+  const traits = data?.traits ?? []
+  const pattern = data?.pattern
+
+  // Render defensivo: si el cuestionario MIPS quedó incompleto (sin datos o
+  // sin rasgos), mostramos un estado parcial en vez de crashear.
+  if (!data || traits.length === 0) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="p-8 rounded-2xl bg-muted/40 border border-border/50 text-center">
+          <p className="text-lg font-serif text-foreground mb-2">Resultados parciales</p>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Completá el cuestionario de personalidad para ver tu perfil completo.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Pattern Card */}
-      <div className="p-8 rounded-2xl bg-gradient-to-br from-primary/5 via-secondary/10 to-accent/5 border border-primary/10 text-center">
-        <p className="text-2xl md:text-3xl font-serif text-foreground leading-relaxed text-balance">
-          {data.pattern}
-        </p>
-      </div>
+      {pattern && (
+        <div className="p-8 rounded-2xl bg-gradient-to-br from-primary/5 via-secondary/10 to-accent/5 border border-primary/10 text-center">
+          <p className="text-2xl md:text-3xl font-serif text-foreground leading-relaxed text-balance">
+            {pattern}
+          </p>
+        </div>
+      )}
 
       {/* Traits */}
       <div className="space-y-4">
-        {data.traits.map((trait, idx) => {
-          const animatedValue = useAnimatedValue(trait.score, isVisible, idx * 100)
-          const opposite = getOppositePole(trait.name, trait.pole)
-          const label = inclinationLabel(trait.score)
+        {traits.map((trait, idx) => {
+          const score = typeof trait?.score === "number" ? trait.score : 0
+          const name = trait?.name ?? ""
+          const pole = trait?.pole ?? ""
+          const animatedValue = useAnimatedValue(score, isVisible, idx * 100)
+          const opposite = getOppositePole(name, pole)
+          const label = inclinationLabel(score)
           return (
             <div
-              key={trait.name}
+              key={name || idx}
               className="p-4 rounded-xl bg-card border border-border/50"
               style={{ animationDelay: `${idx * 100}ms` }}
             >
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm text-muted-foreground">{trait.name}</span>
+                <span className="text-sm text-muted-foreground">{name}</span>
                 <span className="px-2.5 py-0.5 bg-primary/10 text-primary text-xs font-medium rounded-full">
-                  {label} hacia {trait.pole}
+                  {label}{pole ? ` hacia ${pole}` : ""}
                 </span>
               </div>
               <div className="mb-2">
                 <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                  <span className={trait.score >= 50 ? "font-medium text-foreground" : ""}>{trait.pole}</span>
-                  {opposite && <span className={trait.score < 50 ? "font-medium text-foreground" : ""}>{opposite}</span>}
+                  <span className={score >= 50 ? "font-medium text-foreground" : ""}>{pole}</span>
+                  {opposite && <span className={score < 50 ? "font-medium text-foreground" : ""}>{opposite}</span>}
                 </div>
                 <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                   <div
@@ -442,7 +507,7 @@ function MipsTab({ data, isVisible }: { data: MapaInternoData["mips"]; isVisible
                   />
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">{trait.description}</p>
+              <p className="text-xs text-muted-foreground">{trait?.description}</p>
             </div>
           )
         })}
