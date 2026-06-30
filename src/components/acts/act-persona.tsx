@@ -23,6 +23,7 @@ interface ActPersonaProps {
   onNavigateToCarreras: () => void
   mapaInternoData?: MapaInternoData
   resumenData?: ResumenFinalData
+  printMode?: boolean
 }
 
 export function ActPersona({
@@ -32,7 +33,10 @@ export function ActPersona({
   onNavigateToCarreras,
   mapaInternoData,
   resumenData,
+  printMode,
 }: ActPersonaProps) {
+
+  const noop = () => {}
 
   const renderChapter = () => {
     switch (currentChapter) {
@@ -59,6 +63,40 @@ export function ActPersona({
     }
   }
 
+  if (printMode) {
+    return (
+      <div className="min-h-screen">
+        <div>
+          <ChapterIntro profile={profile} onNext={noop} printMode />
+        </div>
+        <div>
+          <ChapterComo profile={profile} onNext={noop} printMode />
+        </div>
+        <div>
+          <ChapterMente profile={profile} onNext={noop} printMode />
+        </div>
+        <div>
+          <ChapterMapaInterno data={mapaInternoData || demoMapaInterno} onNext={noop} printMode />
+        </div>
+        <div>
+          <ChapterEnergia profile={profile} onNext={noop} printMode />
+        </div>
+        <div>
+          <ChapterIntereses profile={profile} onNext={noop} printMode />
+        </div>
+        <div>
+          <ChapterNoAtrae profile={profile} onNext={noop} printMode />
+        </div>
+        <div>
+          <ChapterVida profile={profile} onNext={noop} printMode />
+        </div>
+        <div>
+          <ChapterResumenFinal data={resumenData || demoResumenFinal} onNext={noop} printMode />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen">
       {renderChapter()}
@@ -67,7 +105,7 @@ export function ActPersona({
 }
 
 // Chapter: Intro / Welcome
-function ChapterIntro({ profile, onNext }: { profile: Profile; onNext: () => void }) {
+function ChapterIntro({ profile, onNext, printMode }: { profile: Profile; onNext: () => void; printMode?: boolean }) {
   return (
     <section className="min-h-screen flex flex-col justify-center px-6 md:px-12 lg:px-16 py-12">
       <div className="max-w-2xl mx-auto w-full">
@@ -89,18 +127,20 @@ function ChapterIntro({ profile, onNext }: { profile: Profile; onNext: () => voi
           {profile.opening.purposeStatement}
         </TransitionBlock>
 
-        <div className="mt-12 animate-fade-in" style={{ animationDelay: '0.5s' }}>
-          <CTAButton onClick={onNext} size="large">
-            Comenzar el recorrido
-          </CTAButton>
-        </div>
+        {!printMode && (
+          <div className="mt-12 animate-fade-in" style={{ animationDelay: '0.5s' }}>
+            <CTAButton onClick={onNext} size="large">
+              Comenzar el recorrido
+            </CTAButton>
+          </div>
+        )}
       </div>
     </section>
   )
 }
 
 // Chapter: How we built this
-function ChapterComo({ profile, onNext }: { profile: Profile; onNext: () => void }) {
+function ChapterComo({ profile, onNext, printMode }: { profile: Profile; onNext: () => void; printMode?: boolean }) {
   return (
     <section className="px-6 md:px-12 lg:px-16 py-12 lg:py-16">
       <div className="max-w-2xl mx-auto">
@@ -144,6 +184,7 @@ function ChapterComo({ profile, onNext }: { profile: Profile; onNext: () => void
           label="Continuar"
           onClick={onNext}
           hint="Siguiente: Tu forma de pensar"
+          printMode={printMode}
         />
       </div>
     </section>
@@ -151,7 +192,7 @@ function ChapterComo({ profile, onNext }: { profile: Profile; onNext: () => void
 }
 
 // Chapter: Mental Architecture
-function ChapterMente({ profile, onNext }: { profile: Profile; onNext: () => void }) {
+function ChapterMente({ profile, onNext, printMode }: { profile: Profile; onNext: () => void; printMode?: boolean }) {
   const traits = profile.whatWeSee.mentalArchitecture.traits
   return (
     <section className="px-6 md:px-12 lg:px-16 py-12 lg:py-16">
@@ -201,6 +242,7 @@ function ChapterMente({ profile, onNext }: { profile: Profile; onNext: () => voi
           label="Continuar"
           onClick={onNext}
           hint="Siguiente: Tu energía"
+          printMode={printMode}
         />
       </div>
     </section>
@@ -208,7 +250,7 @@ function ChapterMente({ profile, onNext }: { profile: Profile; onNext: () => voi
 }
 
 // Chapter: Energy Profile
-function ChapterEnergia({ profile, onNext }: { profile: Profile; onNext: () => void }) {
+function ChapterEnergia({ profile, onNext, printMode }: { profile: Profile; onNext: () => void; printMode?: boolean }) {
   return (
     <section className="px-6 md:px-12 lg:px-16 py-12 lg:py-16">
       <div className="max-w-2xl mx-auto">
@@ -261,6 +303,7 @@ function ChapterEnergia({ profile, onNext }: { profile: Profile; onNext: () => v
           label="Continuar"
           onClick={onNext}
           hint="Siguiente: Lo que te atrae"
+          printMode={printMode}
         />
       </div>
     </section>
@@ -268,7 +311,7 @@ function ChapterEnergia({ profile, onNext }: { profile: Profile; onNext: () => v
 }
 
 // Chapter: Interests
-function ChapterIntereses({ profile, onNext }: { profile: Profile; onNext: () => void }) {
+function ChapterIntereses({ profile, onNext, printMode }: { profile: Profile; onNext: () => void; printMode?: boolean }) {
   return (
     <section className="px-6 md:px-12 lg:px-16 py-12 lg:py-16">
       <div className="max-w-2xl mx-auto">
@@ -309,6 +352,7 @@ function ChapterIntereses({ profile, onNext }: { profile: Profile; onNext: () =>
           label="Continuar"
           onClick={onNext}
           hint="Siguiente: Tipo de vida"
+          printMode={printMode}
         />
       </div>
     </section>
@@ -316,7 +360,7 @@ function ChapterIntereses({ profile, onNext }: { profile: Profile; onNext: () =>
 }
 
 // Chapter: Not Attracted
-function ChapterNoAtrae({ profile, onNext }: { profile: Profile; onNext: () => void }) {
+function ChapterNoAtrae({ profile, onNext, printMode }: { profile: Profile; onNext: () => void; printMode?: boolean }) {
   return (
     <section className="px-6 md:px-12 lg:px-16 py-12 lg:py-16">
       <div className="max-w-2xl mx-auto">
@@ -363,6 +407,7 @@ function ChapterNoAtrae({ profile, onNext }: { profile: Profile; onNext: () => v
           label="Continuar"
           onClick={onNext}
           hint="Siguiente: Tu tipo de vida ideal"
+          printMode={printMode}
         />
       </div>
     </section>
@@ -370,7 +415,7 @@ function ChapterNoAtrae({ profile, onNext }: { profile: Profile; onNext: () => v
 }
 
 // Chapter: Lifestyle
-function ChapterVida({ profile, onNext }: { profile: Profile; onNext: () => void }) {
+function ChapterVida({ profile, onNext, printMode }: { profile: Profile; onNext: () => void; printMode?: boolean }) {
   return (
     <section className="px-6 md:px-12 lg:px-16 py-12 lg:py-16">
       <div className="max-w-2xl mx-auto">
@@ -419,6 +464,7 @@ function ChapterVida({ profile, onNext }: { profile: Profile; onNext: () => void
           label="Continuar"
           onClick={onNext}
           hint="Siguiente: Tu resumen"
+          printMode={printMode}
         />
       </div>
     </section>

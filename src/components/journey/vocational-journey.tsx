@@ -45,6 +45,7 @@ interface AgentResults {
 
 interface VocationalJourneyProps {
   results?: AgentResults
+  printMode?: boolean
 }
 
 // Define all chapters
@@ -69,7 +70,7 @@ const allChapters: Chapter[] = [
   { id: "unis-detalle", title: "Ver universidad", act: "universidades" },
 ]
 
-export function VocationalJourney({ results }: VocationalJourneyProps) {
+export function VocationalJourney({ results, printMode }: VocationalJourneyProps) {
   const [currentAct, setCurrentAct] = useState<Act>("persona")
   const [currentChapter, setCurrentChapter] = useState("persona-intro")
   const [completedChapters, setCompletedChapters] = useState<string[]>([])
@@ -213,6 +214,52 @@ export function VocationalJourney({ results }: VocationalJourneyProps) {
       setCurrentChapter("unis-filtros")
     }
   }, [currentAct])
+
+  // Print mode: render all three acts linearly, no nav, no interaction.
+  // Acts in printMode ignore navigation props and expand all their content.
+  if (printMode) {
+    return (
+      <div className="bg-background">
+        <main className="flex-1">
+          <ActPersona
+            printMode
+            profile={mergedProfile}
+            currentChapter="persona-intro"
+            onNextChapter={() => {}}
+            onNavigateToCarreras={() => {}}
+            mapaInternoData={mergedMapaInterno}
+            resumenData={mergedResumen}
+          />
+
+          <div className="h-px bg-border my-8" aria-hidden="true" />
+
+          <ActCarreras
+            printMode
+            careers={mergedCareers}
+            currentChapter="carreras-lista"
+            selectedCareer={selectedCareer}
+            onSelectCareer={() => {}}
+            onBack={() => {}}
+            onNavigateToUniversidades={() => {}}
+          />
+
+          <div className="h-px bg-border my-8" aria-hidden="true" />
+
+          <ActUniversidades
+            printMode
+            universities={mergedUniversities}
+            universitiesByGroup={universitiesByGroup}
+            careers={mergedCareers}
+            defaultCareerGroup={selectedCareer?.programSearchGroup ?? null}
+            currentChapter="unis-filtros"
+            selectedUniversity={selectedUniversity}
+            onSelectUniversity={() => {}}
+            onBack={() => {}}
+          />
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen bg-background">

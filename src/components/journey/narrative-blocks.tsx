@@ -218,9 +218,11 @@ interface StickyCTAProps {
   label: string
   onClick: () => void
   hint?: string
+  printMode?: boolean
 }
 
-export function StickyCTA({ label, onClick, hint }: StickyCTAProps) {
+export function StickyCTA({ label, onClick, hint, printMode }: StickyCTAProps) {
+  if (printMode) return null
   return (
     <div className="fixed bottom-20 lg:bottom-8 left-0 right-0 z-40 px-4 lg:px-8 pointer-events-none">
       <div className="max-w-3xl mx-auto">

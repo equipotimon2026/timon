@@ -11,6 +11,7 @@ interface ClampTextProps {
   buttonClassName?: string
   moreLabel?: string
   lessLabel?: string
+  printMode?: boolean
 }
 
 /**
@@ -25,6 +26,7 @@ export function ClampText({
   buttonClassName,
   moreLabel = "Mostrar más",
   lessLabel = "Mostrar menos",
+  printMode = false,
 }: ClampTextProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [expanded, setExpanded] = useState(false)
@@ -40,6 +42,10 @@ export function ClampText({
     ro.observe(el)
     return () => ro.disconnect()
   }, [children, expanded])
+
+  if (printMode) {
+    return <div className={className}>{children}</div>
+  }
 
   return (
     <div>

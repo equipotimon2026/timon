@@ -41,6 +41,7 @@ export interface MapaInternoData {
 interface ChapterMapaInternoProps {
   data: MapaInternoData
   onNext: () => void
+  printMode?: boolean
 }
 
 // RIASEC color mapping
@@ -94,7 +95,7 @@ const tabs = [
   { id: "mips", label: "Personalidad" },
 ]
 
-export function ChapterMapaInterno({ data, onNext }: ChapterMapaInternoProps) {
+export function ChapterMapaInterno({ data, onNext, printMode }: ChapterMapaInternoProps) {
   const [activeTab, setActiveTab] = useState("riasec")
   const [isVisible, setIsVisible] = useState(false)
   const sectionRef = useRef<HTMLDivElement>(null)
@@ -145,50 +146,85 @@ export function ChapterMapaInterno({ data, onNext }: ChapterMapaInternoProps) {
           </p>
         </ProseBlock>
 
-        {/* Tab Selector */}
-        <div className="flex flex-wrap gap-2 p-1 bg-muted/50 rounded-xl mb-8">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "flex-1 min-w-[80px] px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
-                activeTab === tab.id
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {printMode ? (
+          /* Print mode: los 4 paneles apilados linealmente, sin tab-bar.
+             Cada panel precedido por un subtítulo con el label del tab. */
+          <div className="space-y-12">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-4">
+                {tabs[0].label}
+              </p>
+              <RiasecTab data={data.riasec} isVisible={true} />
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-4">
+                {tabs[1].label}
+              </p>
+              <InteligenciasTab data={data.inteligencias} isVisible={true} />
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-4">
+                {tabs[2].label}
+              </p>
+              <DominanciaTab data={data.dominancia} isVisible={true} />
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-4">
+                {tabs[3].label}
+              </p>
+              <MipsTab data={data.mips} isVisible={true} />
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Tab Selector */}
+            <div className="flex flex-wrap gap-2 p-1 bg-muted/50 rounded-xl mb-8">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    "flex-1 min-w-[80px] px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                    activeTab === tab.id
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-        {/* Tab Content */}
-        <div ref={sectionRef} className="min-h-[400px]">
-          {activeTab === "riasec" && (
-            <RiasecTab data={data.riasec} isVisible={isVisible} />
-          )}
-          {activeTab === "inteligencias" && (
-            <InteligenciasTab data={data.inteligencias} isVisible={isVisible} />
-          )}
-          {activeTab === "dominancia" && (
-            <DominanciaTab data={data.dominancia} isVisible={isVisible} />
-          )}
-          {activeTab === "mips" && (
-            <MipsTab data={data.mips} isVisible={isVisible} />
-          )}
-        </div>
+            {/* Tab Content */}
+            <div ref={sectionRef} className="min-h-[400px]">
+              {activeTab === "riasec" && (
+                <RiasecTab data={data.riasec} isVisible={isVisible} />
+              )}
+              {activeTab === "inteligencias" && (
+                <InteligenciasTab data={data.inteligencias} isVisible={isVisible} />
+              )}
+              {activeTab === "dominancia" && (
+                <DominanciaTab data={data.dominancia} isVisible={isVisible} />
+              )}
+              {activeTab === "mips" && (
+                <MipsTab data={data.mips} isVisible={isVisible} />
+              )}
+            </div>
+          </>
+        )}
 
         <InsightCard
           quote="Estos resultados no te definen. Son una fotografía de tendencias, no un diagnóstico. Úsalos como brújula, no como destino."
           variant="default"
         />
 
-        <StickyCTA
-          label="Continuar"
-          onClick={handleAdvance}
-          hint={isLastTab ? "Siguiente: Tu energía" : `Siguiente: ${nextTab.label}`}
-        />
+        {!printMode && (
+          <StickyCTA
+            label="Continuar"
+            onClick={handleAdvance}
+            hint={isLastTab ? "Siguiente: Tu energía" : `Siguiente: ${nextTab.label}`}
+          />
+        )}
       </div>
     </section>
   )

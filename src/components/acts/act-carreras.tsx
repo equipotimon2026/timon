@@ -70,6 +70,7 @@ interface ActCarrerasProps {
   onSelectCareer: (career: Career) => void
   onBack: () => void
   onNavigateToUniversidades: () => void
+  printMode?: boolean
 }
 
 export function ActCarreras({
@@ -78,8 +79,33 @@ export function ActCarreras({
   selectedCareer,
   onSelectCareer,
   onBack,
-  onNavigateToUniversidades
+  onNavigateToUniversidades,
+  printMode = false,
 }: ActCarrerasProps) {
+
+  // Print mode (PDF export): render the full list AND the complete detail of
+  // EVERY career expanded linearly — no navigation, no interaction.
+  if (printMode) {
+    return (
+      <div className="min-h-screen">
+        <ChapterLista
+          careers={careers}
+          onSelectCareer={onSelectCareer}
+          onNavigateToUniversidades={onNavigateToUniversidades}
+          printMode
+        />
+        {careers.map((career) => (
+          <ChapterDetalle
+            key={career.id}
+            career={career}
+            onBack={onBack}
+            onNavigateToUniversidades={onNavigateToUniversidades}
+            printMode
+          />
+        ))}
+      </div>
+    )
+  }
 
   const renderChapter = () => {
     switch (currentChapter) {
@@ -120,11 +146,13 @@ export function ActCarreras({
 function ChapterLista({
   careers,
   onSelectCareer,
-  onNavigateToUniversidades
+  onNavigateToUniversidades,
+  printMode = false,
 }: {
   careers: Career[]
   onSelectCareer: (career: Career) => void
   onNavigateToUniversidades: () => void
+  printMode?: boolean
 }) {
   return (
     <section className="px-6 md:px-12 lg:px-16 py-12 lg:py-16">
@@ -142,7 +170,7 @@ function ChapterLista({
         </ProseBlock>
 
         {/* Career Cards */}
-        <div className="space-y-6 my-10 stagger-children">
+        <div className={cn("space-y-6 my-10", !printMode && "stagger-children")}>
           {careers.map((career, idx) => (
             <CareerCard
               key={career.id}
@@ -157,14 +185,16 @@ function ChapterLista({
           Explorá cada carrera para entender no solo qué estudiás, sino cómo sería vivir ese camino.
         </TransitionBlock>
 
-        <div className="mt-12 p-6 rounded-2xl bg-secondary/30 border border-secondary">
-          <p className="text-foreground mb-4">
-            Cuando tengas una idea más clara de qué camino te interesa, podemos ver dónde podrías construirlo.
-          </p>
-          <CTAButton onClick={onNavigateToUniversidades} variant="secondary">
-            Ver universidades
-          </CTAButton>
-        </div>
+        {!printMode && (
+          <div className="mt-12 p-6 rounded-2xl bg-secondary/30 border border-secondary">
+            <p className="text-foreground mb-4">
+              Cuando tengas una idea más clara de qué camino te interesa, podemos ver dónde podrías construirlo.
+            </p>
+            <CTAButton onClick={onNavigateToUniversidades} variant="secondary">
+              Ver universidades
+            </CTAButton>
+          </div>
+        )}
       </div>
     </section>
   )
@@ -174,15 +204,17 @@ function ChapterLista({
 function DetailSection({
   title,
   defaultOpen = false,
+  printMode = false,
   children,
 }: {
   title: string
   defaultOpen?: boolean
+  printMode?: boolean
   children: React.ReactNode
 }) {
   return (
     <details
-      open={defaultOpen}
+      open={printMode || defaultOpen}
       className="group rounded-2xl border border-border/50 bg-card overflow-hidden"
     >
       <summary className="flex items-center justify-between gap-4 cursor-pointer list-none px-6 py-5 select-none hover:bg-muted/30 transition-colors">
@@ -200,8 +232,38 @@ const PATH_ICONS = [Building2, Store, Rocket, Laptop]
 
 // "Los caminos": 2x2 grid of compact cards (icon + title + "Ver esta vida").
 // Selecting one opens its full detail in a panel below the grid.
-function ProfessionalPaths({ paths }: { paths: ProfessionalPath[] }) {
+function ProfessionalPaths({
+  paths,
+  printMode = false,
+}: {
+  paths: ProfessionalPath[]
+  printMode?: boolean
+}) {
   const [selected, setSelected] = useState<number | null>(null)
+
+  // Print mode: every path stacked with its full detail, no selection buttons.
+  if (printMode) {
+    return (
+      <div className="space-y-5">
+        {paths.map((path, idx) => {
+          const Icon = PATH_ICONS[idx % PATH_ICONS.length]
+          return (
+            <div key={`${path.title}-${idx}`} className="space-y-4">
+              <article className="rounded-2xl border border-border/50 bg-muted/20 p-5 flex flex-col gap-4">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Icon className="w-5 h-5 text-primary" />
+                </div>
+                <h3 className="font-medium text-foreground leading-snug">
+                  {path.title}
+                </h3>
+              </article>
+              <PathDetail path={path} printMode />
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-5">
@@ -248,10 +310,16 @@ function ProfessionalPaths({ paths }: { paths: ProfessionalPath[] }) {
 }
 
 // Full detail panel for a selected professional path.
-function PathDetail({ path }: { path: ProfessionalPath }) {
+function PathDetail({
+  path,
+  printMode = false,
+}: {
+  path: ProfessionalPath
+  printMode?: boolean
+}) {
   return (
     <article className="rounded-2xl border border-border/50 bg-muted/20 overflow-hidden">
-      <div className="px-5 py-6 space-y-6 animate-fade-in">
+      <div className={cn("px-5 py-6 space-y-6", !printMode && "animate-fade-in")}>
         {/* Summary */}
         <p className="text-muted-foreground leading-relaxed">{path.summary}</p>
 
@@ -360,11 +428,13 @@ function PathDetail({ path }: { path: ProfessionalPath }) {
 function ChapterDetalle({
   career,
   onBack,
-  onNavigateToUniversidades
+  onNavigateToUniversidades,
+  printMode = false,
 }: {
   career: Career
   onBack: () => void
   onNavigateToUniversidades: () => void
+  printMode?: boolean
 }) {
   const { detail } = career
   const { academics } = detail
@@ -377,16 +447,18 @@ function ChapterDetalle({
     <section className="px-6 md:px-12 lg:px-16 py-12 lg:py-16">
       <div className="max-w-3xl mx-auto">
         {/* Back button */}
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-8"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Volver a las carreras</span>
-        </button>
+        {!printMode && (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-8"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Volver a las carreras</span>
+          </button>
+        )}
 
         {/* Hero */}
-        <div className="mb-10 animate-fade-in-up">
+        <div className={cn("mb-10", !printMode && "animate-fade-in-up")}>
           <div className="flex items-center gap-3 mb-4">
             <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
               {career.matchPercentage}% compatible
@@ -401,6 +473,7 @@ function ChapterDetalle({
           {detail.professionDescription && (
             <ClampText
               lines={4}
+              printMode={printMode}
               className="text-xl text-muted-foreground leading-relaxed"
             >
               {detail.professionDescription}
@@ -417,11 +490,12 @@ function ChapterDetalle({
         {/* Accordion sections */}
         <div className="space-y-4">
           {/* a) What we saw in your profile */}
-          <DetailSection title="Qué vimos en tu perfil" defaultOpen>
+          <DetailSection title="Qué vimos en tu perfil" defaultOpen printMode={printMode}>
             {detail.matchSummary && (
               <div className="mt-4 mb-6">
                 <ClampText
                   lines={4}
+                  printMode={printMode}
                   className="text-muted-foreground leading-relaxed"
                 >
                   {detail.matchSummary}
@@ -433,20 +507,21 @@ function ChapterDetalle({
 
           {/* b) The paths — hidden when there are none */}
           {detail.professionalPaths.length > 0 && (
-            <DetailSection title="Los caminos">
+            <DetailSection title="Los caminos" printMode={printMode}>
               <p className="text-sm text-muted-foreground mt-4 mb-5">
                 Una misma carrera abre vidas muy distintas. Explorá cada una.
               </p>
-              <ProfessionalPaths paths={detail.professionalPaths} />
+              <ProfessionalPaths paths={detail.professionalPaths} printMode={printMode} />
             </DetailSection>
           )}
 
           {/* c) What the university degree is like */}
-          <DetailSection title="Cómo es la carrera universitaria">
+          <DetailSection title="Cómo es la carrera universitaria" printMode={printMode}>
             {academics.academicComposition && (
               <div className="mt-4 mb-6">
                 <ClampText
                   lines={4}
+                  printMode={printMode}
                   className="text-muted-foreground leading-relaxed"
                 >
                   {academics.academicComposition}
@@ -537,18 +612,20 @@ function ChapterDetalle({
         </div>
 
         {/* d) Navigation buttons */}
-        <div className="mt-12 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <button
-            onClick={onBack}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-foreground bg-secondary hover:bg-secondary/80 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Volver a las carreras</span>
-          </button>
-          <CTAButton onClick={onNavigateToUniversidades} size="default">
-            Ver universidades de esta carrera
-          </CTAButton>
-        </div>
+        {!printMode && (
+          <div className="mt-12 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <button
+              onClick={onBack}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-foreground bg-secondary hover:bg-secondary/80 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Volver a las carreras</span>
+            </button>
+            <CTAButton onClick={onNavigateToUniversidades} size="default">
+              Ver universidades de esta carrera
+            </CTAButton>
+          </div>
+        )}
       </div>
     </section>
   )

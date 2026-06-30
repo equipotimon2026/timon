@@ -29,6 +29,7 @@ export interface ResumenFinalData {
 interface ChapterResumenFinalProps {
   data: ResumenFinalData
   onNext: () => void
+  printMode?: boolean
 }
 
 // Color mapping for orbit nodes
@@ -49,18 +50,20 @@ function calculateNodePosition(index: number, total: number, radius: number, tie
   return { x, y }
 }
 
-export function ChapterResumenFinal({ data, onNext }: ChapterResumenFinalProps) {
-  const [isVisible, setIsVisible] = useState(false)
+export function ChapterResumenFinal({ data, onNext, printMode = false }: ChapterResumenFinalProps) {
+  const [isVisible, setIsVisible] = useState(printMode)
   const [showElements, setShowElements] = useState({
-    rings: false,
-    lines: false,
-    nodes: false,
-    content: false,
+    rings: printMode,
+    lines: printMode,
+    nodes: printMode,
+    content: printMode,
   })
   const [copied, setCopied] = useState(false)
   const sectionRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (printMode) return
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -75,17 +78,18 @@ export function ChapterResumenFinal({ data, onNext }: ChapterResumenFinalProps) 
     }
 
     return () => observer.disconnect()
-  }, [])
+  }, [printMode])
 
   // Progressive reveal animation
   useEffect(() => {
+    if (printMode) return
     if (isVisible) {
       setTimeout(() => setShowElements(prev => ({ ...prev, rings: true })), 300)
       setTimeout(() => setShowElements(prev => ({ ...prev, lines: true })), 800)
       setTimeout(() => setShowElements(prev => ({ ...prev, nodes: true })), 1200)
       setTimeout(() => setShowElements(prev => ({ ...prev, content: true })), 1800)
     }
-  }, [isVisible])
+  }, [isVisible, printMode])
 
   // Share functionality
   const handleShare = async () => {
@@ -363,40 +367,44 @@ export function ChapterResumenFinal({ data, onNext }: ChapterResumenFinalProps) 
         </ProseBlock>
 
         {/* Share Button */}
-        <div className={cn(
-          "flex justify-center my-8 transition-all duration-500",
-          showElements.content ? "opacity-100" : "opacity-0"
-        )}
-          style={{ transitionDelay: "500ms" }}
-        >
-          <button
-            onClick={handleShare}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-secondary/50 hover:bg-secondary/70 text-foreground text-sm font-medium transition-colors"
+        {!printMode && (
+          <div className={cn(
+            "flex justify-center my-8 transition-all duration-500",
+            showElements.content ? "opacity-100" : "opacity-0"
+          )}
+            style={{ transitionDelay: "500ms" }}
           >
-            {copied ? (
-              <>
-                <Check className="w-4 h-4" />
-                Copiado
-              </>
-            ) : (
-              <>
-                <Share2 className="w-4 h-4" />
-                Compartir mi esencia
-              </>
-            )}
-          </button>
-        </div>
+            <button
+              onClick={handleShare}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-secondary/50 hover:bg-secondary/70 text-foreground text-sm font-medium transition-colors"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  Copiado
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-4 h-4" />
+                  Compartir mi esencia
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
         {/* Bridge to Careers */}
         <TransitionBlock variant="bridge">
           Ya entendimos quién sos. Ahora veamos qué caminos se alinean con tu esencia.
         </TransitionBlock>
 
-        <div className="mt-12 text-center">
-          <CTAButton onClick={onNext} size="large">
-            Ver los caminos que aparecen
-          </CTAButton>
-        </div>
+        {!printMode && (
+          <div className="mt-12 text-center">
+            <CTAButton onClick={onNext} size="large">
+              Ver los caminos que aparecen
+            </CTAButton>
+          </div>
+        )}
       </div>
     </section>
   )

@@ -20,6 +20,7 @@ interface ActUniversidadesProps {
   selectedUniversity: University | null
   onSelectUniversity: (university: University) => void
   onBack: () => void
+  printMode?: boolean
 }
 
 export function ActUniversidades({
@@ -30,7 +31,8 @@ export function ActUniversidades({
   currentChapter,
   selectedUniversity,
   onSelectUniversity,
-  onBack
+  onBack,
+  printMode = false
 }: ActUniversidadesProps) {
 
   const renderChapter = () => {
@@ -40,6 +42,7 @@ export function ActUniversidades({
           <ChapterDetalle
             university={selectedUniversity}
             onBack={onBack}
+            printMode={printMode}
           />
         ) : (
           <ChapterFiltros
@@ -48,6 +51,7 @@ export function ActUniversidades({
             careers={careers}
             defaultCareerGroup={defaultCareerGroup}
             onSelectUniversity={onSelectUniversity}
+            printMode={printMode}
           />
         )
       case "unis-filtros":
@@ -59,6 +63,7 @@ export function ActUniversidades({
             careers={careers}
             defaultCareerGroup={defaultCareerGroup}
             onSelectUniversity={onSelectUniversity}
+            printMode={printMode}
           />
         )
     }
@@ -77,13 +82,15 @@ function ChapterFiltros({
   universitiesByGroup,
   careers,
   defaultCareerGroup,
-  onSelectUniversity
+  onSelectUniversity,
+  printMode = false
 }: {
   universities: University[]
   universitiesByGroup: Record<string, University[]>
   careers: Career[]
   defaultCareerGroup: string | null
   onSelectUniversity: (university: University) => void
+  printMode?: boolean
 }) {
   // Career filter options: only the user's careers we actually have a uni
   // ranking for (programSearchGroup present in universitiesByGroup).
@@ -139,7 +146,8 @@ function ChapterFiltros({
           subtitle="Filtrá según lo que es importante para vos"
         />
 
-        {/* Filters */}
+        {/* Filters — interactive controls hidden in print/report mode */}
+        {!printMode && (
         <div className="mb-10 p-5 sm:p-6 rounded-2xl bg-card border border-border/50">
           <h3 className="font-medium text-foreground mb-4">Filtros</h3>
 
@@ -216,6 +224,7 @@ function ChapterFiltros({
             </button>
           )}
         </div>
+        )}
 
         {/* Results */}
         <div className="mb-4 flex items-center justify-between">
@@ -226,7 +235,7 @@ function ChapterFiltros({
 
         {/* University Cards */}
         <div className="space-y-6 stagger-children">
-          {filteredUniversities.slice(0, 8).map((university, idx) => (
+          {(printMode ? filteredUniversities : filteredUniversities.slice(0, 8)).map((university, idx) => (
             <UniversityCard
               key={university.id}
               university={university}
@@ -266,15 +275,17 @@ const fallbackColors = [
 // chip), so stacking it under the name avoids the cramped/overlapping layout.
 function ScholarshipsTable({
   scholarships,
+  printMode = false,
 }: {
   scholarships: University["detail"]["scholarships"]
+  printMode?: boolean
 }) {
   const [open, setOpen] = useState<number | null>(null)
 
   return (
     <div className="space-y-2">
       {scholarships.map((s, idx) => {
-        const isOpen = open === idx
+        const isOpen = printMode || open === idx
         const hasReq = !!s.requirements
         return (
           <div
@@ -325,10 +336,12 @@ function ScholarshipsTable({
 // Chapter: University Detail
 function ChapterDetalle({
   university,
-  onBack
+  onBack,
+  printMode = false
 }: {
   university: University
   onBack: () => void
+  printMode?: boolean
 }) {
   const { detail } = university
 
@@ -516,7 +529,7 @@ function ChapterDetalle({
           {detail.scholarships.length > 0 && (
             <div>
               <h3 className="font-medium text-foreground mb-4">Becas y accesos especiales</h3>
-              <ScholarshipsTable scholarships={detail.scholarships} />
+              <ScholarshipsTable scholarships={detail.scholarships} printMode={printMode} />
             </div>
           )}
         </div>
