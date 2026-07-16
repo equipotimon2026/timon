@@ -163,6 +163,10 @@ export async function saveDraft(input: { sectionId: number; draftData: unknown }
   const supabase = await createServerSupabaseClient();
   const userId = await getUserProfileId(supabase);
 
+  if (await isSectionPaymentLocked(userId, input.sectionId)) {
+    throw new Error('Módulo bloqueado: requiere pago');
+  }
+
   const { error } = await supabase
     .from('response_drafts')
     .upsert(

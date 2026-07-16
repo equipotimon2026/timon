@@ -62,18 +62,22 @@ export function PaywallScreen({ onUnlocked }: { onUnlocked?: () => void }) {
     setCodeError(null);
     const code = codeInput.trim().toUpperCase();
     if (!code) return;
-    const res = await fetch('/api/referrals/use', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code }),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setCodeError(body.error || 'Código inválido');
-      return;
+    try {
+      const res = await fetch('/api/referrals/use', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setCodeError(body.error || 'Código inválido');
+        return;
+      }
+      setCodeInput('');
+      fetchQuote(); // refresca precio y progreso del grupo
+    } catch {
+      setCodeError('Error de red. Reintentá.');
     }
-    setCodeInput('');
-    fetchQuote(); // refresca precio y progreso del grupo
   }
 
   function handleCopy() {

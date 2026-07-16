@@ -15,6 +15,7 @@ export function PaymentCallbackContent() {
 
   useEffect(() => {
     let cancelled = false;
+    let timeoutId: NodeJS.Timeout;
 
     async function poll() {
       if (cancelled) return;
@@ -25,7 +26,7 @@ export function PaymentCallbackContent() {
         if (cancelled) return;
         if (data.hasAccess) {
           setPhase('success');
-          setTimeout(() => router.push('/'), 1500);
+          timeoutId = setTimeout(() => router.push('/'), 1500);
           return;
         }
         if (data.status === 'UNDERPAID') {
@@ -39,11 +40,14 @@ export function PaymentCallbackContent() {
         setPhase('timeout');
         return;
       }
-      setTimeout(poll, POLL_MS);
+      timeoutId = setTimeout(poll, POLL_MS);
     }
 
     poll();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [router]);
 
   return (
