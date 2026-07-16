@@ -1,4 +1,5 @@
 import 'server-only';
+import { randomInt } from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { computePrice, GROUP_SIZE_THRESHOLD } from '@/lib/payment-pricing';
 
@@ -12,7 +13,7 @@ const CODE_LENGTH = 6;
 function randomCode(): string {
   let out = '';
   for (let i = 0; i < CODE_LENGTH; i++) {
-    out += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+    out += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)];
   }
   return out;
 }
@@ -20,29 +21,38 @@ function randomCode(): string {
 /** Acceso = exento (whitelist) O tiene un pago SUCCESS/OVERPAID. Siempre derivado. */
 export async function hasPaidAccess(userId: number): Promise<boolean> {
   const admin = createAdminClient();
-  const { data: user } = await admin
+  const { data: user, error: userError } = await admin
     .from('users')
     .select('payment_exempt')
     .eq('id', userId)
     .single();
+  if (userError) {
+    console.error('[payment-access] hasPaidAccess (users query):', userError);
+  }
   if (user?.payment_exempt) return true;
 
-  const { count } = await admin
+  const { count, error: paymentsError } = await admin
     .from('payments')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
     .in('status', PAID_STATUSES);
+  if (paymentsError) {
+    console.error('[payment-access] hasPaidAccess (payments query):', paymentsError);
+  }
   return (count ?? 0) > 0;
 }
 
 /** Precio de lista desde app_settings (editable en admin). */
 export async function getPaymentPriceArs(): Promise<number> {
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from('app_settings')
     .select('value')
     .eq('key', 'payment_price_ars')
     .single();
+  if (error) {
+    console.error('[payment-access] getPaymentPriceArs:', error);
+  }
   const amount = (data?.value as { amount?: number } | null)?.amount;
   if (typeof amount !== 'number' || amount <= 0) {
     throw new Error('payment_price_ars no configurado en app_settings');
@@ -56,11 +66,14 @@ export async function getPaymentPriceArs(): Promise<number> {
  */
 export async function getOrCreateReferralCode(userId: number): Promise<string> {
   const admin = createAdminClient();
-  const { data: user } = await admin
+  const { data: user, error: initialError } = await admin
     .from('users')
     .select('referral_code')
     .eq('id', userId)
     .single();
+  if (initialError) {
+    console.error('[payment-access] getOrCreateReferralCode (initial select):', initialError);
+  }
   if (user?.referral_code) return user.referral_code;
 
   // Reintentos por colisión del UNIQUE (31^6 ≈ 887M combinaciones, colisión rarísima)
@@ -71,26 +84,39 @@ export async function getOrCreateReferralCode(userId: number): Promise<string> {
       .update({ referral_code: code })
       .eq('id', userId)
       .is('referral_code', null);
-    if (!error) {
-      // Releer: si otro request ganó la carrera, devolvemos el que quedó.
-      const { data: after } = await admin
-        .from('users')
-        .select('referral_code')
-        .eq('id', userId)
-        .single();
-      if (after?.referral_code) return after.referral_code;
+    if (error) {
+      // Si NO es violación de unique (código 23505), es un error real de DB
+      if (error.code !== '23505') {
+        console.error('[payment-access] getOrCreateReferralCode (update):', error);
+        throw new Error('Error de DB generando referral_code');
+      }
+      // Si es 23505, continuar reintentos (colisión)
+      continue;
     }
+    // Releer: si otro request ganó la carrera, devolvemos el que quedó.
+    const { data: after, error: rereadError } = await admin
+      .from('users')
+      .select('referral_code')
+      .eq('id', userId)
+      .single();
+    if (rereadError) {
+      console.error('[payment-access] getOrCreateReferralCode (reread):', rereadError);
+    }
+    if (after?.referral_code) return after.referral_code;
   }
-  throw new Error('No se pudo generar referral_code');
+  throw new Error('No se pudo generar referral_code tras 5 intentos');
 }
 
 /** Tamaño de grupo de un código = dueño (1) + usuarios que lo ingresaron. */
 async function groupSizeOfCode(code: string): Promise<number> {
   const admin = createAdminClient();
-  const { count } = await admin
+  const { count, error } = await admin
     .from('referral_uses')
     .select('id', { count: 'exact', head: true })
     .eq('code', code);
+  if (error) {
+    console.error('[payment-access] groupSizeOfCode:', error);
+  }
   return 1 + (count ?? 0);
 }
 
@@ -104,11 +130,14 @@ export async function getReferralGroups(userId: number): Promise<{
   const myCode = await getOrCreateReferralCode(userId);
   const myGroupSize = await groupSizeOfCode(myCode);
 
-  const { data: use } = await admin
+  const { data: use, error } = await admin
     .from('referral_uses')
     .select('code')
     .eq('user_id', userId)
     .maybeSingle();
+  if (error) {
+    console.error('[payment-access] getReferralGroups:', error);
+  }
   const usedCode = use?.code ?? null;
   const usedGroupSize = usedCode ? await groupSizeOfCode(usedCode) : 0;
 
