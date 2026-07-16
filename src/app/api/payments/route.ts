@@ -114,6 +114,9 @@ export async function POST(req: NextRequest) {
   }
 
   const appUrl = getAppUrl();
+  // redirect_url usa el origin del request (respeta x-forwarded-host/proto en Vercel):
+  // si el usuario navega en un dominio distinto al de la env var, evita que vuelva deslogueado.
+  const origin = req.nextUrl.origin;
   try {
     const talo = getTaloClient();
     const payment = await talo.payments.create({
@@ -122,7 +125,7 @@ export async function POST(req: NextRequest) {
       payment_options: ['transfer'],
       external_id: row.external_id,
       webhook_url: `${appUrl}/api/webhooks/talo`,
-      redirect_url: `${appUrl}/es/payment/callback`,
+      redirect_url: `${origin}/es/payment/callback`,
       motive: 'Timon - desbloqueo de análisis completo',
       client_data: {
         first_name: user?.first_name ?? undefined,
