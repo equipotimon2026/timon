@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isSectionPaymentLocked } from '@/lib/section-gate';
 
 function questionHash(text: string): string {
   return createHash('sha256').update(text.toLowerCase().trim()).digest('hex');
@@ -54,6 +55,10 @@ export async function POST(req: NextRequest) {
       { error: 'section_id, question_number, and question are required' },
       { status: 400 }
     );
+  }
+
+  if (await isSectionPaymentLocked(profile.id, section_id)) {
+    return NextResponse.json({ error: 'Módulo bloqueado: requiere pago' }, { status: 402 });
   }
 
   // Backend wins: always calculate hash, warn if client sent a different value

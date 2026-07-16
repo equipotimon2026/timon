@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { isSectionPaymentLocked } from '@/lib/section-gate';
 
 type ResponseItem = {
   questionNumber: number;
@@ -51,6 +52,10 @@ export async function saveQuestionnaireResponse(input: SaveQuestionnaireInput) {
 
   if (!input.sectionId) {
     throw new Error('Section ID is required');
+  }
+
+  if (await isSectionPaymentLocked(userId, input.sectionId)) {
+    throw new Error('Módulo bloqueado: requiere pago');
   }
 
   // Deduplicate responses by question_number (keep last)

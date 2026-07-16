@@ -2,6 +2,8 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { AssessmentWrapper } from '@/components/assessment-wrapper';
 import { redirect } from 'next/navigation';
 import { SECTION_IDS } from '@/lib/constants';
+import { isSlugPaymentLocked } from '@/lib/section-gate';
+import { PaywallScreen } from '@/components/paywall-screen';
 
 const PROFESIONALES_SECTION_ID = SECTION_IDS.PROFESIONALES;
 
@@ -46,6 +48,12 @@ export default async function AssessmentPage({
         </div>
       );
     }
+  }
+
+  // Paywall: módulos con order >= 4 requieren pago (o exención)
+  const locked = await isSlugPaymentLocked(profile.id, id);
+  if (locked) {
+    return <PaywallScreen />;
   }
 
   return <AssessmentWrapper assessmentId={id} userId={profile.id} />;
