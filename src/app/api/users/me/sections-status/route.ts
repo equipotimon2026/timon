@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { hasPaidAccess } from '@/lib/payment-access';
+import { isPaidOrder } from '@/lib/payment-pricing';
+import { getStepBySectionId } from '@/components/journey-path/journey-steps-config';
 
 interface QuestionSnapshot {
   question_number: number;
@@ -44,6 +47,8 @@ export async function GET(req: NextRequest) {
   }
 
   const adminSupabase = createAdminClient();
+
+  const userHasAccess = await hasPaidAccess(profile.id);
 
   // Fetch all sections
   const { data: sections, error: sectionsError } = await adminSupabase
@@ -191,11 +196,18 @@ export async function GET(req: NextRequest) {
       current_version: section.current_version,
       user_version_completed,
       status,
+      payment_locked:
+        !userHasAccess &&
+        (() => {
+          const step = getStepBySectionId(section.id);
+          return !!step && isPaidOrder(step.order);
+        })(),
     };
   });
 
   return NextResponse.json({
     sections: result,
     assessment_outdated: hasActiveAssessment && anyOutdatedOrMissing,
+    has_paid_access: userHasAccess,
   });
 }

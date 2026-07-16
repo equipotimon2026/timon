@@ -17,9 +17,11 @@ export function JourneyBadge({ status, accentColor, glowColor, progress }: Journ
       ? "Completado"
       : status === "outdated"
         ? "Actualizado"
-        : status === "current"
-          ? "Empezar →"
-          : progress || "Pendiente"
+        : status === "locked"
+          ? "Bloqueado"
+          : status === "current"
+            ? "Empezar →"
+            : progress || "Pendiente"
 
   const outdatedAmber = "#F59E0B"
 
@@ -43,17 +45,22 @@ export function JourneyBadge({ status, accentColor, glowColor, progress }: Journ
                 border: `1.5px solid ${outdatedAmber}`,
                 color: outdatedAmber,
               }
-            : status === "current"
+            : status === "locked"
               ? {
-                  background: accentColor,
-                  color: "white",
-                  boxShadow: `0 2px 10px ${glowColor}`,
-                }
-              : {
-                  background: "transparent",
-                  border: "1.5px solid var(--border)",
+                  background: "#F3F4F6",
                   color: "var(--muted-foreground)",
                 }
+              : status === "current"
+                ? {
+                    background: accentColor,
+                    color: "white",
+                    boxShadow: `0 2px 10px ${glowColor}`,
+                  }
+                : {
+                    background: "transparent",
+                    border: "1.5px solid var(--border)",
+                    color: "var(--muted-foreground)",
+                  }
       }
     >
       {label}

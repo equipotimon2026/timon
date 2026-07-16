@@ -11,6 +11,7 @@ import { LoadingScreen } from '@/components/wizard/loading-screen';
 import { PendingResultsScreen } from '@/components/wizard/pending-results-screen';
 import { ResultsView } from '@/components/wizard/results-view';
 import { AssessmentWrapper } from '@/components/assessment-wrapper';
+import { PaywallScreen } from '@/components/paywall-screen';
 import { useRouter } from '@/i18n/routing';
 import { updateProfile, updatePersona } from '@/app/actions/user';
 import type { UserPersona } from '@/types/questionnaire';
@@ -344,6 +345,15 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
     (slug) => setModalSlug(slug),
     sectionsStatus
   );
+  const modalStep = modalSlug
+    ? JOURNEY_STEPS_CONFIG.find((c) => c.assessmentSlug === modalSlug)
+    : null;
+  const modalLocked = !!(
+    modalStep?.sectionId &&
+    sectionsStatus.find((s) => s.section_id === modalStep.sectionId)?.payment_locked &&
+    // completados antes del paywall siguen visibles
+    sectionsStatus.find((s) => s.section_id === modalStep.sectionId)?.status === 'missing'
+  );
   const completionPercent = sectionsStatus.length > 0
     ? calcCompletionPercentFromStatus(sectionsStatus)
     : calcCompletionPercent(completedSections);
@@ -423,7 +433,15 @@ export function HomeContent({ initialProfile }: HomeContentProps) {
 
       {/* Assessment Modal — opens over journey path */}
       <AssessmentModal open={modalSlug !== null} onClose={() => setModalSlug(null)}>
-        {modalSlug && (
+        {modalSlug && modalLocked && (
+          <PaywallScreen
+            onUnlocked={() => {
+              setModalSlug(null);
+              fetchInitialData();
+            }}
+          />
+        )}
+        {modalSlug && !modalLocked && (
           <AssessmentWrapper
             key={modalSlug}
             assessmentId={modalSlug}

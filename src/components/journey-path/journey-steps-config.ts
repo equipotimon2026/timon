@@ -176,7 +176,15 @@ export function buildJourneySteps(
 
     if (hasApiStatus && config.sectionId !== null) {
       const apiStatus = statusMap.get(config.sectionId)
-      if (apiStatus === "completed_current") {
+      const sectionStatus = sectionsStatus.find((s) => s.section_id === config.sectionId)
+      if (
+        sectionStatus?.payment_locked &&
+        apiStatus !== "completed_current" &&
+        apiStatus !== "completed_outdated"
+      ) {
+        // Módulo pago sin acceso (y no completado antes del paywall) → candado
+        status = "locked"
+      } else if (apiStatus === "completed_current") {
         status = "done"
       } else if (apiStatus === "completed_outdated") {
         status = "outdated"

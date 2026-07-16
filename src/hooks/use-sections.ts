@@ -17,6 +17,7 @@ export interface SectionStatus {
   current_version: number;
   user_version_completed: number | null;
   status: 'completed_current' | 'completed_outdated' | 'missing';
+  payment_locked?: boolean;
 }
 
 export interface SectionsCurrentResult {

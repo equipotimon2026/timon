@@ -1,7 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { Check } from "lucide-react"
+import { Check, Lock } from "lucide-react"
 import type { StepStatus } from "./types"
 
 interface JourneyNodeProps {
@@ -15,6 +15,7 @@ export function JourneyNode({ order, status, accentColor, glowColor }: JourneyNo
   const isDone = status === "done"
   const isCurrent = status === "current"
   const isOutdated = status === "outdated"
+  const isLocked = status === "locked"
 
   // Amber color for outdated
   const outdatedAccent = "#F59E0B"
@@ -33,21 +34,25 @@ export function JourneyNode({ order, status, accentColor, glowColor }: JourneyNo
           "font-[var(--brand-font-sans)]"
         )}
         style={{
-          background: isDone ? accentColor : isOutdated ? "#FFFBEB" : "white",
+          background: isDone ? accentColor : isOutdated ? "#FFFBEB" : isLocked ? "#F3F4F6" : "white",
           border: isDone
             ? `2px solid ${accentColor}`
             : isOutdated
               ? `2px solid ${outdatedAccent}`
-              : isCurrent
-                ? `2.5px solid ${accentColor}`
-                : "2px solid var(--border)",
+              : isLocked
+                ? "2px solid var(--border)"
+                : isCurrent
+                  ? `2.5px solid ${accentColor}`
+                  : "2px solid var(--border)",
           color: isDone
             ? "white"
             : isOutdated
               ? outdatedAccent
-              : isCurrent
-                ? accentColor
-                : "var(--muted-foreground)",
+              : isLocked
+                ? "var(--muted-foreground)"
+                : isCurrent
+                  ? accentColor
+                  : "var(--muted-foreground)",
           boxShadow: isDone
             ? `0 4px 14px ${glowColor}`
             : isOutdated
@@ -59,6 +64,8 @@ export function JourneyNode({ order, status, accentColor, glowColor }: JourneyNo
       >
         {isDone ? (
           <Check className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={3} />
+        ) : isLocked ? (
+          <Lock className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.5} />
         ) : (
           <span>{order}</span>
         )}
