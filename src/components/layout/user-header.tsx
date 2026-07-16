@@ -10,10 +10,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { User, Settings, LogOut, Copy, Check } from "lucide-react"
+import { User, Settings, LogOut, Copy, Check, CreditCard } from "lucide-react"
 import { useAuthStore } from "@/stores/auth-store"
 import { useWizardStore } from "@/stores/wizard-store"
 import { cn } from "@/lib/utils"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 
 interface UserHeaderProps {
   userName: string
@@ -23,6 +30,8 @@ interface ReferralInfo {
   myCode: string
   myGroupSize: number
   usedCode: string | null
+  usedGroupSize: number
+  ownerEmail: string | null
   groupSizeThreshold: number
   discountPct: number
 }
@@ -36,6 +45,8 @@ export function UserHeader({ userName = "Usuario" }: UserHeaderProps) {
   const [codeInput, setCodeInput] = useState("");
   const [codeError, setCodeError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+  const [planDialogOpen, setPlanDialogOpen] = useState(false);
 
   const fetchReferral = useCallback(async () => {
     setReferralLoading(true);
@@ -52,8 +63,11 @@ export function UserHeader({ userName = "Usuario" }: UserHeaderProps) {
   }, []);
 
   function handleDropdownOpenChange(open: boolean) {
-    if (open && !referral && !referralLoading) {
-      fetchReferral();
+    if (open) {
+      setCodeError(null);
+      if (!referral && !referralLoading) {
+        fetchReferral();
+      }
     }
   }
 
@@ -61,15 +75,21 @@ export function UserHeader({ userName = "Usuario" }: UserHeaderProps) {
     e.preventDefault();
     e.stopPropagation();
     if (!referral) return;
-    navigator.clipboard.writeText(referral.myCode).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    navigator.clipboard
+      .writeText(referral.myCode)
+      .then(() => {
+        setCopyError(false);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch((err) => {
+        console.error("[user-header] no se pudo copiar el código:", err);
+        setCopyError(true);
+        setTimeout(() => setCopyError(false), 2000);
+      });
   }
 
-  async function handleApplyCode(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
+  async function applyCode() {
     setCodeError(null);
     const code = codeInput.trim().toUpperCase();
     if (!code) return;
@@ -92,6 +112,27 @@ export function UserHeader({ userName = "Usuario" }: UserHeaderProps) {
     } finally {
       setApplying(false);
     }
+  }
+
+  async function handleApplyCode(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    await applyCode();
+  }
+
+  function handleCodeKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    e.stopPropagation();
+    if (e.key === "Enter") {
+      e.preventDefault();
+      applyCode();
+    }
+  }
+
+  function handleOpenPlanDialog() {
+    if (!referral && !referralLoading) {
+      fetchReferral();
+    }
+    setPlanDialogOpen(true);
   }
 
   return (
@@ -176,6 +217,9 @@ export function UserHeader({ userName = "Usuario" }: UserHeaderProps) {
                     )}
                   </button>
                 </div>
+                {copyError && (
+                  <p className="mb-2 text-xs text-red-600">No se pudo copiar</p>
+                )}
                 <p className="mb-2 text-xs text-muted-foreground">
                   {referral.myGroupSize}/{referral.groupSizeThreshold} amigos — al llegar a{" "}
                   {referral.groupSizeThreshold}, {referral.discountPct}% off para todos.
@@ -187,10 +231,13 @@ export function UserHeader({ userName = "Usuario" }: UserHeaderProps) {
                     <div className="flex gap-1.5">
                       <input
                         value={codeInput}
-                        onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
+                        onChange={(e) => {
+                          setCodeInput(e.target.value.toUpperCase());
+                          setCodeError(null);
+                        }}
                         placeholder="CÓDIGO"
                         maxLength={6}
-                        onKeyDown={(e) => e.stopPropagation()}
+                        onKeyDown={handleCodeKeyDown}
                         className="flex-1 rounded-md border px-2 py-1.5 text-xs uppercase tracking-widest"
                       />
                       <button
@@ -215,6 +262,12 @@ export function UserHeader({ userName = "Usuario" }: UserHeaderProps) {
           </div>
           <DropdownMenuSeparator />
 
+          <DropdownMenuItem className="cursor-pointer" onSelect={handleOpenPlanDialog}>
+            <CreditCard className="h-4 w-4" />
+            Mi plan
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+
           <DropdownMenuItem className="cursor-pointer">
             <Settings className="h-4 w-4" />
             Configuracion
@@ -228,6 +281,88 @@ export function UserHeader({ userName = "Usuario" }: UserHeaderProps) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <Dialog open={planDialogOpen} onOpenChange={setPlanDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          {referralLoading && !referral ? (
+            <div className="space-y-2 py-4">
+              <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+              <div className="h-3 w-full animate-pulse rounded bg-muted" />
+              <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
+            </div>
+          ) : referral && referral.usedCode === null ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Plan Individual</DialogTitle>
+                <DialogDescription>
+                  Ingresá el código de un amigo para pasarte al plan grupal: cuando el grupo
+                  llega a {referral.groupSizeThreshold} personas, todos pagan{" "}
+                  {referral.discountPct}% menos.
+                </DialogDescription>
+              </DialogHeader>
+              {referral.myGroupSize > 1 && (
+                <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+                  {referral.myGroupSize >= referral.groupSizeThreshold ? (
+                    <p className="font-medium text-foreground">
+                      ¡Grupo completo! Tenés {referral.discountPct}% de descuento.
+                    </p>
+                  ) : (
+                    <p className="text-muted-foreground">
+                      Tu grupo: {referral.myGroupSize}/{referral.groupSizeThreshold} — sos el
+                      dueño del código{" "}
+                      <span className="font-mono font-semibold text-foreground">
+                        {referral.myCode}
+                      </span>
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
+          ) : referral && referral.usedCode !== null ? (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-2">
+                  <DialogTitle>Plan Amigos</DialogTitle>
+                  {referral.usedGroupSize >= referral.groupSizeThreshold && (
+                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                      Completo
+                    </span>
+                  )}
+                </div>
+                <DialogDescription>
+                  Grupo de {referral.ownerEmail ?? "un amigo"}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  {referral.usedGroupSize}/{referral.groupSizeThreshold} personas
+                </p>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        (referral.usedGroupSize / referral.groupSizeThreshold) * 100
+                      )}%`,
+                    }}
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {referral.usedGroupSize >= referral.groupSizeThreshold
+                    ? `¡Grupo completo! ${referral.discountPct}% de descuento activo.`
+                    : `Faltan ${referral.groupSizeThreshold - referral.usedGroupSize} para activar el ${referral.discountPct}% de descuento.`}
+                </p>
+              </div>
+            </>
+          ) : (
+            <DialogHeader>
+              <DialogTitle>Mi plan</DialogTitle>
+              <DialogDescription>No pudimos cargar tu plan. Reintentá más tarde.</DialogDescription>
+            </DialogHeader>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
