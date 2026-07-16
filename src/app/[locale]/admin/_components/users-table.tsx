@@ -18,6 +18,8 @@ interface UserRow {
   output_date: string | null;
   output_assessment_id: string | null;
   released: boolean;
+  payment_exempt: boolean;
+  payment_status: 'exempt' | 'paid' | 'paid_discount' | 'unpaid';
 }
 
 interface UsersTableProps {
@@ -36,6 +38,13 @@ const STATUS_LABELS: Record<ProfileStatus, { label: string; className: string }>
   processing: { label: 'Procesando', className: 'text-yellow-600' },
   error: { label: 'Error', className: 'text-red-600' },
   none: { label: 'Sin perfil', className: 'text-gray-400' },
+};
+
+const PAYMENT_LABELS: Record<UserRow['payment_status'], { label: string; className: string }> = {
+  exempt: { label: 'Exento', className: 'text-blue-600' },
+  paid: { label: 'Pagado', className: 'text-green-600' },
+  paid_discount: { label: 'Pagado -25%', className: 'text-green-600' },
+  unpaid: { label: 'Sin pagar', className: 'text-gray-400' },
 };
 
 function buildHref(opts: {
@@ -142,6 +151,15 @@ export default function UsersTable({
     });
   }
 
+  async function toggleExempt(u: UserRow) {
+    await fetch(`/api/admin/users/${u.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payment_exempt: !u.payment_exempt }),
+    });
+    startTransition(() => router.refresh());
+  }
+
   async function doRelease(ids: string[]) {
     setReleasing(true);
     try {
@@ -235,6 +253,7 @@ export default function UsersTable({
               <SortableTh label="Colegio" active={sort === 'school'} arrow={sortArrow('school')} onClick={() => toggleSort('school')} />
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Respuestas</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pago</th>
               <SortableTh label="Output" active={sort === 'output'} arrow={sortArrow('output')} onClick={() => toggleSort('output')} />
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Liberado</th>
               <SortableTh label="Registrado" active={sort === 'created'} arrow={sortArrow('created')} onClick={() => toggleSort('created')} />
@@ -244,7 +263,7 @@ export default function UsersTable({
           <tbody className="divide-y divide-gray-200">
             {users.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-4 py-6 text-center text-sm text-gray-500">
+                <td colSpan={11} className="px-4 py-6 text-center text-sm text-gray-500">
                   No hay usuarios para mostrar.
                 </td>
               </tr>
@@ -273,6 +292,18 @@ export default function UsersTable({
                   <td className="px-4 py-3 text-sm text-gray-900">{user.responses_count} / 13</td>
                   <td className="px-4 py-3 text-sm">
                     <span className={`font-medium ${st.className}`}>{st.label}</span>
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className={PAYMENT_LABELS[user.payment_status].className}>
+                      {PAYMENT_LABELS[user.payment_status].label}
+                    </span>
+                    <button
+                      onClick={() => toggleExempt(user)}
+                      className="ml-2 text-xs text-gray-400 underline hover:text-gray-600"
+                      title={user.payment_exempt ? 'Quitar exención' : 'Marcar exento'}
+                    >
+                      {user.payment_exempt ? 'quitar' : 'eximir'}
+                    </button>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
                     {user.output_date

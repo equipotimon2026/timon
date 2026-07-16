@@ -56,3 +56,35 @@ export async function GET(
     assessments: assessments ?? [],
   });
 }
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  let adminSupabase;
+  try {
+    ({ adminSupabase } = await requireAdmin(req));
+  } catch (err) {
+    return err as NextResponse;
+  }
+
+  const { id } = await params;
+  const userId = Number(id);
+  if (isNaN(userId)) {
+    return NextResponse.json({ error: 'Invalid user id' }, { status: 400 });
+  }
+
+  const body = await req.json().catch(() => ({}));
+  if (typeof body.payment_exempt !== 'boolean') {
+    return NextResponse.json({ error: 'payment_exempt boolean requerido' }, { status: 400 });
+  }
+
+  const { error } = await adminSupabase
+    .from('users')
+    .update({ payment_exempt: body.payment_exempt, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+  if (error) {
+    return NextResponse.json({ error: 'Update failed' }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true });
+}

@@ -17,6 +17,8 @@ interface UserRow {
   // Assessment "output" (ultimo completado) para liberar desde la tabla.
   output_assessment_id: string | null;
   released: boolean;
+  payment_exempt: boolean;
+  payment_status: 'exempt' | 'paid' | 'paid_discount' | 'unpaid';
 }
 
 const PAGE_SIZE = 20;
@@ -60,7 +62,7 @@ export default async function AdminPage({
   //    ordenamos por datos de assessment en memoria, escala admin).
   let query = adminSupabase
     .from('users')
-    .select('id, email, first_name, last_name, school, created_at');
+    .select('id, email, first_name, last_name, school, created_at, payment_exempt');
 
   const term = search.trim();
   if (term) {
@@ -100,7 +102,7 @@ export default async function AdminPage({
     return out;
   }
 
-  const [{ data: allAssessments }, allResponses] = await Promise.all([
+  const [{ data: allAssessments }, allResponses, { data: paidPayments }] = await Promise.all([
     userIds.length
       ? adminSupabase
           .from('assessments')
@@ -119,6 +121,13 @@ export default async function AdminPage({
           }[],
         }),
     fetchAllResponses(),
+    userIds.length
+      ? adminSupabase
+          .from('payments')
+          .select('user_id, discount_pct')
+          .in('user_id', userIds)
+          .in('status', ['SUCCESS', 'OVERPAID'])
+      : Promise.resolve({ data: [] as { user_id: number; discount_pct: number }[] }),
   ]);
 
   // Latest assessment (por created_at desc), activo y ultima fecha de output por usuario.
@@ -148,8 +157,15 @@ export default async function AdminPage({
     responsesByUser.get(r.user_id)!.add(r.section_id);
   }
 
+  // Pagos exitosos por usuario (primero encontrado alcanza para saber si pago con/sin descuento).
+  const paidByUser = new Map<number, { discount_pct: number }>();
+  for (const p of paidPayments ?? []) {
+    if (!paidByUser.has(p.user_id)) paidByUser.set(p.user_id, { discount_pct: Number(p.discount_pct) });
+  }
+
   let enriched: UserRow[] = (users ?? []).map((user) => {
     const output = outputByUser.get(user.id);
+    const paid = paidByUser.get(user.id);
     return {
       ...user,
       responses_count: responsesByUser.get(user.id)?.size ?? 0,
@@ -158,6 +174,12 @@ export default async function AdminPage({
       output_date: output?.completed_at ?? null,
       output_assessment_id: output?.id ?? null,
       released: output?.released ?? false,
+      payment_exempt: user.payment_exempt,
+      payment_status: user.payment_exempt
+        ? 'exempt'
+        : paid
+          ? (paid.discount_pct > 0 ? 'paid_discount' : 'paid')
+          : 'unpaid',
     };
   });
 

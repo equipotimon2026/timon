@@ -11,6 +11,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <Link href="/admin" className="text-sm text-gray-600 hover:text-gray-900">
           Usuarios
         </Link>
+        <Link href="/admin/settings" className="text-sm text-gray-600 hover:text-gray-900">
+          Configuración
+        </Link>
       </nav>
       <main className="px-6 py-8 print:p-0">{children}</main>
     </div>
