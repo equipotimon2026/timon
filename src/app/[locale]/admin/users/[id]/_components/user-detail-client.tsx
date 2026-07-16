@@ -18,6 +18,38 @@ interface User {
   persona: string | null;
   onboarding_completed: boolean | null;
   created_at: string;
+  payment_exempt: boolean;
+  referral_code: string | null;
+}
+
+interface Payment {
+  id: number;
+  base_amount: number;
+  amount: number;
+  discount_pct: number;
+  referral_code: string | null;
+  currency: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  talo_payment_id: string | null;
+  expires_at: string | null;
+}
+
+interface ReferralUser {
+  user_id: number;
+  code: string;
+  created_at: string;
+  name: string | null;
+  email: string | null;
+}
+
+interface UsedReferral {
+  code: string;
+  owner_user_id: number;
+  created_at: string;
+  ownerName: string | null;
+  ownerEmail: string | null;
 }
 
 interface Response {
@@ -46,8 +78,26 @@ interface UserDetailClientProps {
   user: User;
   responsesBySection: Record<number, Response[]>;
   assessments: Assessment[];
+  payments: Payment[];
+  referralUses: ReferralUser[];
+  usedReferral: UsedReferral | null;
   userId: number;
 }
+
+const currencyFormatter = new Intl.NumberFormat('es-AR', {
+  style: 'currency',
+  currency: 'ARS',
+  maximumFractionDigits: 0,
+});
+
+const PAYMENT_STATUS_STYLES: Record<string, string> = {
+  SUCCESS: 'bg-green-100 text-green-800',
+  OVERPAID: 'bg-green-100 text-green-800',
+  PENDING: 'bg-yellow-100 text-yellow-800',
+  UNDERPAID: 'bg-orange-100 text-orange-800',
+  EXPIRED: 'bg-gray-100 text-gray-800',
+  CANCELLED: 'bg-gray-100 text-gray-800',
+};
 
 const PRD_SECTIONS: { prd: number; label: string }[] = [
   { prd: 1, label: 'Personalidad (MIPS/Millon)' },
@@ -69,6 +119,9 @@ export default function UserDetailClient({
   user,
   responsesBySection,
   assessments: initialAssessments,
+  payments,
+  referralUses,
+  usedReferral,
   userId,
 }: UserDetailClientProps) {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -305,8 +358,133 @@ export default function UserDetailClient({
     URL.revokeObjectURL(url);
   }
 
+  const hasSuccessfulPayment = payments.some((p) => p.status === 'SUCCESS' || p.status === 'OVERPAID');
+  const paymentStatusBadge = user.payment_exempt
+    ? { label: 'Exento', className: 'bg-blue-100 text-blue-800' }
+    : hasSuccessfulPayment
+    ? { label: 'Pagado', className: 'bg-green-100 text-green-800' }
+    : { label: 'Sin pagar', className: 'bg-gray-100 text-gray-800' };
+
   return (
     <div className="space-y-8">
+      {/* Section: Pago y referidos */}
+      <section className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">Pago y referidos</h2>
+          <span
+            className={`px-3 py-1 text-xs font-medium rounded-full ${paymentStatusBadge.className}`}
+          >
+            {paymentStatusBadge.label}
+          </span>
+        </div>
+
+        {/* Bloque pagos */}
+        <div className="mb-6">
+          <h3 className="text-sm font-medium text-gray-700 mb-2">Pagos</h3>
+          {payments.length === 0 ? (
+            <p className="text-sm text-gray-500">Sin pagos registrados.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Monto</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Precio lista</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Desc.</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Código aplicado</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">ID Talo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {payments.map((p) => (
+                    <tr key={p.id} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 text-gray-700">
+                        {new Date(p.created_at).toLocaleDateString('es-AR')}
+                      </td>
+                      <td className="px-3 py-2 text-gray-700">
+                        {currencyFormatter.format(p.amount)}
+                      </td>
+                      <td className="px-3 py-2 text-gray-700">
+                        {p.base_amount !== p.amount ? currencyFormatter.format(p.base_amount) : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-gray-700">
+                        {p.discount_pct ? `${p.discount_pct}%` : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-gray-700 font-mono text-xs">
+                        {p.referral_code ?? '—'}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            PAYMENT_STATUS_STYLES[p.status] ?? 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {p.status}
+                        </span>
+                      </td>
+                      <td
+                        className="px-3 py-2 text-gray-700 font-mono text-xs max-w-[10rem] truncate"
+                        title={p.talo_payment_id ?? undefined}
+                      >
+                        {p.talo_payment_id ?? '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Bloque referidos */}
+        <div>
+          <h3 className="text-sm font-medium text-gray-700 mb-2">Referidos</h3>
+          <dl className="space-y-3 text-sm">
+            <div>
+              <dt className="font-medium text-gray-500">Su código</dt>
+              <dd className="text-gray-900 font-mono">{user.referral_code ?? '—'}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-gray-500">
+                Personas que usaron su código: {referralUses.length}
+              </dt>
+              {referralUses.length > 0 && (
+                <dd className="mt-1">
+                  <ul className="space-y-1">
+                    {referralUses.map((r) => (
+                      <li key={r.user_id} className="text-gray-900">
+                        {r.name || r.email || `Usuario #${r.user_id}`}
+                        {r.name && r.email ? ` (${r.email})` : ''}
+                        {' — '}
+                        {new Date(r.created_at).toLocaleDateString('es-AR')}
+                      </li>
+                    ))}
+                  </ul>
+                </dd>
+              )}
+            </div>
+            <div>
+              <dt className="font-medium text-gray-500">Código que usó</dt>
+              <dd className="text-gray-900">
+                {usedReferral ? (
+                  <>
+                    <span className="font-mono">{usedReferral.code}</span>
+                    {' de '}
+                    {usedReferral.ownerName || usedReferral.ownerEmail || `Usuario #${usedReferral.owner_user_id}`}
+                    {' '}
+                    ({new Date(usedReferral.created_at).toLocaleDateString('es-AR')})
+                  </>
+                ) : (
+                  'No usó ningún código.'
+                )}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
       {/* Section 5.1: Info */}
       <section className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
