@@ -42,13 +42,15 @@ const handler = createWebhookHandler(
       if (['SUCCESS', 'OVERPAID'].includes(row.status)) return; // final, no pisar
       if (row.status === status) return;
 
+      // Guard atómico al UPDATE: no pisar estados finales aunque webhook sea stale
       const { error: updateError } = await admin
         .from('payments')
         .update({
           status,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', row.id);
+        .eq('id', row.id)
+        .notIn('status', ['SUCCESS', 'OVERPAID']);
       if (updateError) {
         console.error('[talo webhook] error actualizando payment', updateError);
       }

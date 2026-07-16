@@ -36,10 +36,11 @@ export async function GET(req: NextRequest) {
       const remoteStatus = remote.payment_status;
       if (remoteStatus && remoteStatus !== 'PENDING') {
         status = remoteStatus;
+        // Guard atómico: solo actualizar si status sigue siendo PENDING
         const { error: updateError } = await admin.from('payments').update({
           status: remoteStatus,
           updated_at: new Date().toISOString(),
-        }).eq('id', latest.id);
+        }).eq('id', latest.id).eq('status', 'PENDING');
         if (updateError) {
           console.error('[payments] GET status (update from remote):', updateError);
         }
