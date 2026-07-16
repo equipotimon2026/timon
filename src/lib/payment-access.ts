@@ -170,8 +170,12 @@ export async function getReferralSettings(): Promise<{ groupSize: number; discou
  * Precio para el usuario: descuento configurado si CUALQUIERA de sus grupos
  * (el propio o el del código que usó) llegó al umbral configurado.
  * referralCode = el código que habilitó el descuento (preferimos el usado; si no, el propio).
+ * settings = opcional; si no viene, se lee internamente para evitar duplicar en caso de ser pasado desde afuera.
  */
-export async function getPriceForUser(userId: number): Promise<{
+export async function getPriceForUser(
+  userId: number,
+  settings?: { groupSize: number; discountPct: number },
+): Promise<{
   baseAmount: number;
   amount: number;
   discountPct: number;
@@ -179,7 +183,7 @@ export async function getPriceForUser(userId: number): Promise<{
 }> {
   const baseAmount = await getPaymentPriceArs();
   const { myCode, myGroupSize, usedCode, usedGroupSize } = await getReferralGroups(userId);
-  const { groupSize: threshold, discountPct } = await getReferralSettings();
+  const { groupSize: threshold, discountPct } = settings ?? await getReferralSettings();
 
   const qualifying =
     usedCode && usedGroupSize >= threshold

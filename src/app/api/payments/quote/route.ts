@@ -12,11 +12,13 @@ export async function GET(req: NextRequest) {
   const userId = await getAuthedUserId(req);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const [hasAccess, price, groups, referralSettings] = await Promise.all([
+  // Leer settings una sola vez y pasar a getPriceForUser (evita lectura duplicada)
+  const referralSettings = await getReferralSettings();
+
+  const [hasAccess, price, groups] = await Promise.all([
     hasPaidAccess(userId),
-    getPriceForUser(userId),
+    getPriceForUser(userId, referralSettings),
     getReferralGroups(userId),
-    getReferralSettings(),
   ]);
 
   // Pago pendiente vigente (para mostrar "retomá tu pago" y no duplicar)
