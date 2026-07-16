@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Lock, Copy, Check, Users } from 'lucide-react';
+import { Lock, Copy, Check, Users, AlertTriangle } from 'lucide-react';
 
 interface Quote {
   hasAccess: boolean;
@@ -14,6 +14,7 @@ interface Quote {
   usedGroupSize: number;
   groupSizeThreshold: number;
   pendingPayment: { paymentUrl: string; amount: number; expiresAt: string | null } | null;
+  lastPaymentStatus: string | null;
 }
 
 const fmtARS = (n: number) =>
@@ -132,16 +133,33 @@ export function PaywallScreen({ onUnlocked }: { onUnlocked?: () => void }) {
 
         {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
-        <button
-          onClick={handlePay}
-          disabled={paying}
-          className="w-full rounded-xl bg-[#4361EE] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#3651d4] disabled:opacity-60"
-        >
-          {paying ? 'Generando pago…' : 'Pagar por transferencia'}
-        </button>
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">
-          Te redirigimos a Talo para completar la transferencia bancaria.
-        </p>
+        {quote.lastPaymentStatus === 'UNDERPAID' ? (
+          <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+            <div>
+              <p className="text-sm font-semibold text-amber-900">
+                Tu transferencia llegó incompleta
+              </p>
+              <p className="mt-0.5 text-xs text-amber-700">
+                Recibimos un monto menor al del pago. Escribinos y lo resolvemos a la
+                brevedad — no generes un pago nuevo.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={handlePay}
+              disabled={paying}
+              className="w-full rounded-xl bg-[#4361EE] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#3651d4] disabled:opacity-60"
+            >
+              {paying ? 'Generando pago…' : 'Pagar por transferencia'}
+            </button>
+            <p className="mt-2 text-center text-[11px] text-muted-foreground">
+              Te redirigimos a Talo para completar la transferencia bancaria.
+            </p>
+          </>
+        )}
 
         {/* Referidos */}
         <div className="mt-8 border-t pt-6">

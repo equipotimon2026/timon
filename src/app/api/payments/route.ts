@@ -40,12 +40,24 @@ export async function POST(req: NextRequest) {
     // insert y creación en Talo) → cancelamos el row local. Si tenía payment_url,
     // el pago viejo sigue vivo en Talo; si el usuario lo paga igual, el webhook
     // lo marca SUCCESS y desbloquea (caso borde aceptado en la spec).
-    const { error: cancelError } = await admin.from('payments').update({
-      status: 'CANCELLED',
-      updated_at: new Date().toISOString(),
-    }).eq('id', pending.id);
+    const { data: cancelled, error: cancelError } = await admin
+      .from('payments')
+      .update({
+        status: 'CANCELLED',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', pending.id)
+      .eq('status', 'PENDING')
+      .select('id');
     if (cancelError) {
       console.error('[payments] POST (cancel stale pending):', cancelError);
+    }
+    if (!cancelError && (!cancelled || cancelled.length === 0)) {
+      // El row ya no estaba PENDING (ej. el webhook lo marcó SUCCESS mientras
+      // procesábamos). Re-chequeamos acceso antes de crear un pago nuevo.
+      if (await hasPaidAccess(userId)) {
+        return NextResponse.json({ error: 'Ya tenés acceso' }, { status: 409 });
+      }
     }
   }
 
@@ -136,7 +148,7 @@ export async function POST(req: NextRequest) {
     const { error: cancelError } = await admin.from('payments').update({
       status: 'CANCELLED',
       updated_at: new Date().toISOString(),
-    }).eq('id', row.id);
+    }).eq('id', row.id).eq('status', 'PENDING');
     if (cancelError) {
       console.error('[payments] POST (cancel after talo error):', cancelError);
     }

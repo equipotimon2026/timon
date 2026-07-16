@@ -30,6 +30,17 @@ export async function GET(req: NextRequest) {
     .limit(1)
     .maybeSingle();
 
+  // Status del pago más reciente (excluyendo CANCELLED) para detectar UNDERPAID
+  // y evitar que el usuario dispare otra transferencia completa.
+  const { data: lastPayment } = await admin
+    .from('payments')
+    .select('status')
+    .eq('user_id', userId)
+    .neq('status', 'CANCELLED')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   return NextResponse.json({
     hasAccess,
     baseAmount: price.baseAmount,
@@ -43,5 +54,6 @@ export async function GET(req: NextRequest) {
     pendingPayment: pending
       ? { paymentUrl: pending.payment_url, amount: Number(pending.amount), expiresAt: pending.expires_at }
       : null,
+    lastPaymentStatus: lastPayment?.status ?? null,
   });
 }
