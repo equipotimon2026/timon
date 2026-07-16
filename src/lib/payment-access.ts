@@ -108,7 +108,7 @@ export async function getOrCreateReferralCode(userId: number): Promise<string> {
 }
 
 /** Tamaño de grupo de un código = dueño (1) + usuarios que lo ingresaron. */
-async function groupSizeOfCode(code: string): Promise<number> {
+export async function groupSizeOfCode(code: string): Promise<number> {
   const admin = createAdminClient();
   const { count, error } = await admin
     .from('referral_uses')

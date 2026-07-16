@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUserId } from '@/lib/api-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { groupSizeOfCode } from '@/lib/payment-access';
 
 export async function POST(req: NextRequest) {
   const userId = await getAuthedUserId(req);
@@ -37,14 +38,15 @@ export async function POST(req: NextRequest) {
     .from('referral_uses')
     .insert({ user_id: userId, code, owner_user_id: owner.id });
   if (error) {
-    // UNIQUE(user_id) — carrera con otro request del mismo usuario
-    return NextResponse.json({ error: 'Ya usaste un código' }, { status: 409 });
+    if (error.code === '23505') {
+      // UNIQUE(user_id) — carrera con otro request del mismo usuario
+      return NextResponse.json({ error: 'Ya usaste un código' }, { status: 409 });
+    }
+    console.error('[referrals/use] insert:', error);
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 
-  const { count } = await admin
-    .from('referral_uses')
-    .select('id', { count: 'exact', head: true })
-    .eq('code', code);
+  const groupSize = await groupSizeOfCode(code);
 
-  return NextResponse.json({ groupSize: 1 + (count ?? 0) });
+  return NextResponse.json({ groupSize });
 }
