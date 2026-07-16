@@ -28,13 +28,17 @@ export async function POST(req: NextRequest) {
     console.error('[payments] POST (select pending):', pendingError);
   }
 
-  if (pending && pending.payment_url) {
-    const vigente = !pending.expires_at || new Date(pending.expires_at) > new Date();
-    if (vigente && Number(pending.amount) === price.amount) {
-      return NextResponse.json({ paymentUrl: pending.payment_url });
+  if (pending) {
+    if (pending.payment_url) {
+      const vigente = !pending.expires_at || new Date(pending.expires_at) > new Date();
+      // amount llega como string (NUMERIC); montos ARS son enteros.
+      if (vigente && Math.round(Number(pending.amount)) === Math.round(price.amount)) {
+        return NextResponse.json({ paymentUrl: pending.payment_url });
+      }
     }
-    // Precio cambió (ej. grupo llegó a 4) o expiró → cancelamos el row local.
-    // El pago viejo sigue vivo en Talo; si el usuario lo paga igual, el webhook
+    // Precio cambió (ej. grupo llegó a 4), expiró, o quedó huérfana (fallo entre
+    // insert y creación en Talo) → cancelamos el row local. Si tenía payment_url,
+    // el pago viejo sigue vivo en Talo; si el usuario lo paga igual, el webhook
     // lo marca SUCCESS y desbloquea (caso borde aceptado en la spec).
     const { error: cancelError } = await admin.from('payments').update({
       status: 'CANCELLED',
@@ -71,6 +75,28 @@ export async function POST(req: NextRequest) {
     .select('id, external_id')
     .single();
   if (insertError || !row) {
+    if (insertError?.code === '23505') {
+      // Chocó con el índice único parcial (un pago PENDING por usuario):
+      // otro request concurrente ya creó uno. Releemos el más reciente.
+      const { data: race, error: raceError } = await admin
+        .from('payments')
+        .select('payment_url')
+        .eq('user_id', userId)
+        .eq('status', 'PENDING')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (raceError) {
+        console.error('[payments] POST (select pending after race):', raceError);
+      }
+      if (race?.payment_url) {
+        return NextResponse.json({ paymentUrl: race.payment_url });
+      }
+      return NextResponse.json(
+        { error: 'Ya hay un pago en curso, reintentá en unos segundos' },
+        { status: 409 }
+      );
+    }
     console.error('[payments] POST (insert row):', insertError);
     return NextResponse.json({ error: 'Error creando pago' }, { status: 500 });
   }

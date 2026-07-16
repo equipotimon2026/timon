@@ -45,6 +45,10 @@ CREATE TABLE IF NOT EXISTS public.payments (
 CREATE INDEX IF NOT EXISTS idx_payments_user ON public.payments(user_id);
 CREATE INDEX IF NOT EXISTS idx_payments_status ON public.payments(status);
 
+-- Un solo pago PENDING por usuario (protección contra doble-submit)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_user_pending
+  ON public.payments(user_id) WHERE status = 'PENDING';
+
 -- D. Settings editables desde admin
 CREATE TABLE IF NOT EXISTS public.app_settings (
   key TEXT PRIMARY KEY,

@@ -4,9 +4,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { hasPaidAccess } from '@/lib/payment-access';
 import { getTaloClient } from '@/lib/talo';
 
-/** Estados que nunca se pisan con un update posterior de menor rango. */
-const FINAL_STATUSES = ['SUCCESS', 'OVERPAID'];
-
 export async function GET(req: NextRequest) {
   const userId = await getAuthedUserId(req);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -37,7 +34,7 @@ export async function GET(req: NextRequest) {
       const talo = getTaloClient();
       const remote = await talo.payments.get(latest.talo_payment_id);
       const remoteStatus = remote.payment_status;
-      if (remoteStatus && remoteStatus !== 'PENDING' && !FINAL_STATUSES.includes(status)) {
+      if (remoteStatus && remoteStatus !== 'PENDING') {
         status = remoteStatus;
         const { error: updateError } = await admin.from('payments').update({
           status: remoteStatus,
