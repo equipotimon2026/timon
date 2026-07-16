@@ -87,6 +87,7 @@ export default function UsersTable({
   // Modal de confirmacion: lista de assessment ids a liberar.
   const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
   const [releasing, setReleasing] = useState(false);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
 
   useEffect(() => {
     setTerm(search);
@@ -152,12 +153,24 @@ export default function UsersTable({
   }
 
   async function toggleExempt(u: UserRow) {
-    await fetch(`/api/admin/users/${u.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ payment_exempt: !u.payment_exempt }),
-    });
-    startTransition(() => router.refresh());
+    setTogglingId(u.id);
+    try {
+      const res = await fetch(`/api/admin/users/${u.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payment_exempt: !u.payment_exempt }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        alert(body.error ?? 'Error al cambiar exención.');
+        return;
+      }
+      startTransition(() => router.refresh());
+    } catch {
+      alert('Error de red al cambiar exención.');
+    } finally {
+      setTogglingId(null);
+    }
   }
 
   async function doRelease(ids: string[]) {
@@ -299,10 +312,11 @@ export default function UsersTable({
                     </span>
                     <button
                       onClick={() => toggleExempt(user)}
-                      className="ml-2 text-xs text-gray-400 underline hover:text-gray-600"
+                      disabled={togglingId === user.id}
+                      className="ml-2 text-xs text-gray-400 underline hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                       title={user.payment_exempt ? 'Quitar exención' : 'Marcar exento'}
                     >
-                      {user.payment_exempt ? 'quitar' : 'eximir'}
+                      {togglingId === user.id ? 'procesando...' : user.payment_exempt ? 'quitar' : 'eximir'}
                     </button>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">

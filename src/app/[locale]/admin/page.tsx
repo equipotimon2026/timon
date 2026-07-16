@@ -102,7 +102,26 @@ export default async function AdminPage({
     return out;
   }
 
-  const [{ data: allAssessments }, allResponses, { data: paidPayments }] = await Promise.all([
+  async function fetchAllPaidPayments(): Promise<{ user_id: number; discount_pct: number }[]> {
+    if (!userIds.length) return [];
+    const PAGE = 1000;
+    const out: { user_id: number; discount_pct: number }[] = [];
+    for (let offset = 0; ; offset += PAGE) {
+      const { data } = await adminSupabase
+        .from('payments')
+        .select('user_id, discount_pct')
+        .in('user_id', userIds)
+        .in('status', ['SUCCESS', 'OVERPAID'])
+        .order('user_id', { ascending: true })
+        .range(offset, offset + PAGE - 1);
+      const batch = data ?? [];
+      out.push(...batch);
+      if (batch.length < PAGE) break;
+    }
+    return out;
+  }
+
+  const [{ data: allAssessments }, allResponses, paidPayments] = await Promise.all([
     userIds.length
       ? adminSupabase
           .from('assessments')
@@ -121,13 +140,7 @@ export default async function AdminPage({
           }[],
         }),
     fetchAllResponses(),
-    userIds.length
-      ? adminSupabase
-          .from('payments')
-          .select('user_id, discount_pct')
-          .in('user_id', userIds)
-          .in('status', ['SUCCESS', 'OVERPAID'])
-      : Promise.resolve({ data: [] as { user_id: number; discount_pct: number }[] }),
+    fetchAllPaidPayments(),
   ]);
 
   // Latest assessment (por created_at desc), activo y ultima fecha de output por usuario.
@@ -159,7 +172,7 @@ export default async function AdminPage({
 
   // Pagos exitosos por usuario (primero encontrado alcanza para saber si pago con/sin descuento).
   const paidByUser = new Map<number, { discount_pct: number }>();
-  for (const p of paidPayments ?? []) {
+  for (const p of paidPayments) {
     if (!paidByUser.has(p.user_id)) paidByUser.set(p.user_id, { discount_pct: Number(p.discount_pct) });
   }
 
