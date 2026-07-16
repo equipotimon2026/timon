@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
-import { TEST_USER } from './helpers/auth';
+import { TEST_USER, loginViaUI } from './helpers/auth';
 
 /**
  * Paywall: módulos 4+ requieren pago. El test flipea payment_exempt del
@@ -58,19 +58,12 @@ async function setExempt(exempt: boolean) {
 
 const canRun = !!admin && !!process.env.E2E_TEST_EMAIL && !!process.env.E2E_TEST_PASSWORD;
 
-// Login real: multi-step (email -> Continuar -> password -> Ingresar).
-// `loginViaUI` en helpers/auth.ts está desactualizado (label /email/i no
-// matchea "Correo electronico" y no contempla el segundo paso).
-async function login(page: Page) {
-  await page.goto('/es/login');
-  await page.getByRole('textbox', { name: /correo|email/i }).fill(TEST_USER.email);
-  await page.getByRole('button', { name: /continuar/i }).click();
-  await page.getByRole('textbox', { name: /contraseña|password/i }).fill(TEST_USER.password);
-  await page.getByRole('button', { name: /ingresar/i }).click();
-  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 20000 });
-}
-
 test.describe('paywall', () => {
+  // beforeAll/afterAll flipean payment_exempt del mismo user real vía
+  // service role. fullyParallel + multi-worker correrían esto 3 veces en
+  // paralelo (race). Forzar un solo worker secuencial para este describe.
+  test.describe.configure({ mode: 'serial' });
+
   test.skip(!canRun, 'Sin credenciales E2E o SUPABASE_SERVICE_ROLE_KEY (E2E_TEST_EMAIL/PASSWORD/SUPABASE_SERVICE_ROLE_KEY)');
 
   test.beforeAll(async () => {
@@ -90,7 +83,7 @@ test.describe('paywall', () => {
   });
 
   test('módulo 4 muestra paywall para usuario sin pago', async ({ page }) => {
-    await login(page);
+    await loginViaUI(page);
     await page.goto('/es/assessment/padres');
     await expect(page.getByText('Desbloqueá tu análisis completo')).toBeVisible();
     // Precio visible y botón de pago presente (NO clickearlo)
@@ -98,13 +91,13 @@ test.describe('paywall', () => {
   });
 
   test('módulo 1 sigue gratis', async ({ page }) => {
-    await login(page);
+    await loginViaUI(page);
     await page.goto('/es/assessment/vibecheck');
     await expect(page.getByText('Desbloqueá tu análisis completo')).not.toBeVisible();
   });
 
   test('código inexistente da error', async ({ page }) => {
-    await login(page);
+    await loginViaUI(page);
     await page.goto('/es/assessment/padres');
     await page.getByPlaceholder('CÓDIGO').fill('ZZZZZZ');
     await page.getByRole('button', { name: 'Aplicar' }).click();

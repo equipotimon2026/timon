@@ -34,14 +34,16 @@ export async function loginViaUI(
   email = TEST_USER.email,
   password = TEST_USER.password,
 ) {
+  // Login real: multi-step (email -> Continuar -> password -> Ingresar).
   await page.goto('/es/login');
-  await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/contrasena|password/i).fill(password);
-  await page.getByRole('button', { name: /ingresar|submit/i }).click();
+  await page.getByRole('textbox', { name: /correo|email/i }).fill(email);
+  await page.getByRole('button', { name: /continuar/i }).click();
+  await page.getByRole('textbox', { name: /contraseña|password/i }).fill(password);
+  await page.getByRole('button', { name: /ingresar/i }).click();
 
   // Wait for navigation away from the login page
   await page.waitForURL((url) => !url.pathname.includes('/login'), {
-    timeout: 15000,
+    timeout: 20000,
   });
 }
 
