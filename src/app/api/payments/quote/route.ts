@@ -5,17 +5,18 @@ import {
   hasPaidAccess,
   getPriceForUser,
   getReferralGroups,
+  getReferralSettings,
 } from '@/lib/payment-access';
-import { GROUP_SIZE_THRESHOLD } from '@/lib/payment-pricing';
 
 export async function GET(req: NextRequest) {
   const userId = await getAuthedUserId(req);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const [hasAccess, price, groups] = await Promise.all([
+  const [hasAccess, price, groups, referralSettings] = await Promise.all([
     hasPaidAccess(userId),
     getPriceForUser(userId),
     getReferralGroups(userId),
+    getReferralSettings(),
   ]);
 
   // Pago pendiente vigente (para mostrar "retomá tu pago" y no duplicar)
@@ -50,7 +51,8 @@ export async function GET(req: NextRequest) {
     myGroupSize: groups.myGroupSize,
     usedCode: groups.usedCode,
     usedGroupSize: groups.usedGroupSize,
-    groupSizeThreshold: GROUP_SIZE_THRESHOLD,
+    groupSizeThreshold: referralSettings.groupSize,
+    discountPctConfig: referralSettings.discountPct,
     pendingPayment: pending
       ? { paymentUrl: pending.payment_url, amount: Number(pending.amount), expiresAt: pending.expires_at }
       : null,

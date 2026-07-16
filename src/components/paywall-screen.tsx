@@ -13,6 +13,7 @@ interface Quote {
   usedCode: string | null;
   usedGroupSize: number;
   groupSizeThreshold: number;
+  discountPctConfig: number;
   pendingPayment: { paymentUrl: string; amount: number; expiresAt: string | null } | null;
   lastPaymentStatus: string | null;
 }
@@ -165,11 +166,13 @@ export function PaywallScreen({ onUnlocked }: { onUnlocked?: () => void }) {
         <div className="mt-8 border-t pt-6">
           <div className="mb-3 flex items-center gap-2">
             <Users className="h-4 w-4" style={{ color: '#4361EE' }} />
-            <p className="text-sm font-semibold">Juntá 4 amigos y paguen 25% menos</p>
+            <p className="text-sm font-semibold">
+              Juntá {quote.groupSizeThreshold} amigos y paguen {quote.discountPctConfig}% menos
+            </p>
           </div>
           <p className="mb-3 text-xs text-muted-foreground">
             Compartí tu código. Cuando tu grupo llegue a {quote.groupSizeThreshold} personas,
-            todos los que no hayan pagado obtienen 25% de descuento.
+            todos los que no hayan pagado obtienen {quote.discountPctConfig}% de descuento.
           </p>
           <div className="mb-4 flex items-center gap-2">
             <code className="flex-1 rounded-lg border bg-gray-50 px-3 py-2 text-center text-base font-bold tracking-[0.2em]">

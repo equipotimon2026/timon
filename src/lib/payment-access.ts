@@ -1,7 +1,11 @@
 import 'server-only';
 import { randomInt } from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { computePrice, GROUP_SIZE_THRESHOLD } from '@/lib/payment-pricing';
+import {
+  computePrice,
+  DEFAULT_GROUP_SIZE_THRESHOLD,
+  DEFAULT_GROUP_DISCOUNT_PCT,
+} from '@/lib/payment-pricing';
 
 /** Estados de pago Talo que otorgan acceso. */
 const PAID_STATUSES = ['SUCCESS', 'OVERPAID'];
@@ -144,10 +148,28 @@ export async function getReferralGroups(userId: number): Promise<{
   return { myCode, myGroupSize, usedCode, usedGroupSize };
 }
 
+/** Settings de referidos desde app_settings, con fallback a defaults si faltan o son inválidos. */
+export async function getReferralSettings(): Promise<{ groupSize: number; discountPct: number }> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('app_settings')
+    .select('key, value')
+    .in('key', ['referral_group_size', 'referral_discount_pct']);
+  if (error) console.error('[payment-access] getReferralSettings:', error);
+  const map = new Map((data ?? []).map((r) => [r.key, (r.value as { value?: number })?.value]));
+  const rawSize = map.get('referral_group_size');
+  const rawPct = map.get('referral_discount_pct');
+  const groupSize = Number.isInteger(rawSize) && (rawSize as number) >= 2
+    ? (rawSize as number) : DEFAULT_GROUP_SIZE_THRESHOLD;
+  const discountPct = typeof rawPct === 'number' && rawPct > 0 && rawPct < 100
+    ? rawPct : DEFAULT_GROUP_DISCOUNT_PCT;
+  return { groupSize, discountPct };
+}
+
 /**
- * Precio para el usuario: 25% off si CUALQUIERA de sus grupos (el propio o
- * el del código que usó) llegó a 4. referralCode = el código que habilitó
- * el descuento (preferimos el usado; si no, el propio).
+ * Precio para el usuario: descuento configurado si CUALQUIERA de sus grupos
+ * (el propio o el del código que usó) llegó al umbral configurado.
+ * referralCode = el código que habilitó el descuento (preferimos el usado; si no, el propio).
  */
 export async function getPriceForUser(userId: number): Promise<{
   baseAmount: number;
@@ -157,15 +179,16 @@ export async function getPriceForUser(userId: number): Promise<{
 }> {
   const baseAmount = await getPaymentPriceArs();
   const { myCode, myGroupSize, usedCode, usedGroupSize } = await getReferralGroups(userId);
+  const { groupSize: threshold, discountPct } = await getReferralSettings();
 
   const qualifying =
-    usedCode && usedGroupSize >= GROUP_SIZE_THRESHOLD
+    usedCode && usedGroupSize >= threshold
       ? usedCode
-      : myGroupSize >= GROUP_SIZE_THRESHOLD
+      : myGroupSize >= threshold
         ? myCode
         : null;
 
-  const groupSize = qualifying ? GROUP_SIZE_THRESHOLD : 1;
-  const quote = computePrice(baseAmount, groupSize);
+  const size = qualifying ? threshold : 1;
+  const quote = computePrice(baseAmount, size, threshold, discountPct);
   return { ...quote, referralCode: qualifying };
 }

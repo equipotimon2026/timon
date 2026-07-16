@@ -3,8 +3,8 @@
  * Regla de producto: grupo de referidos (dueño + usuarios del código) >= 4
  * → 25% de descuento para los miembros que aún no pagaron.
  */
-export const GROUP_DISCOUNT_PCT = 25;
-export const GROUP_SIZE_THRESHOLD = 4;
+export const DEFAULT_GROUP_DISCOUNT_PCT = 25;
+export const DEFAULT_GROUP_SIZE_THRESHOLD = 4;
 /** Módulos con order >= 4 en JOURNEY_STEPS_CONFIG requieren pago. */
 export const FIRST_PAID_ORDER = 4;
 
@@ -14,13 +14,18 @@ export interface PriceQuote {
   discountPct: number;
 }
 
-export function computePrice(baseAmount: number, groupSize: number): PriceQuote {
-  const discounted = groupSize >= GROUP_SIZE_THRESHOLD;
-  const discountPct = discounted ? GROUP_DISCOUNT_PCT : 0;
+export function computePrice(
+  baseAmount: number,
+  groupSize: number,
+  threshold: number = DEFAULT_GROUP_SIZE_THRESHOLD,
+  discountPct: number = DEFAULT_GROUP_DISCOUNT_PCT,
+): PriceQuote {
+  const discounted = groupSize >= threshold;
+  const appliedPct = discounted ? discountPct : 0;
   const amount = discounted
-    ? Math.round(baseAmount * (1 - GROUP_DISCOUNT_PCT / 100))
+    ? Math.round(baseAmount * (1 - discountPct / 100))
     : baseAmount;
-  return { baseAmount, amount, discountPct };
+  return { baseAmount, amount, discountPct: appliedPct };
 }
 
 export function isPaidOrder(order: number): boolean {
