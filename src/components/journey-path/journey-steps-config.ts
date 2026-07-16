@@ -246,3 +246,13 @@ export function calcCompletionPercentFromStatus(
   ).length
   return Math.round((done / total) * 100)
 }
+
+/** Lookup por slug de ruta /assessment/[id]. */
+export function getStepBySlug(slug: string): JourneyStepConfig | undefined {
+  return JOURNEY_STEPS_CONFIG.find((s) => s.assessmentSlug === slug)
+}
+
+/** Lookup por section_id de Supabase. */
+export function getStepBySectionId(sectionId: number): JourneyStepConfig | undefined {
+  return JOURNEY_STEPS_CONFIG.find((s) => s.sectionId === sectionId)
+}

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:unit": "tsx --test src/lib/__tests__/*.test.ts"
   },
   "dependencies": {
     "@azure/cosmos": "^4.9.3",
