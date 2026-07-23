@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import posthog from 'posthog-js';
 
 export interface Profile {
   id: number;
@@ -46,6 +47,13 @@ export const useAuthStore = create<AuthStore>((set) => ({
       }
 
       set({ user: data.user, profile: data.profile, isLoading: false });
+
+      if (data.profile && process.env.NEXT_PUBLIC_POSTHOG_KEY) {
+        posthog.identify(String(data.profile.id), {
+          email: data.profile.email,
+          persona: data.profile.persona,
+        });
+      }
     } catch {
       set({ user: null, profile: null, isLoading: false });
     }
@@ -53,6 +61,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
   signOut: async () => {
     await fetch('/api/auth/sign-out', { method: 'POST' });
+    if (process.env.NEXT_PUBLIC_POSTHOG_KEY) {
+      posthog.reset();
+    }
     localStorage.clear();
     set({ user: null, profile: null });
     window.location.href = '/es/login';
