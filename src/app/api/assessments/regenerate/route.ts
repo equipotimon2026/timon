@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { buildAzurePayload } from '@/lib/admin/build-azure-payload';
+import { submitToAzure } from '@/lib/assessments/azure';
+import { redactAzureDetail } from '@/lib/assessments/azure-logic';
+import { logAssessmentEvent } from '@/lib/assessments/log';
 
-const AZURE_BASE_URL =
-  'https://timon-agents-ckfqd5evcdcqgsg9.eastus2-01.azurewebsites.net';
-const AZURE_ASSESSMENTS_URL = `${AZURE_BASE_URL}/api/assessments`;
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   const azureKey = process.env.AZURE_FUNCTIONS_KEY;
@@ -69,63 +70,63 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // POST to Azure
-  try {
-    console.log('[regenerate] → POST %s', AZURE_ASSESSMENTS_URL);
-    const submitResponse = await fetch(AZURE_ASSESSMENTS_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-functions-key': azureKey,
-      },
-      body: JSON.stringify(payload),
+  // POST to Azure (timeout + validacion de body centralizados en submitToAzure)
+  const submitStarted = Date.now();
+  const submit = await submitToAzure(payload);
+
+  if (submit.kind !== 'submitted') {
+    logAssessmentEvent({
+      source: 'user',
+      event: 'regenerate_rejected',
+      user_id: profile.id,
+      duration_ms: Date.now() - submitStarted,
+      detail: redactAzureDetail(submit.detail),
     });
-
-    const submitBody = await submitResponse.text();
-    console.log('[regenerate] ← Submit status: %d, body: %s', submitResponse.status, submitBody.slice(0, 500));
-
-    if (!submitResponse.ok) {
-      return NextResponse.json(
-        { error: `Azure submit error: ${submitResponse.status}`, details: submitBody },
-        { status: 502 }
-      );
-    }
-
-    const submitResult = JSON.parse(submitBody);
-    if (!submitResult.assessment_id) {
-      return NextResponse.json(
-        { error: 'No assessment_id returned from Azure', details: submitBody },
-        { status: 502 }
-      );
-    }
-
-    console.log('[regenerate] ← Assessment submitted: %s', submitResult.assessment_id);
-
-    // INSERT new assessment row — is_active=false, activated when polling detects completed
-    const { error: insertError } = await adminSupabase
-      .from('assessments')
-      .insert({
-        user_id: profile.id,
-        assessment_id: submitResult.assessment_id,
-        status: 'processing',
-        generated_by: 'user',
-        is_active: false,
-        section_versions: sectionVersions,
-      });
-
-    if (insertError) {
-      console.error('[regenerate] ← Failed to insert assessment row:', insertError.message);
-    }
-
-    return NextResponse.json({
-      assessment_id: submitResult.assessment_id,
-      status: 'processing',
-    });
-  } catch (err) {
-    console.error('[regenerate] ← FAILED: %s', String(err));
     return NextResponse.json(
-      { error: 'Failed to reach Azure endpoint', details: String(err) },
+      { error: 'Azure submit failed', details: submit.detail },
       { status: 502 }
     );
   }
+
+  logAssessmentEvent({
+    source: 'user',
+    event: 'regenerate_submit',
+    assessment_id: submit.assessmentId,
+    user_id: profile.id,
+    to: 'processing',
+    duration_ms: Date.now() - submitStarted,
+  });
+
+  // INSERT new assessment row — is_active=false, activated when polling detects completed
+  const { error: insertError } = await adminSupabase
+    .from('assessments')
+    .insert({
+      user_id: profile.id,
+      assessment_id: submit.assessmentId,
+      status: 'processing',
+      generated_by: 'user',
+      is_active: false,
+      section_versions: sectionVersions,
+    });
+
+  if (insertError) {
+    // Sin row, nadie puede pollear ni reconciliar este trabajo: no responder 200.
+    logAssessmentEvent({
+      source: 'user',
+      event: 'insert_failed',
+      assessment_id: submit.assessmentId,
+      user_id: profile.id,
+      persistence: 'failed_to_persist',
+      detail: insertError.message,
+    });
+    return NextResponse.json(
+      { error: 'Failed to persist assessment' },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({
+    assessment_id: submit.assessmentId,
+    status: 'processing',
+  });
 }

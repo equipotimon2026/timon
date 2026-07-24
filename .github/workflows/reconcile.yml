@@ -1,0 +1,26 @@
+# Trigger del cron de reconciliación de assessments.
+#
+# Existe porque Vercel Hobby solo permite crons diarios. Cuando el proyecto
+# pase a Vercel Pro, reemplazar por un cron nativo en vercel.json y borrar
+# este workflow.
+#
+# Secrets requeridos (Settings → Secrets and variables → Actions):
+#   RECONCILE_URL  → https://<dominio-prod>/api/cron/reconcile-assessments
+#   CRON_SECRET    → mismo valor que la env var CRON_SECRET en Vercel
+name: Reconcile assessments
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Llamar al endpoint de reconciliación
+        run: |
+          curl --fail-with-body -sS --max-time 90 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.RECONCILE_URL }}"

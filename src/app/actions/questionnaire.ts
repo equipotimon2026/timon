@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { isSectionPaymentLocked } from '@/lib/section-gate';
+import { isEmptyAnswer, questionHash } from '@/lib/responses/logic';
 
 type ResponseItem = {
   questionNumber: number;
@@ -68,6 +69,10 @@ export async function saveQuestionnaireResponse(input: SaveQuestionnaireInput) {
     section_id: input.sectionId,
     question_number: r.questionNumber,
     question: r.question ?? null,
+    // Metadata de versionado (que redaccion respondio), NO identidad: la
+    // identidad es (user_id, section_id, question_number) — igual que en
+    // POST /api/responses.
+    question_hash: r.question ? questionHash(r.question) : null,
     response_boolean: r.responseBoolean ?? null,
     response_integer:
       typeof r.responseInteger === 'number' && Number.isFinite(r.responseInteger)
@@ -77,15 +82,8 @@ export async function saveQuestionnaireResponse(input: SaveQuestionnaireInput) {
     response_array: r.responseArray ?? null,
   }));
 
-  // An answer is "empty" when it carries no real value. A boolean answer of
-  // `false` is a real value, so we only treat null/missing booleans as empty.
-  const isEmptyAnswer = (r: (typeof responseRows)[number]) =>
-    r.response_boolean === null &&
-    r.response_integer === null &&
-    r.response_array === null &&
-    (r.response_text ?? '') === '';
-
-  // HARDENING: never persist an empty answer. The upsert below would otherwise
+  // HARDENING: never persist an empty answer (regla compartida en
+  // lib/responses/logic — un boolean `false` es un valor real). The upsert below would otherwise
   // overwrite a previously-saved good answer with "" when a restore-failed or
   // partial submit sends blanks (the root cause that wiped MIPS/Proyectivas).
   // Filtering empties out means a blank can never clobber real data; we only

@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/guard';
+import { submitToAzure } from '@/lib/assessments/azure';
+import { redactAzureDetail } from '@/lib/assessments/azure-logic';
 import { buildAzurePayload } from '@/lib/admin/build-azure-payload';
+import { logAssessmentEvent } from '@/lib/assessments/log';
 
-const AZURE_BASE_URL =
-  'https://timon-agents-ckfqd5evcdcqgsg9.eastus2-01.azurewebsites.net';
-const AZURE_ASSESSMENTS_URL = `${AZURE_BASE_URL}/api/assessments`;
+export const maxDuration = 60;
 
+// Ventana del guard anti doble-click: si ya hay una generacion arrancada hace
+// menos de esto, un segundo POST casi seguro es un click repetido y no un
+// "pisar" intencional del admin.
+const DOUBLE_CLICK_WINDOW_MS = 10_000;
+
+// Genera un assessment desde admin. Orden a proposito:
+//   validar → payload → Azure → INSERT → recien ahi cancelar los anteriores.
+// Los assessments previos en 'processing' solo se cancelan DESPUES de tener el
+// nuevo insertado: si el payload o Azure fallan, el proceso anterior sigue
+// intacto (antes se cancelaba primero y un fallo posterior lo dejaba huerfano).
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -29,24 +40,26 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid user id' }, { status: 400 });
   }
 
-  // Mejora #3: en vez de bloquear con 409, "pisamos" cualquier assessment previo
-  // en 'processing' marcandolo 'cancelled'. Asi el admin siempre puede arrancar una
-  // nueva generacion (ej: cuando el anterior quedo colgado por timeout) y se deja
-  // de pollear ese id.
-  const { error: cancelError } = await adminSupabase
+  // Guard anti doble-click: una generacion arrancada hace segundos no se pisa.
+  // Pasada la ventana, el admin SI puede pisar un processing colgado (el
+  // reemplazo se hace despues del insert del nuevo).
+  const { data: recentProcessing } = await adminSupabase
     .from('assessments')
-    .update({
-      status: 'cancelled',
-      error: 'Reemplazado por una nueva generacion.',
-      completed_at: new Date().toISOString(),
-    })
+    .select('id, created_at')
     .eq('user_id', userId)
-    .eq('status', 'processing');
+    .eq('status', 'processing')
+    .gte('created_at', new Date(Date.now() - DOUBLE_CLICK_WINDOW_MS).toISOString())
+    .limit(1)
+    .maybeSingle();
 
-  if (cancelError) {
-    console.error('[admin/generate] Failed to cancel previous processing:', cancelError.message);
+  if (recentProcessing) {
+    return NextResponse.json(
+      { error: 'Ya hay una generación arrancando para este usuario. Esperá unos segundos.' },
+      { status: 409 }
+    );
   }
 
+  // buildAzurePayload valida que el usuario exista (tira si no).
   let payload;
   let sectionVersions: Record<string, number> = {};
   try {
@@ -55,58 +68,98 @@ export async function POST(
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 
-  try {
-    const submitResponse = await fetch(AZURE_ASSESSMENTS_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-functions-key': azureKey,
-      },
-      body: JSON.stringify(payload),
+  const submitStarted = Date.now();
+  const submit = await submitToAzure(payload);
+
+  if (submit.kind !== 'submitted') {
+    // Azure fallo o devolvio algo invalido: no se toco nada en la DB — el
+    // processing anterior (si existia) sigue vivo.
+    logAssessmentEvent({
+      source: 'admin',
+      event: 'generate_rejected',
+      user_id: userId,
+      duration_ms: Date.now() - submitStarted,
+      detail: redactAzureDetail(submit.detail),
     });
-
-    const submitBody = await submitResponse.text();
-
-    if (!submitResponse.ok) {
-      return NextResponse.json(
-        { error: `Azure submit error: ${submitResponse.status}`, details: submitBody },
-        { status: 502 }
-      );
-    }
-
-    const submitResult = JSON.parse(submitBody);
-
-    if (!submitResult.assessment_id) {
-      return NextResponse.json(
-        { error: 'No assessment_id returned from Azure', details: submitBody },
-        { status: 502 }
-      );
-    }
-
-    // Insert row with generated_by='admin' and is_active=false
-    const { error: insertError } = await adminSupabase
-      .from('assessments')
-      .insert({
-        user_id: userId,
-        assessment_id: submitResult.assessment_id,
-        status: 'processing',
-        generated_by: 'admin',
-        is_active: false,
-        section_versions: sectionVersions,
-      });
-
-    if (insertError) {
-      console.error('[admin/generate] Failed to insert assessment row:', insertError.message);
-    }
-
-    return NextResponse.json({
-      assessment_id: submitResult.assessment_id,
-      status: 'pending',
-    });
-  } catch (err) {
     return NextResponse.json(
-      { error: 'Failed to reach Azure endpoint', details: String(err) },
+      { error: 'Azure submit failed', details: submit.detail },
       { status: 502 }
     );
   }
+
+  logAssessmentEvent({
+    source: 'admin',
+    event: 'generate_submit',
+    assessment_id: submit.assessmentId,
+    user_id: userId,
+    to: 'processing',
+    duration_ms: Date.now() - submitStarted,
+  });
+
+  // Insert row with generated_by='admin' and is_active=false
+  const { data: inserted, error: insertError } = await adminSupabase
+    .from('assessments')
+    .insert({
+      user_id: userId,
+      assessment_id: submit.assessmentId,
+      status: 'processing',
+      generated_by: 'admin',
+      is_active: false,
+      section_versions: sectionVersions,
+    })
+    .select('id, created_at')
+    .single();
+
+  if (insertError || !inserted) {
+    // Sin row no hay como trackear el trabajo: no responder exito y NO
+    // cancelar el proceso anterior. Solo identificadores tecnicos en el log.
+    logAssessmentEvent({
+      source: 'admin',
+      event: 'insert_failed',
+      assessment_id: submit.assessmentId,
+      user_id: userId,
+      persistence: 'failed_to_persist',
+      detail: insertError?.message ?? 'insert returned no row',
+    });
+    return NextResponse.json(
+      { error: 'Failed to persist assessment' },
+      { status: 500 }
+    );
+  }
+
+  // Recien ahora, con el nuevo confirmado, "pisamos" los processing ANTERIORES
+  // para que se deje de pollear esos ids. El lt estricto por created_at hace
+  // deterministica la carrera de dos generates simultaneos que pasaron el
+  // guard: cada uno cancela solo a los creados ANTES que el suyo, asi
+  // sobrevive exactamente el mas nuevo — nunca pueden cancelarse mutuamente
+  // y quedar los dos en cancelled.
+  const { error: cancelError } = await adminSupabase
+    .from('assessments')
+    .update({
+      status: 'cancelled',
+      error: 'Reemplazado por una nueva generacion.',
+      completed_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId)
+    .eq('status', 'processing')
+    .neq('id', inserted.id)
+    .lt('created_at', inserted.created_at);
+
+  if (cancelError) {
+    // El nuevo assessment ya existe y es trackeable; que un viejo quede en
+    // processing es benigno (el cron/poll lo resuelve). Solo lo registramos.
+    logAssessmentEvent({
+      source: 'admin',
+      event: 'cancel_previous_failed',
+      assessment_id: submit.assessmentId,
+      db_id: inserted.id,
+      user_id: userId,
+      detail: cancelError.message,
+    });
+  }
+
+  return NextResponse.json({
+    assessment_id: submit.assessmentId,
+    status: 'pending',
+  });
 }

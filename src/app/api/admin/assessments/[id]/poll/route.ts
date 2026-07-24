@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/guard';
+import { applyPollResult, pollAzure } from '@/lib/assessments/azure';
+import { logAssessmentEvent } from '@/lib/assessments/log';
 
 export const maxDuration = 60;
 
-const AZURE_BASE_URL =
-  'https://timon-agents-ckfqd5evcdcqgsg9.eastus2-01.azurewebsites.net';
-const AZURE_ASSESSMENTS_URL = `${AZURE_BASE_URL}/api/assessments`;
 
 // Poll server-side de Azure para assessments generados por admin.
 //
@@ -16,15 +15,15 @@ const AZURE_ASSESSMENTS_URL = `${AZURE_BASE_URL}/api/assessments`;
 // quedaba 'processing' para siempre. Esto lo resuelve: el frontend admin
 // llama a este endpoint y aca SI consultamos Azure y persistimos el resultado.
 //
-// A diferencia de analyze: NO auto-activamos (is_active). El admin tiene su
-// propio gate manual (activar / liberar), asi que solo escribimos status +
-// results. Tampoco aplicamos timeout aca (el admin decide cancelar a mano).
+// Las reglas de escritura viven en applyPollResult: una generacion admin
+// completa guarda results/status pero NUNCA se activa ni se libera sola —
+// el admin conserva su gate manual (activar / liberar).
 //
-// Recuperacion: permitimos pollear aunque el row este 'cancelled'/'failed'
-// SIEMPRE que no tenga results todavia. Asi recuperamos un assessment que el
-// agente termino OK pero que de nuestro lado quedo cancelado (caso del "pisar"
-// de generate o del boton Cancelar: marcamos cancelled sin avisarle a Azure,
-// que igual siguio y termino).
+// Recuperacion (allowRecovery): permitimos pollear aunque el row este
+// 'cancelled'/'failed' SIEMPRE que no tenga results todavia. Asi recuperamos
+// un assessment que el agente termino OK pero que de nuestro lado quedo
+// cancelado (caso del "pisar" de generate o del boton Cancelar: marcamos
+// cancelled sin avisarle a Azure, que igual siguio y termino).
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -77,63 +76,66 @@ export async function POST(
     return NextResponse.json({ error: 'User email not found' }, { status: 400 });
   }
 
-  try {
-    const pollUrl = `${AZURE_ASSESSMENTS_URL}/${assessment.assessment_id}?email=${encodeURIComponent(userRow.email)}`;
-    const pollResponse = await fetch(pollUrl, {
-      headers: { 'x-functions-key': azureKey },
-    });
-    const pollBody = await pollResponse.text();
+  const pollStarted = Date.now();
+  const pollResult = await pollAzure(assessment.assessment_id, userRow.email);
 
-    if (!pollResponse.ok) {
-      return NextResponse.json(
-        { error: `Azure poll error: ${pollResponse.status}`, details: pollBody.slice(0, 500) },
-        { status: 502 }
-      );
-    }
-
-    const pollResult = JSON.parse(pollBody);
-
-    if (pollResult.status === 'completed') {
-      const { error: saveError } = await adminSupabase
-        .from('assessments')
-        .update({
-          status: 'completed',
-          results: pollResult.results,
-          completed_at: new Date().toISOString(),
-          error: null,
-        })
-        .eq('id', assessment.id);
-
-      if (saveError) {
-        return NextResponse.json(
-          { error: `Failed to save results: ${saveError.message}` },
-          { status: 500 }
-        );
-      }
-      // recovered=true si veniamos de un estado terminal distinto de processing.
-      const recovered = assessment.status !== 'processing';
-      return NextResponse.json({ status: 'completed', recovered });
-    }
-
-    if (pollResult.status === 'failed') {
-      await adminSupabase
-        .from('assessments')
-        .update({
-          status: 'failed',
-          error: pollResult.error ?? 'Unknown error',
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', assessment.id)
-        .eq('status', 'processing'); // no pisar un cancelled intencional con failed
-      return NextResponse.json({ status: 'failed' });
-    }
-
-    // Sigue procesando del lado de Azure.
-    return NextResponse.json({ status: pollResult.status ?? 'processing' });
-  } catch (err) {
+  if (pollResult.kind === 'unreachable') {
     return NextResponse.json(
-      { error: 'Failed to reach Azure endpoint', details: String(err) },
+      { error: 'Azure poll failed', details: pollResult.detail.slice(0, 500) },
       { status: 502 }
     );
   }
+
+  if (pollResult.kind === 'processing') {
+    // Sigue procesando del lado de Azure.
+    return NextResponse.json({ status: pollResult.status });
+  }
+
+  const applied = await applyPollResult(adminSupabase, assessment.assessment_id, pollResult, {
+    allowRecovery: true,
+  });
+
+  logAssessmentEvent({
+    source: 'admin',
+    event: 'apply',
+    assessment_id: assessment.assessment_id,
+    db_id: assessment.id,
+    from: assessment.status,
+    to: pollResult.kind,
+    duration_ms: Date.now() - pollStarted,
+    persistence: applied.outcome,
+    detail: applied.outcome === 'applied' ? undefined : ('reason' in applied ? applied.reason : undefined),
+  });
+
+  if (applied.outcome === 'failed_to_persist') {
+    return NextResponse.json(
+      { error: `Failed to save results: ${applied.reason}` },
+      { status: 500 }
+    );
+  }
+
+  if (pollResult.kind === 'completed') {
+    if (applied.outcome === 'applied') {
+      // recovered=true si veniamos de un estado terminal distinto de processing.
+      return NextResponse.json({
+        status: 'completed',
+        recovered: applied.previousStatus !== 'processing',
+      });
+    }
+    // skipped: otro caller lo persistio primero, o el estado cambio en el
+    // medio. Devolver el estado actual conocido; el proximo poll/refresh del
+    // admin lee la verdad desde la DB.
+    return NextResponse.json({
+      status: applied.reason === 'already_terminal' ? (applied.currentStatus ?? 'completed') : 'processing',
+    });
+  }
+
+  // pollResult.kind === 'failed': applyPollResult nunca pisa un cancelled
+  // intencional con failed (skipped already_terminal en ese caso).
+  if (applied.outcome === 'applied') {
+    return NextResponse.json({ status: 'failed' });
+  }
+  return NextResponse.json({
+    status: applied.reason === 'already_terminal' ? (applied.currentStatus ?? 'failed') : 'processing',
+  });
 }
