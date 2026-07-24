@@ -11,9 +11,25 @@ import { logAssessmentEvent } from '@/lib/assessments/log';
 
 export const maxDuration = 60;
 
-// Lote chico, los mas viejos primero: el cron corre cada 5 min, no hace falta
-// drenar todo en una pasada.
-const BATCH_SIZE = 20;
+// Lote chico y MIXTO: mayoria de los mas viejos + una tajada de los mas
+// nuevos. Si solo se tomaran los 20 mas viejos, 20 rows permanentemente rotos
+// (404, sin email) monopolizarian el batch y los assessments recien creados
+// jamas se reconciliarian (starvation). Con la tajada de nuevos, lo recien
+// llegado siempre entra al scan aunque la cola vieja este podrida.
+const OLDEST_BATCH = 12;
+const NEWEST_BATCH = 8;
+
+// Tope duro por default: 24hs. Un job de Azure tarda minutos; un row que
+// lleva un dia entero sin resolucion no va a resolverse solo, y dejarlo vivo
+// bloquea la cola. Se puede subir/bajar por env, o apagar explicitamente con
+// '0' (un completed tardio igual es recuperable via poll del admin).
+const DEFAULT_HARD_TIMEOUT_MIN = 1440;
+
+function resolveHardTimeoutMin(raw: string | undefined): number {
+  if (raw === undefined || raw === '') return DEFAULT_HARD_TIMEOUT_MIN;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_HARD_TIMEOUT_MIN;
+}
 
 // Polls a Azure en paralelo acotado: 20 items secuenciales con timeout de 10s
 // podrian superar los 60s de maxDuration; con 4 workers el peor caso queda
@@ -32,12 +48,14 @@ const SOFT_BUDGET_MS = 45_000;
 // quedaba 'processing' para siempre (o 'failed' por timeout aunque Azure lo
 // hubiera completado). Este cron cierra ese agujero sin depender del cliente.
 //
-// Reglas: solo actua con respuesta explicita de Azure (completed/failed).
-// Errores de red o 5xx se saltean y se reintentan en la proxima corrida — una
-// caida de Azure (ej. durante la migracion de cuenta) nunca genera falsos
-// failed. Las reglas user/admin/cancelled viven en applyPollResult (las
-// generaciones de admin NUNCA se activan solas). Tope duro opcional via
-// RECONCILE_HARD_TIMEOUT_MIN (0/ausente = off).
+// Reglas: dentro del plazo, solo actua con respuesta explicita de Azure
+// (completed/failed) — errores de red o 5xx se saltean y se reintentan en la
+// proxima corrida, asi una caida de Azure (ej. durante la migracion de
+// cuenta) no genera falsos failed. Vencido el tope duro (default 24hs,
+// RECONCILE_HARD_TIMEOUT_MIN, '0' = off) cualquier no-terminal se drena a
+// failed para que la cola nunca quede bloqueada; un completed tardio sigue
+// siendo recuperable via poll del admin. Las reglas user/admin/cancelled
+// viven en applyPollResult (las generaciones de admin NUNCA se activan solas).
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
   if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -47,17 +65,30 @@ export async function GET(req: NextRequest) {
   const startedAt = Date.now();
   const admin = createAdminClient();
 
-  const { data: pending, error } = await admin
-    .from('assessments')
-    .select('id, assessment_id, user_id, created_at, generated_by')
-    .eq('status', 'processing')
-    .order('created_at', { ascending: true })
-    .limit(BATCH_SIZE);
+  const baseQuery = () =>
+    admin
+      .from('assessments')
+      .select('id, assessment_id, user_id, created_at, generated_by')
+      .eq('status', 'processing');
 
+  const [oldestRes, newestRes] = await Promise.all([
+    baseQuery().order('created_at', { ascending: true }).limit(OLDEST_BATCH),
+    baseQuery().order('created_at', { ascending: false }).limit(NEWEST_BATCH),
+  ]);
+
+  const error = oldestRes.error ?? newestRes.error;
   if (error) {
     logAssessmentEvent({ source: 'cron', event: 'scan_error', detail: error.message });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // Merge con dedupe (con pocos processing, ambas tajadas se solapan).
+  const seen = new Set<number | string>();
+  const pending = [...(oldestRes.data ?? []), ...(newestRes.data ?? [])].filter((row) => {
+    if (seen.has(row.id)) return false;
+    seen.add(row.id);
+    return true;
+  });
 
   const counts = {
     scanned: pending?.length ?? 0,
@@ -84,7 +115,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok, ...counts, duration_ms }, { status: ok ? 200 : 500 });
   };
 
-  if (!pending || pending.length === 0) {
+  if (pending.length === 0) {
     return respond();
   }
 
@@ -100,12 +131,12 @@ export async function GET(req: NextRequest) {
   }
   const emailById = new Map((users ?? []).map((u) => [u.id, u.email]));
 
-  const hardTimeoutMin = Number(process.env.RECONCILE_HARD_TIMEOUT_MIN ?? '0');
+  const hardTimeoutMin = resolveHardTimeoutMin(process.env.RECONCILE_HARD_TIMEOUT_MIN);
 
-  // Drenaje de rows permanentemente rotos: como el batch toma SIEMPRE los mas
-  // viejos, un row irrecuperable (sin email, o 404 explicito de Azure) que
-  // nunca sale de 'processing' monopolizaria la cola para siempre. Con el tope
-  // duro habilitado, pasado ese plazo se marcan failed y la cola avanza.
+  // Drenaje de rows permanentemente rotos: pasado el tope duro, CUALQUIER
+  // estado no terminal (processing eterno, 404, 500 recurrente, sin email) se
+  // marca failed y la cola avanza. Solo una respuesta terminal de Azure en
+  // este mismo poll le gana al tope (un completed tardio siempre vale mas).
   const pastHardTimeout = (createdAt: string | null) =>
     hardTimeoutMin > 0 && isPastTimeout(createdAt, Date.now(), hardTimeoutMin * 60_000);
 
@@ -186,11 +217,14 @@ export async function GET(req: NextRequest) {
     }
 
     if (result.kind === 'unreachable') {
-      // Un 404 es respuesta EXPLICITA de Azure ("ese job no existe") — con el
-      // tope duro vencido se drena como failed para no bloquear la cola. Los
-      // demas unreachable (timeout, red, 5xx) no deciden nada: proxima corrida.
-      if (result.httpStatus === 404 && pastHardTimeout(row.created_at)) {
-        await drain(row, 'Azure respondio 404');
+      // Azure no dio respuesta usable (404, 5xx recurrente, timeout, red).
+      // Dentro del plazo no se decide nada (proxima corrida); vencido el tope
+      // duro se drena — un 500 eterno bloquea la cola igual que un 404.
+      if (pastHardTimeout(row.created_at)) {
+        await drain(
+          row,
+          result.httpStatus ? `Azure inaccesible (http ${result.httpStatus})` : 'Azure inaccesible'
+        );
         return;
       }
       counts.unreachable++;
@@ -205,28 +239,9 @@ export async function GET(req: NextRequest) {
       return;
     }
 
-    // Azure confirma que sigue procesando: recien aca aplica el tope duro.
-    if (
-      hardTimeoutMin > 0 &&
-      isPastTimeout(row.created_at, Date.now(), hardTimeoutMin * 60_000)
-    ) {
-      const timedOut = await markTimedOut(
-        admin,
-        row.id,
-        `Timeout: supero los ${hardTimeoutMin} minutos sin resolucion de Azure.`
-      );
-      logAssessmentEvent({
-        source: 'cron',
-        event: 'timeout',
-        assessment_id: row.assessment_id,
-        db_id: row.id,
-        from: 'processing',
-        to: 'failed',
-        persistence: timedOut.outcome,
-      });
-      if (timedOut.outcome === 'applied') counts.timed_out++;
-      else if (timedOut.outcome === 'skipped') counts.skipped++;
-      else counts.persistence_errors++;
+    // Azure confirma que sigue procesando: mismo tope duro.
+    if (pastHardTimeout(row.created_at)) {
+      await drain(row, 'Azure sigue processing');
       return;
     }
 

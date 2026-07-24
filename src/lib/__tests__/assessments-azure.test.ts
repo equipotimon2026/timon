@@ -122,6 +122,23 @@ test('details sin body (timeout, errores de red) pasan capados', () => {
   assert.equal(redactAzureDetail('x'.repeat(500)).length, 200);
 });
 
+test('un error de fetch que incluye la URL no filtra el ?email= (scrub en origen)', async () => {
+  // Caso real del review: una AZURE_BASE_URL invalida hace que fetch tire un
+  // error cuyo mensaje contiene la URL completa, query string incluido.
+  const r = await pollAzureCore(
+    async (url) => {
+      throw new TypeError(`Failed to parse URL from ${url}`);
+    },
+    'not-a-url/api/assessments/abc?email=juan.perez@mail.com',
+    'key',
+    1000
+  );
+  assert.equal(r.kind, 'unreachable');
+  const detail = r.kind === 'unreachable' ? r.detail : '';
+  assert.ok(!detail.includes('juan.perez@mail.com'), `el detail filtro el email: ${detail}`);
+  assert.match(detail, /\?<redacted>/);
+});
+
 // ── isPastTimeout ──
 
 test('isPastTimeout: false dentro del plazo', () => {

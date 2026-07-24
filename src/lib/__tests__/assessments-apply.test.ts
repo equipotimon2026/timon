@@ -51,6 +51,10 @@ function makeFakeAdmin(responder: Responder): { client: SupabaseClient; ops: Op[
           op.filters.push({ method: 'is', args });
           return builder;
         },
+        in(...args: unknown[]) {
+          op.filters.push({ method: 'in', args });
+          return builder;
+        },
         maybeSingle() {
           op.single = true;
           return Promise.resolve(result());
@@ -219,6 +223,58 @@ test('carrera: el UPDATE terminal matchea 0 filas → skipped state_changed', as
 
   const r = await applyPollResult(client, 'az-1', completedResult);
   assert.deepEqual(r, { outcome: 'skipped', reason: 'state_changed' });
+});
+
+test('carrera con perfil previo activo: se REPONE el perfil desactivado', async () => {
+  // Escenario del review: user tenia el perfil 99 activo; mientras se aplicaba
+  // el nuevo resultado, un admin cancelo el assessment. Sin compensacion, el
+  // 99 quedaba desactivado y el usuario sin ningun perfil.
+  const { client, ops } = makeFakeAdmin((op, i) => {
+    if (i === 0) return { data: row() };
+    // deactivate: reporta que desactivo al 99
+    if (op.verb === 'update' && op.values?.is_active === false) return { data: [{ id: 99 }] };
+    // UPDATE terminal: 0 filas (el row ya no esta processing)
+    if (op.verb === 'update' && op.values?.status === 'completed') return { data: [] };
+    // restore
+    return { data: [{ id: 99 }] };
+  });
+
+  const r = await applyPollResult(client, 'az-1', completedResult);
+  assert.deepEqual(r, { outcome: 'skipped', reason: 'state_changed' });
+
+  const restoreOp = ops.find(
+    (o) => o.verb === 'update' && o.values?.is_active === true && !('status' in (o.values ?? {}))
+  )!;
+  assert.ok(restoreOp, 'debe emitirse la re-activacion compensatoria');
+  assert.ok(hasFilter(restoreOp, 'in', 'id', [99]), 'repone exactamente lo que desactivo');
+  assert.ok(hasFilter(restoreOp, 'eq', 'status', 'completed'), 'solo repone rows aun validos');
+});
+
+test('carrera sin perfil previo activo: no hay nada que reponer', async () => {
+  const { client, ops } = makeFakeAdmin((op, i) => {
+    if (i === 0) return { data: row() };
+    if (op.verb === 'update') return { data: [] };
+    return {};
+  });
+
+  await applyPollResult(client, 'az-1', completedResult);
+  assert.ok(
+    !ops.some((o) => o.verb === 'update' && o.values?.is_active === true && !('status' in (o.values ?? {}))),
+    'sin previously-active no debe emitirse restore'
+  );
+});
+
+test('fallo del restore compensatorio: failed_to_persist, nunca skipped silencioso', async () => {
+  const { client } = makeFakeAdmin((op, i) => {
+    if (i === 0) return { data: row() };
+    if (op.verb === 'update' && op.values?.is_active === false) return { data: [{ id: 99 }] };
+    if (op.verb === 'update' && op.values?.status === 'completed') return { data: [] };
+    return { error: { message: 'restore boom' } };
+  });
+
+  const r = await applyPollResult(client, 'az-1', completedResult);
+  assert.equal(r.outcome, 'failed_to_persist');
+  assert.match(r.outcome === 'failed_to_persist' ? r.reason : '', /restore boom/);
 });
 
 test('row inexistente: skipped row_not_found', async () => {

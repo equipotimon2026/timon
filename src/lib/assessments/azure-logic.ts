@@ -179,7 +179,9 @@ function describeFetchError(err: unknown, timeoutMs: number): string {
   if (name === 'TimeoutError') {
     return `Timeout de red tras ${timeoutMs}ms`;
   }
-  return String(err);
+  // Un error de fetch puede incluir la URL completa (p.ej. "Failed to parse
+  // URL from …?email=…"): el query string jamas debe llegar a un log.
+  return String(err).replace(/\?\S*/g, '?<redacted>').slice(0, 200);
 }
 
 /** map con concurrencia acotada, preservando el orden de resultados. */

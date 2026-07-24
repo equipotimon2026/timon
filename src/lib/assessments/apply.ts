@@ -84,24 +84,41 @@ async function applyCompleted(
   if (row.status === 'processing') {
     const isUserRow = row.generated_by !== 'admin';
 
-    // Orden AUTO-REPARABLE: primero desactivar los otros, y recien despues el
-    // UPDATE terminal (que en rows de usuario incluye is_active=true en la
-    // MISMA escritura). Si cualquier paso falla, el row sigue 'processing' y
-    // la proxima corrida del cron reintenta todo desde cero — nunca queda un
-    // completed a medio activar que nadie retoma. El peor caso transitorio
-    // del indice unico de mig 008 es 0 activos, nunca 2.
+    // Orden AUTO-REPARABLE: primero desactivar los otros (capturando cuales),
+    // y recien despues el UPDATE terminal (que en rows de usuario incluye
+    // is_active=true en la MISMA escritura). Si cualquier paso falla, el row
+    // sigue 'processing' y la proxima corrida del cron reintenta desde cero.
+    // Y si el UPDATE terminal no aplica (ej: un admin cancelo/reemplazo el
+    // assessment entre ambas escrituras), se REPONE el perfil que estaba
+    // activo — el usuario nunca queda sin perfil por esa carrera. El peor
+    // caso transitorio del indice unico de mig 008 es 0 activos, nunca 2.
+    let previouslyActiveIds: Array<number | string> = [];
     if (isUserRow) {
-      const { error: deactivateError } = await admin
+      const { data: deactivated, error: deactivateError } = await admin
         .from('assessments')
         .update({ is_active: false })
         .eq('user_id', row.user_id)
         .eq('is_active', true)
-        .neq('id', row.id);
+        .neq('id', row.id)
+        .select('id');
 
       if (deactivateError) {
         return { outcome: 'failed_to_persist', reason: `deactivate: ${deactivateError.message}` };
       }
+      previouslyActiveIds = (deactivated ?? []).map((d: { id: number | string }) => d.id);
     }
+
+    // Compensacion: re-activar lo que este apply desactivo. Solo rows que
+    // siguen 'completed' (no re-activar algo que dejo de ser valido).
+    const restorePreviousActive = async (): Promise<string | null> => {
+      if (previouslyActiveIds.length === 0) return null;
+      const { error } = await admin
+        .from('assessments')
+        .update({ is_active: true })
+        .in('id', previouslyActiveIds)
+        .eq('status', 'completed');
+      return error ? error.message : null;
+    };
 
     // Activacion: SOLO generaciones de usuario. Las de admin guardan
     // status/results pero is_active queda tal como este — activar y liberar
@@ -119,10 +136,21 @@ async function applyCompleted(
       .select('id');
 
     if (updateError) {
-      return { outcome: 'failed_to_persist', reason: `complete: ${updateError.message}` };
+      const restoreError = await restorePreviousActive();
+      return {
+        outcome: 'failed_to_persist',
+        reason:
+          `complete: ${updateError.message}` +
+          (restoreError ? ` (restore: ${restoreError})` : ''),
+      };
     }
     if (!updated || updated.length === 0) {
-      // Otro caller (o una cancelacion) gano la carrera.
+      // Otro caller (o una cancelacion) gano la carrera: devolver el perfil
+      // anterior a su estado activo.
+      const restoreError = await restorePreviousActive();
+      if (restoreError) {
+        return { outcome: 'failed_to_persist', reason: `restore: ${restoreError}` };
+      }
       return { outcome: 'skipped', reason: 'state_changed' };
     }
     return { outcome: 'applied', previousStatus: 'processing', activated: isUserRow };
