@@ -6,6 +6,7 @@ import {
   isPastTimeout,
   mapWithConcurrency,
   pollAzureCore,
+  redactAzureDetail,
   resolveTimeoutMs,
   submitToAzureCore,
 } from '../assessments/azure-logic';
@@ -37,9 +38,24 @@ test('HTTP 500 es unreachable, nunca failed', () => {
   assert.equal(r.kind, 'unreachable');
 });
 
-test('HTTP 404 es unreachable, nunca failed', () => {
+test('HTTP 404 es unreachable, nunca failed, y expone el httpStatus', () => {
   const r = classifyAzureResponse(false, 404, 'Not Found');
   assert.equal(r.kind, 'unreachable');
+  // El cron usa httpStatus === 404 (respuesta explicita de Azure) para drenar
+  // rows irrecuperables via tope duro sin confundirlos con caidas de red.
+  assert.equal(r.kind === 'unreachable' && r.httpStatus, 404);
+});
+
+test('timeout/error de red NO llevan httpStatus (no son respuesta de Azure)', async () => {
+  const r = await pollAzureCore(
+    async () => {
+      throw new TypeError('fetch failed');
+    },
+    'http://azure.test',
+    'key',
+    1000
+  );
+  assert.equal(r.kind === 'unreachable' && r.httpStatus, undefined);
 });
 
 test('body no-JSON es unreachable', () => {
@@ -73,6 +89,37 @@ test('submit con HTTP error es rejected e incluye el status', () => {
   const r = classifyAzureSubmitResponse(false, 503, 'Service Unavailable');
   assert.equal(r.kind, 'rejected');
   assert.equal(r.kind === 'rejected' && r.httpStatus, 503);
+});
+
+// ── redactAzureDetail: nunca bodies de Azure en los logs ──
+
+test('redacta el body de un error de poll (puede reflejar payload/PII)', () => {
+  const detail = 'Azure poll error 400: {"error":"invalid","echo":"Juan Perez juan@mail.com"}';
+  assert.equal(redactAzureDetail(detail), 'Azure poll error 400');
+});
+
+test('redacta el body de un error de submit', () => {
+  assert.equal(
+    redactAzureDetail('Azure submit error 422: {"payload":{"first_name":"Juan"}}'),
+    'Azure submit error 422'
+  );
+});
+
+test('redacta bodies no-JSON y de assessment_id ausente', () => {
+  assert.equal(
+    redactAzureDetail('Azure devolvio body no-JSON: <html>algo</html>'),
+    'Azure devolvio body no-JSON'
+  );
+  assert.equal(
+    redactAzureDetail('Azure no devolvio assessment_id: {"echo":"datos"}'),
+    'Azure no devolvio assessment_id'
+  );
+});
+
+test('details sin body (timeout, errores de red) pasan capados', () => {
+  assert.equal(redactAzureDetail('Timeout de red tras 10000ms'), 'Timeout de red tras 10000ms');
+  assert.equal(redactAzureDetail('TypeError: fetch failed'), 'TypeError: fetch failed');
+  assert.equal(redactAzureDetail('x'.repeat(500)).length, 200);
 });
 
 // ── isPastTimeout ──

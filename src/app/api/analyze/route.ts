@@ -9,6 +9,7 @@ import {
   pollAzure,
   submitToAzure,
 } from '@/lib/assessments/azure';
+import { redactAzureDetail } from '@/lib/assessments/azure-logic';
 import { logAssessmentEvent } from '@/lib/assessments/log';
 
 export const maxDuration = 60;
@@ -126,7 +127,7 @@ export async function POST(req: NextRequest) {
       event: 'submit_rejected',
       user_id: profile.id,
       duration_ms: Date.now() - submitStarted,
-      detail: submit.detail,
+      detail: redactAzureDetail(submit.detail),
     });
     return NextResponse.json(
       { error: 'Azure submit failed', details: submit.detail },
@@ -320,7 +321,7 @@ export async function GET(req: NextRequest) {
     assessment_id: assessmentId,
     db_id: ownerCheck.id,
     duration_ms: Date.now() - pollStarted,
-    detail: pollResult.detail,
+    detail: redactAzureDetail(pollResult.detail),
   });
   return NextResponse.json({ status: 'processing' });
 }

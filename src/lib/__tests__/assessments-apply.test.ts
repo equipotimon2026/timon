@@ -82,26 +82,30 @@ const failedResult = { kind: 'failed' as const, error: 'agent crashed' };
 
 // ── Generacion de USUARIO completada: persiste y activa ──
 
-test('user completed: persiste con guard de status y activa', async () => {
+test('user completed: desactiva primero y persiste+activa en UN solo UPDATE terminal', async () => {
   const { client, ops } = makeFakeAdmin((op, i) => {
     if (i === 0) return { data: row() };
-    if (op.verb === 'update' && op.values?.status === 'completed') return { data: [{ id: 1 }] };
-    if (op.verb === 'update' && op.values?.is_active === false) return { data: [] };
-    if (op.verb === 'update' && op.values?.is_active === true) return { data: [{ id: 1 }] };
+    if (op.verb === 'update') return { data: [{ id: 1 }] };
     return {};
   });
 
   const r = await applyPollResult(client, 'az-1', completedResult);
   assert.deepEqual(r, { outcome: 'applied', previousStatus: 'processing', activated: true });
 
-  const completeOp = ops.find((o) => o.verb === 'update' && o.values?.status === 'completed')!;
-  assert.ok(hasFilter(completeOp, 'eq', 'status', 'processing'), 'el UPDATE terminal exige status previo');
+  const updates = ops.filter((o) => o.verb === 'update');
+  assert.equal(updates.length, 2, 'deactivate + terminal, nada mas');
 
-  const deactivateOp = ops.find((o) => o.verb === 'update' && o.values?.is_active === false)!;
-  assert.ok(hasFilter(deactivateOp, 'neq', 'id', 1), 'no desactiva al propio row');
+  // 1º: desactivar los otros (nunca al propio row)
+  assert.deepEqual(updates[0].values, { is_active: false });
+  assert.ok(hasFilter(updates[0], 'neq', 'id', 1), 'no desactiva al propio row');
 
-  const activateOp = ops.find((o) => o.verb === 'update' && o.values?.is_active === true)!;
-  assert.ok(hasFilter(activateOp, 'eq', 'status', 'completed'), 'solo activa si sigue completed');
+  // 2º: escritura terminal atomica — status, results e is_active JUNTOS, con
+  // guard de estado previo. Si esta escritura falla, el row sigue processing
+  // y el cron reintenta (auto-reparable).
+  assert.equal(updates[1].values?.status, 'completed');
+  assert.equal(updates[1].values?.is_active, true);
+  assert.ok(updates[1].values && 'results' in updates[1].values);
+  assert.ok(hasFilter(updates[1], 'eq', 'status', 'processing'), 'el UPDATE terminal exige status previo');
 });
 
 // ── Generacion de ADMIN completada: persiste pero NUNCA activa ──
@@ -237,7 +241,9 @@ test('resultado no terminal (processing/unreachable): no-op', async () => {
 test('fallo de Supabase en el UPDATE terminal: failed_to_persist', async () => {
   const { client } = makeFakeAdmin((op, i) => {
     if (i === 0) return { data: row() };
-    if (op.verb === 'update') return { error: { message: 'connection reset' } };
+    if (op.verb === 'update' && op.values?.status === 'completed')
+      return { error: { message: 'connection reset' } };
+    if (op.verb === 'update') return { data: [] };
     return {};
   });
 
@@ -246,17 +252,22 @@ test('fallo de Supabase en el UPDATE terminal: failed_to_persist', async () => {
   assert.match(r.outcome === 'failed_to_persist' ? r.reason : '', /connection reset/);
 });
 
-test('fallo de Supabase en la activacion: failed_to_persist (no exito a medias)', async () => {
-  const { client } = makeFakeAdmin((op, i) => {
+test('fallo en el deactivate: failed_to_persist y SIN escritura terminal (auto-reparable)', async () => {
+  const { client, ops } = makeFakeAdmin((op, i) => {
     if (i === 0) return { data: row() };
-    if (op.verb === 'update' && op.values?.status === 'completed') return { data: [{ id: 1 }] };
     if (op.verb === 'update' && op.values?.is_active === false)
       return { error: { message: 'deactivate boom' } };
-    return {};
+    return { data: [{ id: 1 }] };
   });
 
   const r = await applyPollResult(client, 'az-1', completedResult);
   assert.equal(r.outcome, 'failed_to_persist');
+  // Clave del self-healing: el row NUNCA se marco completed, sigue en
+  // processing y la proxima corrida del cron reintenta todo el ciclo.
+  assert.ok(
+    !ops.some((o) => o.verb === 'update' && o.values?.status === 'completed'),
+    'no debe emitirse el UPDATE terminal si fallo el deactivate'
+  );
 });
 
 test('fallo al leer el row: failed_to_persist, no skipped', async () => {

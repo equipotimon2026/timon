@@ -6,7 +6,7 @@ import {
   markTimedOut,
   pollAzure,
 } from '@/lib/assessments/azure';
-import { mapWithConcurrency } from '@/lib/assessments/azure-logic';
+import { mapWithConcurrency, redactAzureDetail } from '@/lib/assessments/azure-logic';
 import { logAssessmentEvent } from '@/lib/assessments/log';
 
 export const maxDuration = 60;
@@ -102,6 +102,37 @@ export async function GET(req: NextRequest) {
 
   const hardTimeoutMin = Number(process.env.RECONCILE_HARD_TIMEOUT_MIN ?? '0');
 
+  // Drenaje de rows permanentemente rotos: como el batch toma SIEMPRE los mas
+  // viejos, un row irrecuperable (sin email, o 404 explicito de Azure) que
+  // nunca sale de 'processing' monopolizaria la cola para siempre. Con el tope
+  // duro habilitado, pasado ese plazo se marcan failed y la cola avanza.
+  const pastHardTimeout = (createdAt: string | null) =>
+    hardTimeoutMin > 0 && isPastTimeout(createdAt, Date.now(), hardTimeoutMin * 60_000);
+
+  const drain = async (
+    row: { id: number | string; assessment_id: string },
+    reason: string
+  ) => {
+    const timedOut = await markTimedOut(
+      admin,
+      row.id,
+      `Timeout: supero los ${hardTimeoutMin} minutos sin resolucion (${reason}).`
+    );
+    logAssessmentEvent({
+      source: 'cron',
+      event: 'timeout',
+      assessment_id: row.assessment_id,
+      db_id: row.id,
+      from: 'processing',
+      to: 'failed',
+      persistence: timedOut.outcome,
+      detail: reason,
+    });
+    if (timedOut.outcome === 'applied') counts.timed_out++;
+    else if (timedOut.outcome === 'skipped') counts.skipped++;
+    else counts.persistence_errors++;
+  };
+
   await mapWithConcurrency(pending, POLL_CONCURRENCY, async (row) => {
     if (Date.now() - startedAt > SOFT_BUDGET_MS) {
       counts.skipped++;
@@ -110,6 +141,12 @@ export async function GET(req: NextRequest) {
 
     const email = emailById.get(row.user_id);
     if (!email) {
+      // Sin email no hay como pollear a Azure: irrecuperable. Se drena via
+      // tope duro; sin tope configurado solo se saltea (y se loguea).
+      if (pastHardTimeout(row.created_at)) {
+        await drain(row, 'sin email del usuario');
+        return;
+      }
       counts.skipped++;
       logAssessmentEvent({
         source: 'cron',
@@ -149,7 +186,13 @@ export async function GET(req: NextRequest) {
     }
 
     if (result.kind === 'unreachable') {
-      // Sin respuesta de Azure no se decide nada: proxima corrida.
+      // Un 404 es respuesta EXPLICITA de Azure ("ese job no existe") — con el
+      // tope duro vencido se drena como failed para no bloquear la cola. Los
+      // demas unreachable (timeout, red, 5xx) no deciden nada: proxima corrida.
+      if (result.httpStatus === 404 && pastHardTimeout(row.created_at)) {
+        await drain(row, 'Azure respondio 404');
+        return;
+      }
       counts.unreachable++;
       logAssessmentEvent({
         source: 'cron',
@@ -157,7 +200,7 @@ export async function GET(req: NextRequest) {
         assessment_id: row.assessment_id,
         db_id: row.id,
         duration_ms: Date.now() - pollStarted,
-        detail: result.detail,
+        detail: redactAzureDetail(result.detail),
       });
       return;
     }

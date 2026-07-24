@@ -40,10 +40,13 @@ export function getAzureAssessmentsUrl(): string {
 }
 
 // Timeouts por request a Azure. El poll es un GET liviano; el submit puede
-// sufrir el cold start de la Function, por eso su default es mas generoso
-// (las rutas que lo usan declaran maxDuration = 60).
+// sufrir el cold start de la Function, por eso su default es mas generoso.
+// Las rutas que hacen submit declaran maxDuration = 60: los 40s dejan margen
+// real para auth, armado del payload y el INSERT posterior — un submit que
+// consumiera casi todo el presupuesto haria que Vercel mate la funcion con el
+// trabajo ya aceptado en Azure pero sin row local que lo trackee.
 const DEFAULT_POLL_TIMEOUT_MS = 10_000;
-const DEFAULT_SUBMIT_TIMEOUT_MS = 55_000;
+const DEFAULT_SUBMIT_TIMEOUT_MS = 40_000;
 
 export function getPollTimeoutMs(): number {
   return resolveTimeoutMs(process.env.AZURE_POLL_TIMEOUT_MS, DEFAULT_POLL_TIMEOUT_MS);

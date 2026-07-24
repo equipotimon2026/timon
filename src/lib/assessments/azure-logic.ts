@@ -5,7 +5,10 @@ export type AzurePollResult =
   | { kind: 'completed'; results: unknown }
   | { kind: 'failed'; error: string }
   | { kind: 'processing'; status: string }
-  | { kind: 'unreachable'; detail: string };
+  // httpStatus presente solo cuando Azure SI respondio (error HTTP): un 404
+  // es una respuesta explicita ("ese job no existe"), distinta de un timeout
+  // o error de red donde httpStatus queda undefined.
+  | { kind: 'unreachable'; detail: string; httpStatus?: number };
 
 export type AzureSubmitResult =
   | { kind: 'submitted'; assessmentId: string }
@@ -23,6 +26,7 @@ export function classifyAzureResponse(
     return {
       kind: 'unreachable',
       detail: `Azure poll error ${httpStatus}: ${body.slice(0, 300)}`,
+      httpStatus,
     };
   }
   let parsed: { status?: string; results?: unknown; error?: string };
@@ -51,7 +55,11 @@ export function classifyAzureSubmitResponse(
   body: string
 ): AzureSubmitResult {
   if (!ok) {
-    return { kind: 'rejected', httpStatus, detail: body.slice(0, 300) };
+    return {
+      kind: 'rejected',
+      httpStatus,
+      detail: `Azure submit error ${httpStatus}: ${body.slice(0, 300)}`,
+    };
   }
   let parsed: { assessment_id?: unknown };
   try {
@@ -80,6 +88,31 @@ export function isPastTimeout(
 ): boolean {
   if (!createdAt) return false;
   return nowMs - new Date(createdAt).getTime() > timeoutMs;
+}
+
+// Prefijos de details que arrastran el BODY devuelto por Azure. Un error de
+// validacion de Azure puede reflejar parte del payload (datos personales o
+// respuestas), asi que a los LOGS solo va el prefijo (con el status HTTP);
+// el detail completo puede viajar en la respuesta HTTP al admin, pero nunca
+// persistirse en logs.
+const BODY_BEARING_PREFIXES = [
+  'Azure poll error',
+  'Azure submit error',
+  'Azure devolvio body no-JSON',
+  'Azure no devolvio assessment_id',
+];
+
+/** Version segura de un detail de Azure para logging: corta el body reflejado
+ *  y deja solo el prefijo + status HTTP. Details sin body (timeouts, errores
+ *  de red) pasan capados a 200 chars. */
+export function redactAzureDetail(detail: string): string {
+  for (const prefix of BODY_BEARING_PREFIXES) {
+    if (detail.startsWith(prefix)) {
+      const cut = detail.indexOf(':');
+      return cut === -1 ? detail : detail.slice(0, cut);
+    }
+  }
+  return detail.slice(0, 200);
 }
 
 /** Parseo defensivo de timeouts desde env: NaN, vacio o <=0 caen al default. */

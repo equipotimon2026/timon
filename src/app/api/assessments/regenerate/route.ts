@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { buildAzurePayload } from '@/lib/admin/build-azure-payload';
 import { submitToAzure } from '@/lib/assessments/azure';
+import { redactAzureDetail } from '@/lib/assessments/azure-logic';
 import { logAssessmentEvent } from '@/lib/assessments/log';
 
 export const maxDuration = 60;
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
       event: 'regenerate_rejected',
       user_id: profile.id,
       duration_ms: Date.now() - submitStarted,
-      detail: submit.detail,
+      detail: redactAzureDetail(submit.detail),
     });
     return NextResponse.json(
       { error: 'Azure submit failed', details: submit.detail },

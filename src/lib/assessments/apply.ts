@@ -82,12 +82,37 @@ async function applyCompleted(
   opts: ApplyPollOptions
 ): Promise<ApplyPollOutcome> {
   if (row.status === 'processing') {
+    const isUserRow = row.generated_by !== 'admin';
+
+    // Orden AUTO-REPARABLE: primero desactivar los otros, y recien despues el
+    // UPDATE terminal (que en rows de usuario incluye is_active=true en la
+    // MISMA escritura). Si cualquier paso falla, el row sigue 'processing' y
+    // la proxima corrida del cron reintenta todo desde cero — nunca queda un
+    // completed a medio activar que nadie retoma. El peor caso transitorio
+    // del indice unico de mig 008 es 0 activos, nunca 2.
+    if (isUserRow) {
+      const { error: deactivateError } = await admin
+        .from('assessments')
+        .update({ is_active: false })
+        .eq('user_id', row.user_id)
+        .eq('is_active', true)
+        .neq('id', row.id);
+
+      if (deactivateError) {
+        return { outcome: 'failed_to_persist', reason: `deactivate: ${deactivateError.message}` };
+      }
+    }
+
+    // Activacion: SOLO generaciones de usuario. Las de admin guardan
+    // status/results pero is_active queda tal como este — activar y liberar
+    // es decision manual del admin.
     const { data: updated, error: updateError } = await admin
       .from('assessments')
       .update({
         status: 'completed',
         results,
         completed_at: new Date().toISOString(),
+        ...(isUserRow ? { is_active: true } : {}),
       })
       .eq('id', row.id)
       .eq('status', 'processing')
@@ -100,13 +125,7 @@ async function applyCompleted(
       // Otro caller (o una cancelacion) gano la carrera.
       return { outcome: 'skipped', reason: 'state_changed' };
     }
-
-    // Activacion: SOLO generaciones de usuario. Las de admin quedan con
-    // is_active tal como este — activar y liberar es decision manual.
-    if (row.generated_by !== 'admin') {
-      return activate(admin, row);
-    }
-    return { outcome: 'applied', previousStatus: 'processing', activated: false };
+    return { outcome: 'applied', previousStatus: 'processing', activated: isUserRow };
   }
 
   // Estado terminal (completed/cancelled/failed): un completed tardio NO lo
@@ -137,39 +156,6 @@ async function applyCompleted(
     return { outcome: 'skipped', reason: 'state_changed' };
   }
   return { outcome: 'applied', previousStatus: row.status, activated: false };
-}
-
-async function activate(admin: SupabaseClient, row: AssessmentRow): Promise<ApplyPollOutcome> {
-  // Activacion en dos UPDATEs (sin tx multi-statement via supabase-js).
-  // El indice unico de mig 008 (un is_active=true por user) cubre la carrera;
-  // el peor caso transitorio es 0 activos, nunca 2.
-  const { error: deactivateError } = await admin
-    .from('assessments')
-    .update({ is_active: false })
-    .eq('user_id', row.user_id)
-    .eq('is_active', true)
-    .neq('id', row.id);
-
-  if (deactivateError) {
-    return { outcome: 'failed_to_persist', reason: `deactivate: ${deactivateError.message}` };
-  }
-
-  // Condicionado a 'completed': si algo cambio el estado en el medio, no
-  // reactivamos una generacion que ya no es valida.
-  const { data: activated, error: activateError } = await admin
-    .from('assessments')
-    .update({ is_active: true })
-    .eq('id', row.id)
-    .eq('status', 'completed')
-    .select('id');
-
-  if (activateError) {
-    return { outcome: 'failed_to_persist', reason: `activate: ${activateError.message}` };
-  }
-  if (!activated || activated.length === 0) {
-    return { outcome: 'skipped', reason: 'state_changed' };
-  }
-  return { outcome: 'applied', previousStatus: 'processing', activated: true };
 }
 
 async function applyFailed(

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/guard';
 import { submitToAzure } from '@/lib/assessments/azure';
+import { redactAzureDetail } from '@/lib/assessments/azure-logic';
 import { buildAzurePayload } from '@/lib/admin/build-azure-payload';
 import { logAssessmentEvent } from '@/lib/assessments/log';
 
@@ -78,7 +79,7 @@ export async function POST(
       event: 'generate_rejected',
       user_id: userId,
       duration_ms: Date.now() - submitStarted,
-      detail: submit.detail,
+      detail: redactAzureDetail(submit.detail),
     });
     return NextResponse.json(
       { error: 'Azure submit failed', details: submit.detail },
@@ -106,7 +107,7 @@ export async function POST(
       is_active: false,
       section_versions: sectionVersions,
     })
-    .select('id')
+    .select('id, created_at')
     .single();
 
   if (insertError || !inserted) {
@@ -126,8 +127,12 @@ export async function POST(
     );
   }
 
-  // Recien ahora, con el nuevo confirmado, "pisamos" los processing anteriores
-  // (excluyendo el recien insertado) para que se deje de pollear esos ids.
+  // Recien ahora, con el nuevo confirmado, "pisamos" los processing ANTERIORES
+  // para que se deje de pollear esos ids. El lt estricto por created_at hace
+  // deterministica la carrera de dos generates simultaneos que pasaron el
+  // guard: cada uno cancela solo a los creados ANTES que el suyo, asi
+  // sobrevive exactamente el mas nuevo — nunca pueden cancelarse mutuamente
+  // y quedar los dos en cancelled.
   const { error: cancelError } = await adminSupabase
     .from('assessments')
     .update({
@@ -137,7 +142,8 @@ export async function POST(
     })
     .eq('user_id', userId)
     .eq('status', 'processing')
-    .neq('id', inserted.id);
+    .neq('id', inserted.id)
+    .lt('created_at', inserted.created_at);
 
   if (cancelError) {
     // El nuevo assessment ya existe y es trackeable; que un viejo quede en
