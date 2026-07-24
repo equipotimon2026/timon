@@ -13,6 +13,11 @@ if (process.env.NEXT_PUBLIC_POSTHOG_KEY) {
       // Los usuarios son menores cargando datos personales: nunca grabar
       // lo que escriben en los inputs.
       maskAllInputs: true,
+      // maskAllInputs no cubre texto RENDERIZADO (respuestas restauradas en
+      // los forms, resultados vocacionales/psicométricos en pantalla). '*'
+      // enmascara todo texto del replay: queda la navegación y el layout,
+      // nunca el contenido.
+      maskTextSelector: '*',
     },
   });
 }

@@ -1,18 +1,56 @@
 import 'server-only';
-import { SupabaseClient } from '@supabase/supabase-js';
-import { AzurePollResult, classifyAzureResponse } from './azure-logic';
+import {
+  AzurePollResult,
+  AzureSubmitResult,
+  pollAzureCore,
+  resolveTimeoutMs,
+  submitToAzureCore,
+} from './azure-logic';
 
 export { classifyAzureResponse, isPastTimeout } from './azure-logic';
-export type { AzurePollResult } from './azure-logic';
+export type { AzurePollResult, AzureSubmitResult } from './azure-logic';
+export { applyPollResult, markTimedOut } from './apply';
+export type { ApplyPollOutcome, MarkTimedOutOutcome } from './apply';
 
-// Base de Azure configurable por env para sobrevivir la migración de cuenta
-// sin tocar código. Fallback al valor histórico si la env no está seteada.
-const DEFAULT_AZURE_BASE_URL =
+// Base de Azure configurable por env para sobrevivir la migracion de cuenta
+// sin tocar codigo. El valor historico apunta a la CUENTA PERSONAL anterior:
+// existe solo para no romper los entornos que aun no setearon AZURE_BASE_URL,
+// y avisa fuerte cada vez que se usa. Tras migrar la cuenta, setear
+// AZURE_BASE_URL en Vercel es OBLIGATORIO — si no, esto seguiria llamando a la
+// cuenta vieja en silencio.
+const LEGACY_AZURE_BASE_URL =
   'https://timon-agents-ckfqd5evcdcqgsg9.eastus2-01.azurewebsites.net';
 
+let warnedLegacyBaseUrl = false;
+
 export function getAzureAssessmentsUrl(): string {
-  const base = process.env.AZURE_BASE_URL ?? DEFAULT_AZURE_BASE_URL;
+  let base = process.env.AZURE_BASE_URL;
+  if (!base) {
+    base = LEGACY_AZURE_BASE_URL;
+    if (!warnedLegacyBaseUrl) {
+      warnedLegacyBaseUrl = true;
+      console.warn(
+        '[assessments] AZURE_BASE_URL no esta seteada — usando la URL historica ' +
+          'ligada a la cuenta personal anterior. Setear AZURE_BASE_URL antes de ' +
+          'cualquier migracion de cuenta de Azure.'
+      );
+    }
+  }
   return `${base}/api/assessments`;
+}
+
+// Timeouts por request a Azure. El poll es un GET liviano; el submit puede
+// sufrir el cold start de la Function, por eso su default es mas generoso
+// (las rutas que lo usan declaran maxDuration = 60).
+const DEFAULT_POLL_TIMEOUT_MS = 10_000;
+const DEFAULT_SUBMIT_TIMEOUT_MS = 55_000;
+
+export function getPollTimeoutMs(): number {
+  return resolveTimeoutMs(process.env.AZURE_POLL_TIMEOUT_MS, DEFAULT_POLL_TIMEOUT_MS);
+}
+
+export function getSubmitTimeoutMs(): number {
+  return resolveTimeoutMs(process.env.AZURE_SUBMIT_TIMEOUT_MS, DEFAULT_SUBMIT_TIMEOUT_MS);
 }
 
 export async function pollAzure(
@@ -23,113 +61,26 @@ export async function pollAzure(
   if (!azureKey) {
     return { kind: 'unreachable', detail: 'AZURE_FUNCTIONS_KEY not configured' };
   }
-  try {
-    const res = await fetch(
-      `${getAzureAssessmentsUrl()}/${assessmentId}?email=${encodeURIComponent(email)}`,
-      { headers: { 'x-functions-key': azureKey } }
-    );
-    const body = await res.text();
-    return classifyAzureResponse(res.ok, res.status, body);
-  } catch (err) {
-    return { kind: 'unreachable', detail: String(err) };
-  }
+  return pollAzureCore(
+    fetch,
+    `${getAzureAssessmentsUrl()}/${assessmentId}?email=${encodeURIComponent(email)}`,
+    azureKey,
+    getPollTimeoutMs()
+  );
 }
 
-/**
- * Persiste un resultado terminal de Azure. Único camino de escritura,
- * compartido entre el poll del navegador (GET /api/analyze) y el cron de
- * reconciliación. 'processing' y 'unreachable' son no-ops a propósito.
- */
-export async function applyPollResult(
-  admin: SupabaseClient,
-  assessmentId: string,
-  result: AzurePollResult
-): Promise<void> {
-  if (result.kind === 'completed') {
-    // Activación en dos UPDATEs (sin tx multi-statement vía supabase-js).
-    // El índice único de mig 008 (un is_active=true por user) cubre la carrera;
-    // el peor caso transitorio es 0 activos, nunca 2.
-    const { data: thisRow } = await admin
-      .from('assessments')
-      .select('id, user_id')
-      .eq('assessment_id', assessmentId)
-      .maybeSingle();
-
-    if (thisRow) {
-      const { error: deactivateError } = await admin
-        .from('assessments')
-        .update({ is_active: false })
-        .eq('user_id', thisRow.user_id)
-        .eq('is_active', true)
-        .neq('id', thisRow.id);
-
-      if (deactivateError) {
-        console.error('[assessments] ← Failed to deactivate old assessment:', deactivateError.message);
-      }
-
-      const { error: activateError } = await admin
-        .from('assessments')
-        .update({
-          status: 'completed',
-          results: result.results,
-          completed_at: new Date().toISOString(),
-          is_active: true,
-        })
-        .eq('id', thisRow.id);
-
-      if (activateError) {
-        console.error('[assessments] ← Failed to activate assessment:', activateError.message);
-      } else {
-        console.log('[assessments] ← Assessment %s activated (is_active=true)', assessmentId);
-      }
-    } else {
-      const { error: saveError } = await admin
-        .from('assessments')
-        .update({
-          status: 'completed',
-          results: result.results,
-          completed_at: new Date().toISOString(),
-        })
-        .eq('assessment_id', assessmentId);
-
-      if (saveError) {
-        console.error('[assessments] ← Failed to save results (fallback):', saveError.message);
-      }
-    }
-    return;
+/** POST del trabajo a Azure, con timeout y validacion del body de respuesta.
+ *  Unico camino de submit: analyze, regenerate y admin generate pasan por aca. */
+export async function submitToAzure(payload: unknown): Promise<AzureSubmitResult> {
+  const azureKey = process.env.AZURE_FUNCTIONS_KEY;
+  if (!azureKey) {
+    return { kind: 'unreachable', detail: 'AZURE_FUNCTIONS_KEY not configured' };
   }
-
-  if (result.kind === 'failed') {
-    const { error: updateError } = await admin
-      .from('assessments')
-      .update({
-        status: 'failed',
-        error: result.error,
-        completed_at: new Date().toISOString(),
-      })
-      .eq('assessment_id', assessmentId);
-
-    if (updateError) {
-      console.error('[assessments] ← Failed to update assessment as failed:', updateError.message);
-    } else {
-      console.log('[assessments] ← Assessment marked as failed for %s', assessmentId);
-    }
-  }
-}
-
-/** Marca failed por timeout, solo si sigue en processing (guard atómico). */
-export async function markTimedOut(
-  admin: SupabaseClient,
-  rowId: number | string,
-  message: string
-): Promise<void> {
-  await admin
-    .from('assessments')
-    .update({
-      status: 'failed',
-      error: message,
-      completed_at: new Date().toISOString(),
-    })
-    .eq('id', rowId)
-    .eq('status', 'processing');
+  return submitToAzureCore(
+    fetch,
+    getAzureAssessmentsUrl(),
+    azureKey,
+    JSON.stringify(payload),
+    getSubmitTimeoutMs()
+  );
 }

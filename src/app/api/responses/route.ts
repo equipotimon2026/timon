@@ -1,13 +1,18 @@
-import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isSectionPaymentLocked } from '@/lib/section-gate';
+import {
+  isEmptyAnswer,
+  normalizeResponseValues,
+  questionHash,
+  validateSingleResponseType,
+} from '@/lib/responses/logic';
 
-function questionHash(text: string): string {
-  return createHash('sha256').update(text.toLowerCase().trim()).digest('hex');
-}
-
+// Guardado individual de una respuesta. Identidad canonica y upsert atomico
+// sobre el UNIQUE real (user_id, section_id, question_number) — igual que el
+// server action saveQuestionnaireResponse. Nada de SELECT→INSERT manual:
+// dos requests concurrentes ya no pueden chocar con 23505.
 export async function POST(req: NextRequest) {
   // Auth check
   const supabase = createServerClient(
@@ -38,17 +43,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
   }
 
-  const body = await req.json();
-  const {
-    section_id,
-    question_number,
-    question,
-    question_hash: clientHash,
-    response_boolean,
-    response_integer,
-    response_text,
-    response_array,
-  } = body;
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const { section_id, question_number, question, question_hash: clientHash } = body;
 
   if (!section_id || question_number == null || !question) {
     return NextResponse.json(
@@ -61,65 +63,46 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Módulo bloqueado: requiere pago' }, { status: 402 });
   }
 
+  const values = normalizeResponseValues(body);
+
+  const typeCheck = validateSingleResponseType(values);
+  if (!typeCheck.ok) {
+    return NextResponse.json({ error: typeCheck.error }, { status: 400 });
+  }
+
   // Backend wins: always calculate hash, warn if client sent a different value
-  const computedHash = questionHash(question);
-  if (clientHash && clientHash !== computedHash) {
+  const hash = questionHash(question);
+  if (clientHash && clientHash !== hash) {
     console.warn(
       '[POST /api/responses] question_hash mismatch — client sent %s, computed %s. Using computed.',
       clientHash,
-      computedHash
+      hash
     );
   }
-  const hash = computedHash;
 
-  // SELECT by (user_id, section_id, question_hash) — upsert manually since no unique constraint
-  const { data: existing, error: selectError } = await adminSupabase
-    .from('responses')
-    .select('id')
-    .eq('user_id', profile.id)
-    .eq('section_id', section_id)
-    .eq('question_hash', hash)
-    .maybeSingle();
-
-  if (selectError) {
-    console.error('[POST /api/responses] SELECT error:', selectError.message);
-    return NextResponse.json({ error: 'Database error' }, { status: 500 });
+  // Una respuesta vacia nunca pisa una respuesta real ya guardada.
+  if (isEmptyAnswer(values)) {
+    return NextResponse.json({ saved: false, reason: 'empty_answer', question_hash: hash });
   }
 
-  const responseData = {
-    user_id: profile.id,
-    section_id,
-    question_number,
-    question,
-    question_hash: hash,
-    response_boolean: response_boolean ?? null,
-    response_integer: response_integer ?? null,
-    response_text: response_text ?? null,
-    response_array: response_array ?? null,
-    answered_at: new Date().toISOString(),
-  };
+  const { error: upsertError } = await adminSupabase
+    .from('responses')
+    .upsert(
+      {
+        user_id: profile.id,
+        section_id,
+        question_number,
+        question,
+        question_hash: hash,
+        ...values,
+        answered_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,section_id,question_number' }
+    );
 
-  if (existing) {
-    // UPDATE existing row
-    const { error: updateError } = await adminSupabase
-      .from('responses')
-      .update(responseData)
-      .eq('id', existing.id);
-
-    if (updateError) {
-      console.error('[POST /api/responses] UPDATE error:', updateError.message);
-      return NextResponse.json({ error: 'Failed to update response' }, { status: 500 });
-    }
-  } else {
-    // INSERT new row
-    const { error: insertError } = await adminSupabase
-      .from('responses')
-      .insert(responseData);
-
-    if (insertError) {
-      console.error('[POST /api/responses] INSERT error:', insertError.message);
-      return NextResponse.json({ error: 'Failed to insert response' }, { status: 500 });
-    }
+  if (upsertError) {
+    console.error('[POST /api/responses] UPSERT error:', upsertError.message);
+    return NextResponse.json({ error: 'Failed to save response' }, { status: 500 });
   }
 
   return NextResponse.json({ saved: true, question_hash: hash });

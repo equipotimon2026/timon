@@ -1,0 +1,62 @@
+# CI minimo: lint + typecheck + unit tests + build.
+#
+# Sin secretos de produccion a proposito: el build usa placeholders (toda
+# lectura de env en src/ es lazy, ningun modulo exige valores reales en
+# import-time). Nunca corre E2E, ni llama a Azure/Talo, ni dispara analisis.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# Un push nuevo al mismo PR/branch cancela la corrida anterior.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Placeholders seguros y documentados — solo para que `next build`
+      # tenga valores con forma valida. NO son credenciales.
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
+      # El SDK de Talo (createWebhookHandler en /api/webhooks/talo) valida su
+      # config con Zod en import-time, y `next build` importa el modulo al
+      # recolectar page data. Placeholders en sandbox; el build nunca llama a
+      # Talo.
+      TALO_CLIENT_ID: placeholder-talo-client-id
+      TALO_CLIENT_SECRET: placeholder-talo-client-secret
+      TALO_USER_ID: placeholder-talo-user-id
+      TALO_ENVIRONMENT: sandbox
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # continue-on-error: el repo arrastra 74 errores de lint preexistentes
+      # (medidos en 5203cbc, ninguno en el codigo del hardening). Cuando se
+      # salde esa deuda, quitar el flag para que lint vuelva a bloquear.
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: TypeScript (sin emitir)
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Build
+        run: npm run build
