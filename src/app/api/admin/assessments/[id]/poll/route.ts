@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/guard';
+import { getAzureAssessmentsUrl } from '@/lib/assessments/azure';
 
 export const maxDuration = 60;
 
-const AZURE_BASE_URL =
-  'https://timon-agents-ckfqd5evcdcqgsg9.eastus2-01.azurewebsites.net';
-const AZURE_ASSESSMENTS_URL = `${AZURE_BASE_URL}/api/assessments`;
 
 // Poll server-side de Azure para assessments generados por admin.
 //
@@ -78,7 +76,7 @@ export async function POST(
   }
 
   try {
-    const pollUrl = `${AZURE_ASSESSMENTS_URL}/${assessment.assessment_id}?email=${encodeURIComponent(userRow.email)}`;
+    const pollUrl = `${getAzureAssessmentsUrl()}/${assessment.assessment_id}?email=${encodeURIComponent(userRow.email)}`;
     const pollResponse = await fetch(pollUrl, {
       headers: { 'x-functions-key': azureKey },
     });

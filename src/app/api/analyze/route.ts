@@ -2,17 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { buildAzurePayload } from '@/lib/admin/build-azure-payload';
+import {
+  applyPollResult,
+  getAzureAssessmentsUrl,
+  isPastTimeout,
+  markTimedOut,
+  pollAzure,
+} from '@/lib/assessments/azure';
 
 export const maxDuration = 60;
 
 // Maximo que tarda el agente. Pasado este tiempo desde created_at, si sigue en
-// 'processing' lo marcamos 'failed' (timeout). Se controla en el servidor
-// comparando contra created_at para que sobreviva a reloads del cliente.
+// 'processing' Y Azure lo confirma, lo marcamos 'failed' (timeout). Se controla
+// en el servidor comparando contra created_at para que sobreviva a reloads.
 const GENERATION_TIMEOUT_MS = 30 * 60 * 1000; // 30 min
-
-const AZURE_BASE_URL =
-  'https://timon-agents-ckfqd5evcdcqgsg9.eastus2-01.azurewebsites.net';
-const AZURE_ASSESSMENTS_URL = `${AZURE_BASE_URL}/api/assessments`;
 
 export async function POST(req: NextRequest) {
   const azureKey = process.env.AZURE_FUNCTIONS_KEY;
@@ -111,11 +114,11 @@ export async function POST(req: NextRequest) {
 
   // Submit to Azure async pipeline
   try {
-    console.log('[analyze] → POST %s', AZURE_ASSESSMENTS_URL);
+    console.log('[analyze] → POST %s', getAzureAssessmentsUrl());
     console.log('[analyze] → Payload sections: %s', Object.keys(responsesPayload).join(', '));
     console.log('[analyze] → User: %s %s (id=%d)', profile.first_name, profile.last_name, profile.id);
 
-    const submitResponse = await fetch(AZURE_ASSESSMENTS_URL, {
+    const submitResponse = await fetch(getAzureAssessmentsUrl(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -245,137 +248,42 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ status: ownerCheck.status, released });
   }
 
-  // Sigue 'processing': si paso el timeout, lo marcamos failed y cortamos.
-  if (ownerCheck.created_at) {
-    const elapsed = Date.now() - new Date(ownerCheck.created_at).getTime();
-    if (elapsed > GENERATION_TIMEOUT_MS) {
-      const adminTimeout = createAdminClient();
-      await adminTimeout
-        .from('assessments')
-        .update({
-          status: 'failed',
-          error: 'Timeout: la generacion supero los 30 minutos.',
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', ownerCheck.id)
-        .eq('status', 'processing');
+  // Sigue 'processing': consultar a Azure ANTES de decidir. Nunca marcamos
+  // failed sin confirmacion de Azure — un completado tardio vale mas que un
+  // timeout prolijo (caso: usuario vuelve pasados los 30 min y el resultado
+  // estaba listo).
+  const pollResult = await pollAzure(assessmentId, email);
+  const adminSupabase = createAdminClient();
+
+  if (pollResult.kind === 'completed') {
+    await applyPollResult(adminSupabase, assessmentId, pollResult);
+    // Recien completado → todavia no liberado (gate manual del admin).
+    // No devolvemos results al usuario hasta que released_at este seteado.
+    return NextResponse.json({ status: 'completed', released: false });
+  }
+
+  if (pollResult.kind === 'failed') {
+    await applyPollResult(adminSupabase, assessmentId, pollResult);
+    // 200 a proposito: el front muestra la pantalla "12hs", nunca un error.
+    return NextResponse.json({ status: 'failed' });
+  }
+
+  if (pollResult.kind === 'processing') {
+    // Azure confirma que sigue corriendo: recien aca aplica el timeout.
+    if (isPastTimeout(ownerCheck.created_at, Date.now(), GENERATION_TIMEOUT_MS)) {
+      await markTimedOut(
+        adminSupabase,
+        ownerCheck.id,
+        'Timeout: la generacion supero los 30 minutos.'
+      );
       console.log('[analyze] ← Assessment %s marcado failed por timeout', assessmentId);
       return NextResponse.json({ status: 'failed', timedOut: true });
     }
-  }
-
-  try {
-    const pollUrl = `${AZURE_ASSESSMENTS_URL}/${assessmentId}?email=${encodeURIComponent(email)}`;
-    console.log('[analyze] → GET %s', pollUrl);
-
-    const pollResponse = await fetch(pollUrl, {
-      headers: { 'x-functions-key': azureKey },
-    });
-
-    const pollBody = await pollResponse.text();
-    console.log('[analyze] ← Poll status: %d, body: %s', pollResponse.status, pollBody.slice(0, 500));
-
-    if (!pollResponse.ok) {
-      return NextResponse.json(
-        { error: `Azure poll error: ${pollResponse.status}`, details: pollBody },
-        { status: 502 }
-      );
-    }
-
-    const pollResult = JSON.parse(pollBody);
-    const adminSupabase = createAdminClient();
-
-    if (pollResult.status === 'completed') {
-      // Atomic-ish activation: deactivate previous active, then activate this one.
-      // Two sequential UPDATEs are used client-side (no multi-statement tx via Supabase client).
-      // The unique constraint on (user_id, is_active=true) in mig 008 guards against a duplicate
-      // active row if the second UPDATE succeeds but the first didn't (e.g. no prior active row).
-      // The small window between the two UPDATEs is acceptable: worst case is 0 active rows
-      // momentarily, not 2. Polling callers will retry and get the correct state.
-
-      // 1. Find the assessment row id for this assessment_id
-      const { data: thisRow } = await adminSupabase
-        .from('assessments')
-        .select('id, user_id')
-        .eq('assessment_id', assessmentId)
-        .maybeSingle();
-
-      if (thisRow) {
-        // 2. Deactivate any currently active assessment for this user (excluding this one)
-        const { error: deactivateError } = await adminSupabase
-          .from('assessments')
-          .update({ is_active: false })
-          .eq('user_id', thisRow.user_id)
-          .eq('is_active', true)
-          .neq('id', thisRow.id);
-
-        if (deactivateError) {
-          console.error('[analyze] ← Failed to deactivate old assessment:', deactivateError.message);
-        }
-
-        // 3. Mark this assessment as completed and active
-        const { error: activateError } = await adminSupabase
-          .from('assessments')
-          .update({
-            status: 'completed',
-            results: pollResult.results,
-            completed_at: new Date().toISOString(),
-            is_active: true,
-          })
-          .eq('id', thisRow.id);
-
-        if (activateError) {
-          console.error('[analyze] ← Failed to activate assessment:', activateError.message);
-        } else {
-          console.log('[analyze] ← Assessment %s activated (is_active=true)', assessmentId);
-        }
-      } else {
-        // Fallback: row not found (shouldn't happen), update by assessment_id without activation
-        const { error: saveError } = await adminSupabase
-          .from('assessments')
-          .update({
-            status: 'completed',
-            results: pollResult.results,
-            completed_at: new Date().toISOString(),
-          })
-          .eq('assessment_id', assessmentId);
-
-        if (saveError) {
-          console.error('[analyze] ← Failed to save results (fallback):', saveError.message);
-        }
-      }
-
-      // Recien completado → todavia no liberado (gate manual del admin).
-      // No devolvemos results al usuario hasta que released_at este seteado.
-      return NextResponse.json({ status: 'completed', released: false });
-    }
-
-    if (pollResult.status === 'failed') {
-      // Update assessments table with failure
-      const { error: updateError } = await adminSupabase
-        .from('assessments')
-        .update({
-          status: 'failed',
-          error: pollResult.error ?? 'Unknown error',
-          completed_at: new Date().toISOString(),
-        })
-        .eq('assessment_id', assessmentId);
-
-      if (updateError) {
-        console.error('[analyze] ← Failed to update assessment as failed:', updateError.message);
-      } else {
-        console.log('[analyze] ← Assessment marked as failed for %s', assessmentId);
-      }
-
-      // 200 a proposito: el front muestra la pantalla "12hs", nunca un error.
-      return NextResponse.json({ status: 'failed' });
-    }
-
     return NextResponse.json({ status: pollResult.status });
-  } catch (err) {
-    console.error('[analyze] ← Poll FAILED: %s', String(err));
-    // No exponer el error de red al usuario: respondemos como "todavia procesando"
-    // para que el cliente reintente; el timeout server-side cerrara el caso.
-    return NextResponse.json({ status: 'processing' });
   }
+
+  // 'unreachable': no exponer el error de red/Azure al usuario. El cliente
+  // reintenta, y si persiste, el cron de reconciliacion cierra el caso.
+  console.error('[analyze] ← Poll FAILED: %s', pollResult.detail);
+  return NextResponse.json({ status: 'processing' });
 }

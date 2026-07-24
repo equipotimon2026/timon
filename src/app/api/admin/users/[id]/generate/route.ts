@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/guard';
+import { getAzureAssessmentsUrl } from '@/lib/assessments/azure';
 import { buildAzurePayload } from '@/lib/admin/build-azure-payload';
 
-const AZURE_BASE_URL =
-  'https://timon-agents-ckfqd5evcdcqgsg9.eastus2-01.azurewebsites.net';
-const AZURE_ASSESSMENTS_URL = `${AZURE_BASE_URL}/api/assessments`;
 
 export async function POST(
   req: NextRequest,
@@ -56,7 +54,7 @@ export async function POST(
   }
 
   try {
-    const submitResponse = await fetch(AZURE_ASSESSMENTS_URL, {
+    const submitResponse = await fetch(getAzureAssessmentsUrl(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
